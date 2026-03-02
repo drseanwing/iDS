@@ -5,6 +5,11 @@ import { HealthController } from './health/health.controller';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { OrganizationsModule } from './organizations/organizations.module';
+import { GuidelinesModule } from './guidelines/guidelines.module';
+import { SectionsModule } from './sections/sections.module';
+import { RecommendationsModule } from './recommendations/recommendations.module';
+import { ReferencesModule } from './references/references.module';
+import { PicosModule } from './picos/picos.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -33,6 +38,11 @@ import configuration from './config/configuration';
     PrismaModule,
     AuthModule,
     OrganizationsModule,
+    GuidelinesModule,
+    SectionsModule,
+    RecommendationsModule,
+    ReferencesModule,
+    PicosModule,
   ],
   controllers: [HealthController],
 })
