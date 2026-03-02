@@ -2,13 +2,13 @@
 
 Source docs:
 - `opengrade-architecture.md`
-- `compass_artifact_wf-ac90d96b-1eee-4206-9b48-09594f3da2b5_text_markdown.md`
+- `compass_artifact_wf-ac90d96b-1eee-4206-9b48-09594f3da2b5_text_markdown.md` (MAGICapp reverse-engineering technical specification artifact)
 
 ## Phase 0 — Platform Foundation (Arch §1, §3, §4, §7)
 - [ ] Create monorepo skeleton aligned to planned structure (`apps/api`, `apps/web`, `packages/fhir`, `packages/ui`, `infra`).
 - [ ] Set up NestJS 11 backend baseline with strict TypeScript, linting, formatting, and OpenAPI generation.
 - [ ] Set up React 19 + Vite frontend baseline with routing, query client, and shared UI primitives.
-- [ ] Provision local dev stack with Docker Compose (PostgreSQL, Keycloak, MinIO, API, web).
+- [ ] Provision local dev stack with Docker Compose (PostgreSQL, Keycloak, MinIO for object storage, API, web).
 - [ ] Add environment configuration strategy (`.env.example`, validation, per-service config).
 - [ ] Implement baseline auth handshake (OIDC login, token verification, current-user endpoint).
 - [ ] Implement organization-level multi-tenant context resolution for every request.
@@ -56,7 +56,7 @@ Source docs:
 - [ ] Build EtD UI grids with per-intervention judgments and color labels.
 - [ ] Implement mode switching without data loss (hidden-but-preserved factors).
 - [ ] Implement shadow outcome workflow for evidence updates.
-- [ ] Add RevMan `.rm5` parsing/import pipeline and outcome matching controls.
+- [ ] Add RevMan (`.rm5`) parsing/import pipeline and outcome matching controls (RevMan = Cochrane Review Manager format).
 
 ## Phase 5 — Workflow, Versioning, and Publishing (Arch §3.1, §5, §9.4)
 - [ ] Implement recommendation and guideline state machine transitions.
