@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateReferenceDto } from './dto/create-reference.dto';
 import { UpdateReferenceDto } from './dto/update-reference.dto';
@@ -57,7 +57,7 @@ export class ReferencesService {
     const ref = await this.findOne(id);
     // Business rule: references in use cannot be deleted
     if (ref.outcomeLinks.length > 0 || ref.sectionPlacements.length > 0) {
-      throw new Error('Cannot delete reference that is in use');
+      throw new BadRequestException('Cannot delete reference that is in use');
     }
     return this.prisma.reference.update({
       where: { id },

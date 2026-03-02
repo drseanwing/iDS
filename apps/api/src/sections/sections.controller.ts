@@ -49,7 +49,7 @@ export class SectionsController {
     return this.sectionsService.update(id, dto);
   }
 
-  @Put('reorder')
+  @Post('reorder')
   @ApiOperation({ summary: 'Reorder sections' })
   reorder(@Body() dto: ReorderSectionsDto) {
     return this.sectionsService.reorder(dto);
