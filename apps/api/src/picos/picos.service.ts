@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePicoDto } from './dto/create-pico.dto';
 import { UpdatePicoDto } from './dto/update-pico.dto';
@@ -52,9 +53,14 @@ export class PicosService {
 
   async update(id: string, dto: UpdatePicoDto) {
     await this.findOne(id);
+    const data: Prisma.PicoUpdateInput = {};
+    if (dto.population !== undefined) data.population = dto.population;
+    if (dto.intervention !== undefined) data.intervention = dto.intervention;
+    if (dto.comparator !== undefined) data.comparator = dto.comparator;
+    if (dto.narrativeSummary !== undefined) data.narrativeSummary = dto.narrativeSummary;
     return this.prisma.pico.update({
       where: { id },
-      data: dto as any,
+      data,
     });
   }
 

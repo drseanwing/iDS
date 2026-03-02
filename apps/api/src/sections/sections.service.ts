@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSectionDto } from './dto/create-section.dto';
 import { UpdateSectionDto } from './dto/update-section.dto';
@@ -55,9 +56,15 @@ export class SectionsService {
 
   async update(id: string, dto: UpdateSectionDto) {
     await this.findOne(id);
+    const data: Prisma.SectionUpdateInput = {};
+    if (dto.title !== undefined) data.title = dto.title;
+    if (dto.text !== undefined) data.text = dto.text;
+    if (dto.ordering !== undefined) data.ordering = dto.ordering;
+    if (dto.excludeFromNumbering !== undefined) data.excludeFromNumbering = dto.excludeFromNumbering;
+    if (dto.parentId !== undefined) data.parent = { connect: { id: dto.parentId } };
     return this.prisma.section.update({
       where: { id },
-      data: dto as any,
+      data,
     });
   }
 

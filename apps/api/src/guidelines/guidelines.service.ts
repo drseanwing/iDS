@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma, GuidelineType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateGuidelineDto } from './dto/create-guideline.dto';
 import { UpdateGuidelineDto } from './dto/update-guideline.dto';
@@ -15,7 +16,7 @@ export class GuidelinesService {
         description: dto.description,
         organizationId: dto.organizationId,
         language: dto.language || 'en',
-        guidelineType: (dto.guidelineType as any) || 'ORGANIZATIONAL',
+        guidelineType: (dto.guidelineType as GuidelineType) || GuidelineType.ORGANIZATIONAL,
         createdBy: userId,
       },
     });
@@ -50,9 +51,15 @@ export class GuidelinesService {
 
   async update(id: string, dto: UpdateGuidelineDto) {
     await this.findOne(id); // ensure exists
+    const data: Prisma.GuidelineUpdateInput = {};
+    if (dto.title !== undefined) data.title = dto.title;
+    if (dto.shortName !== undefined) data.shortName = dto.shortName;
+    if (dto.description !== undefined) data.description = dto.description;
+    if (dto.language !== undefined) data.language = dto.language;
+    if (dto.guidelineType !== undefined) data.guidelineType = dto.guidelineType as GuidelineType;
     return this.prisma.guideline.update({
       where: { id },
-      data: dto as any,
+      data,
     });
   }
 

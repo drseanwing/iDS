@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma, RecommendationStrength, RecommendationType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateRecommendationDto } from './dto/create-recommendation.dto';
 import { UpdateRecommendationDto } from './dto/update-recommendation.dto';
@@ -13,8 +14,8 @@ export class RecommendationsService {
         guidelineId: dto.guidelineId,
         title: dto.title,
         description: dto.description,
-        strength: (dto.strength as any) || 'NOT_SET',
-        recommendationType: (dto.recommendationType as any) || 'GRADE',
+        strength: (dto.strength as RecommendationStrength) || RecommendationStrength.NOT_SET,
+        recommendationType: (dto.recommendationType as RecommendationType) || RecommendationType.GRADE,
         createdBy: userId,
         updatedBy: userId,
       },
@@ -45,12 +46,14 @@ export class RecommendationsService {
 
   async update(id: string, dto: UpdateRecommendationDto, userId: string) {
     await this.findOne(id);
+    const data: Prisma.RecommendationUpdateInput = { updatedBy: userId };
+    if (dto.title !== undefined) data.title = dto.title;
+    if (dto.description !== undefined) data.description = dto.description;
+    if (dto.strength !== undefined) data.strength = dto.strength as RecommendationStrength;
+    if (dto.recommendationType !== undefined) data.recommendationType = dto.recommendationType as RecommendationType;
     return this.prisma.recommendation.update({
       where: { id },
-      data: {
-        ...(dto as any),
-        updatedBy: userId,
-      },
+      data,
     });
   }
 

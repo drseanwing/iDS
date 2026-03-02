@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Prisma, StudyType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateReferenceDto } from './dto/create-reference.dto';
 import { UpdateReferenceDto } from './dto/update-reference.dto';
@@ -18,7 +19,7 @@ export class ReferencesService {
         pubmedId: dto.pubmedId,
         doi: dto.doi,
         url: dto.url,
-        studyType: (dto.studyType as any) || 'OTHER',
+        studyType: (dto.studyType as StudyType) || StudyType.OTHER,
       },
     });
   }
@@ -47,9 +48,18 @@ export class ReferencesService {
 
   async update(id: string, dto: UpdateReferenceDto) {
     await this.findOne(id);
+    const data: Prisma.ReferenceUpdateInput = {};
+    if (dto.title !== undefined) data.title = dto.title;
+    if (dto.authors !== undefined) data.authors = dto.authors;
+    if (dto.year !== undefined) data.year = dto.year;
+    if (dto.abstract !== undefined) data.abstract = dto.abstract;
+    if (dto.pubmedId !== undefined) data.pubmedId = dto.pubmedId;
+    if (dto.doi !== undefined) data.doi = dto.doi;
+    if (dto.url !== undefined) data.url = dto.url;
+    if (dto.studyType !== undefined) data.studyType = dto.studyType as StudyType;
     return this.prisma.reference.update({
       where: { id },
-      data: dto as any,
+      data,
     });
   }
 
