@@ -1,0 +1,864 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// CORE MODULE — Shared infrastructure
+// ============================================================
+
+model Organization {
+  id              String      @id @default(uuid()) @db.Uuid
+  name            String
+  description     String?
+  logoUrl         String?
+  customColors    Json?
+  strengthLabels  Json?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  guidelines      Guideline[]
+  members         OrganizationMember[]
+}
+
+model User {
+  id              String      @id @default(uuid()) @db.Uuid
+  keycloakId      String      @unique
+  email           String      @unique
+  displayName     String
+  locale          String      @default("en")
+  createdAt       DateTime    @default(now())
+
+  orgMemberships  OrganizationMember[]
+  permissions     GuidelinePermission[]
+  activities      ActivityLogEntry[]
+  coiRecords      CoiRecord[]
+  tasks           Task[]
+}
+
+model OrganizationMember {
+  id              String      @id @default(uuid()) @db.Uuid
+  organizationId  String      @db.Uuid
+  userId          String      @db.Uuid
+  role            OrgRole     @default(MEMBER)
+
+  organization    Organization @relation(fields: [organizationId], references: [id])
+  user            User         @relation(fields: [userId], references: [id])
+
+  @@unique([organizationId, userId])
+}
+
+// ============================================================
+// GUIDELINE AUTHORING MODULE
+// ============================================================
+
+model Guideline {
+  id              String      @id @default(uuid()) @db.Uuid
+  fhirMeta        Json        @default("{}")
+  organizationId  String?     @db.Uuid
+  title           String
+  shortName       String?     @unique
+  description     String?     @db.Text
+  disclaimer      String?     @db.Text
+  funding         String?     @db.Text
+  contactName     String?
+  contactEmail    String?
+  language        String      @default("en")
+  startDate       DateTime?
+  guidelineType   GuidelineType @default(ORGANIZATIONAL)
+  status          GuidelineStatus @default(DRAFT)
+
+  etdMode         EtdMode     @default(SEVEN_FACTOR)
+  showSectionNumbers    Boolean @default(true)
+  showCertaintyInLabel  Boolean @default(false)
+  showGradeDescription  Boolean @default(true)
+  trackChangesDefault   Boolean @default(false)
+  enableSubscriptions   Boolean @default(false)
+  enablePublicComments  Boolean @default(false)
+  showSectionTextPreview Boolean @default(true)
+
+  pdfColumnLayout Int         @default(1)
+  picoDisplayMode PicoDisplay @default(INLINE)
+  coverPageUrl    String?
+
+  isPublic        Boolean     @default(false)
+  isDeleted       Boolean     @default(false)
+
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  createdBy       String      @db.Uuid
+
+  organization    Organization? @relation(fields: [organizationId], references: [id])
+  sections        Section[]
+  references      Reference[]
+  picos           Pico[]
+  recommendations Recommendation[]
+  versions        GuidelineVersion[]
+  permissions     GuidelinePermission[]
+  milestones      Milestone[]
+  checklists      ChecklistItem[]
+  polls           Poll[]
+  tags            Tag[]
+  coiRecords      CoiRecord[]
+  tasks           Task[]
+  subscribers     Subscriber[]
+  internalDocs    InternalDocument[]
+}
+
+model Section {
+  id              String      @id @default(uuid()) @db.Uuid
+  guidelineId     String      @db.Uuid
+  parentId        String?     @db.Uuid
+  title           String
+  text            Json?
+  ordering        Int         @default(0)
+  nestingLevel    Int         @default(0)
+  excludeFromNumbering Boolean @default(false)
+  isDeleted       Boolean     @default(false)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  guideline       Guideline   @relation(fields: [guidelineId], references: [id])
+  parent          Section?    @relation("SectionTree", fields: [parentId], references: [id])
+  children        Section[]   @relation("SectionTree")
+
+  sectionReferences     SectionReference[]
+  sectionPicos          SectionPico[]
+  sectionRecommendations SectionRecommendation[]
+}
+
+// ============================================================
+// REFERENCE MANAGEMENT MODULE
+// ============================================================
+
+model Reference {
+  id              String      @id @default(uuid()) @db.Uuid
+  guidelineId     String      @db.Uuid
+  fhirMeta        Json        @default("{}")
+  title           String
+  authors         String?     @db.Text
+  year            Int?
+  abstract        String?     @db.Text
+  pubmedId        String?
+  doi             String?
+  url             String?
+  studyType       StudyType   @default(OTHER)
+  isDeleted       Boolean     @default(false)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  guideline       Guideline   @relation(fields: [guidelineId], references: [id])
+  sectionPlacements SectionReference[]
+  outcomeLinks    OutcomeReference[]
+  attachments     ReferenceAttachment[]
+
+  @@index([guidelineId, pubmedId])
+  @@index([guidelineId, doi])
+}
+
+model ReferenceAttachment {
+  id              String      @id @default(uuid()) @db.Uuid
+  referenceId     String      @db.Uuid
+  fileName        String
+  mimeType        String
+  s3Key           String
+  uploadedBy      String      @db.Uuid
+  uploadedAt      DateTime    @default(now())
+
+  reference       Reference   @relation(fields: [referenceId], references: [id])
+}
+
+// ============================================================
+// GRADE EVIDENCE MODULE
+// ============================================================
+
+model Pico {
+  id              String      @id @default(uuid()) @db.Uuid
+  guidelineId     String      @db.Uuid
+  fhirMeta        Json        @default("{}")
+  population      String      @db.Text
+  intervention    String      @db.Text
+  comparator      String      @db.Text
+  narrativeSummary Json?
+  motherPicoId    String?     @db.Uuid
+  importSource    ImportSource?
+  isDeleted       Boolean     @default(false)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  guideline       Guideline   @relation(fields: [guidelineId], references: [id])
+  outcomes        Outcome[]
+  codes           PicoCode[]
+  practicalIssues PracticalIssue[]
+  sectionPlacements SectionPico[]
+  recommendationLinks PicoRecommendation[]
+}
+
+model Outcome {
+  id              String      @id @default(uuid()) @db.Uuid
+  picoId          String      @db.Uuid
+  title           String
+  outcomeType     OutcomeType
+  state           OutcomeState @default(UNDER_DEVELOPMENT)
+  ordering        Int         @default(0)
+  importance      Int?
+
+  effectMeasure   EffectMeasure?
+  relativeEffect  Float?
+  relativeEffectLower Float?
+  relativeEffectUpper Float?
+  baselineRisk    Float?
+  absoluteEffectIntervention Float?
+  absoluteEffectComparison   Float?
+  interventionParticipants   Int?
+  comparisonParticipants     Int?
+  numberOfStudies Int?
+
+  continuousUnit  String?
+  continuousScaleLower Float?
+  continuousScaleUpper Float?
+
+  certaintyOverall CertaintyLevel?
+  riskOfBias      GradeRating     @default(NOT_SERIOUS)
+  inconsistency   GradeRating     @default(NOT_SERIOUS)
+  indirectness    GradeRating     @default(NOT_SERIOUS)
+  imprecision     GradeRating     @default(NOT_SERIOUS)
+  publicationBias GradeRating     @default(NOT_SERIOUS)
+  largeEffect     UpgradeRating   @default(NONE)
+  doseResponse    UpgradeRating   @default(NONE)
+  plausibleConfounding UpgradeRating @default(NONE)
+
+  gradeFootnotes  Json?
+  plainLanguageSummary String? @db.Text
+  forestPlotS3Key String?
+
+  isShadow        Boolean     @default(false)
+  shadowOfId      String?     @db.Uuid
+
+  isDeleted       Boolean     @default(false)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  pico            Pico        @relation(fields: [picoId], references: [id])
+  shadowOf        Outcome?    @relation("ShadowOutcome", fields: [shadowOfId], references: [id])
+  shadows         Outcome[]   @relation("ShadowOutcome")
+  referenceLinks  OutcomeReference[]
+}
+
+model PicoCode {
+  id              String      @id @default(uuid()) @db.Uuid
+  picoId          String      @db.Uuid
+  codeSystem      CodeSystem
+  code            String
+  display         String
+  element         PicoElement
+
+  pico            Pico        @relation(fields: [picoId], references: [id])
+
+  @@index([picoId, codeSystem])
+}
+
+model PracticalIssue {
+  id              String      @id @default(uuid()) @db.Uuid
+  picoId          String      @db.Uuid
+  category        PracticalIssueCategory
+  title           String
+  description     Json?
+  ordering        Int         @default(0)
+
+  pico            Pico        @relation(fields: [picoId], references: [id])
+}
+
+// ============================================================
+// RECOMMENDATION & EtD MODULE
+// ============================================================
+
+model Recommendation {
+  id              String      @id @default(uuid()) @db.Uuid
+  guidelineId     String      @db.Uuid
+  fhirMeta        Json        @default("{}")
+
+  title           String?
+  description     Json
+  strength        RecommendationStrength @default(NOT_SET)
+  recommendationType RecommendationType @default(GRADE)
+  header          String?
+  remark          Json?
+  rationale       Json?
+  practicalInfo   Json?
+
+  recStatus       RecStatus   @default(NEW)
+  recStatusDate   DateTime?
+  recStatusComment String?
+
+  certaintyOfEvidence CertaintyLevel?
+  ordering        Int         @default(0)
+  isHidden        Boolean     @default(false)
+  isDeleted       Boolean     @default(false)
+
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  createdBy       String      @db.Uuid
+  updatedBy       String      @db.Uuid
+
+  guideline       Guideline   @relation(fields: [guidelineId], references: [id])
+  sectionPlacements SectionRecommendation[]
+  picoLinks       PicoRecommendation[]
+  etdFactors      EtdFactor[]
+  emrElements     EmrElement[]
+  tags            RecommendationTag[]
+  comments        FeedbackComment[]
+}
+
+model EtdFactor {
+  id              String      @id @default(uuid()) @db.Uuid
+  recommendationId String     @db.Uuid
+  factorType      EtdFactorType
+  ordering        Int         @default(0)
+
+  summaryText     Json?
+  researchEvidence Json?
+  additionalConsiderations Json?
+
+  summaryPublic   Boolean     @default(true)
+  evidencePublic  Boolean     @default(true)
+  considerationsPublic Boolean @default(true)
+
+  recommendation  Recommendation @relation(fields: [recommendationId], references: [id])
+  judgments       EtdJudgment[]
+}
+
+model EtdJudgment {
+  id              String      @id @default(uuid()) @db.Uuid
+  etdFactorId     String      @db.Uuid
+  interventionLabel String
+  judgment        String?
+  colorCode       String?
+
+  etdFactor       EtdFactor   @relation(fields: [etdFactorId], references: [id])
+}
+
+// ============================================================
+// CLINICAL INTEGRATION MODULE
+// ============================================================
+
+model EmrElement {
+  id              String      @id @default(uuid()) @db.Uuid
+  recommendationId String     @db.Uuid
+  elementType     EmrElementType
+  codeSystem      CodeSystem
+  code            String
+  display         String
+  implementationDescription String? @db.Text
+
+  recommendation  Recommendation @relation(fields: [recommendationId], references: [id])
+}
+
+// ============================================================
+// PUBLISHING & VERSION CONTROL MODULE
+// ============================================================
+
+model GuidelineVersion {
+  id              String      @id @default(uuid()) @db.Uuid
+  guidelineId     String      @db.Uuid
+  versionNumber   String
+  versionType     VersionType
+  comment         String?     @db.Text
+  isPublic        Boolean     @default(false)
+  publishedAt     DateTime    @default(now())
+  publishedBy     String      @db.Uuid
+
+  snapshotBundle  Json
+  pdfS3Key        String?
+  jsonS3Key       String?
+
+  guideline       Guideline   @relation(fields: [guidelineId], references: [id])
+  permissions     VersionPermission[]
+
+  @@unique([guidelineId, versionNumber])
+}
+
+model VersionPermission {
+  id              String      @id @default(uuid()) @db.Uuid
+  versionId       String      @db.Uuid
+  userId          String      @db.Uuid
+  canView         Boolean     @default(true)
+
+  version         GuidelineVersion @relation(fields: [versionId], references: [id])
+
+  @@unique([versionId, userId])
+}
+
+model Subscriber {
+  id              String      @id @default(uuid()) @db.Uuid
+  guidelineId     String      @db.Uuid
+  email           String
+  subscribedAt    DateTime    @default(now())
+
+  guideline       Guideline   @relation(fields: [guidelineId], references: [id])
+
+  @@unique([guidelineId, email])
+}
+
+model InternalDocument {
+  id              String      @id @default(uuid()) @db.Uuid
+  guidelineId     String      @db.Uuid
+  title           String
+  s3Key           String
+  mimeType        String
+  uploadedBy      String      @db.Uuid
+  uploadedAt      DateTime    @default(now())
+
+  guideline       Guideline   @relation(fields: [guidelineId], references: [id])
+}
+
+model Tag {
+  id              String      @id @default(uuid()) @db.Uuid
+  guidelineId     String      @db.Uuid
+  name            String
+  color           String?
+
+  guideline       Guideline   @relation(fields: [guidelineId], references: [id])
+  recommendations RecommendationTag[]
+
+  @@unique([guidelineId, name])
+}
+
+// ============================================================
+// COLLABORATION & GOVERNANCE MODULE
+// ============================================================
+
+model GuidelinePermission {
+  id              String      @id @default(uuid()) @db.Uuid
+  guidelineId     String      @db.Uuid
+  userId          String      @db.Uuid
+  role            GuidelineRole
+
+  guideline       Guideline   @relation(fields: [guidelineId], references: [id])
+  user            User        @relation(fields: [userId], references: [id])
+
+  @@unique([guidelineId, userId])
+}
+
+model ActivityLogEntry {
+  id              String      @id @default(uuid()) @db.Uuid
+  guidelineId     String      @db.Uuid
+  userId          String      @db.Uuid
+  timestamp       DateTime    @default(now())
+  actionType      String
+  entityType      String
+  entityId        String      @db.Uuid
+  entityTitle     String?
+  changeDetails   Json?
+  comment         String?
+  isFlagged       Boolean     @default(false)
+
+  user            User        @relation(fields: [userId], references: [id])
+
+  @@index([guidelineId, timestamp(sort: Desc)])
+  @@index([guidelineId, entityType, entityId])
+  @@index([guidelineId, userId])
+}
+
+model CoiRecord {
+  id              String      @id @default(uuid()) @db.Uuid
+  guidelineId     String      @db.Uuid
+  userId          String      @db.Uuid
+  publicSummary   String?     @db.Text
+  internalSummary String?     @db.Text
+  updatedAt       DateTime    @updatedAt
+
+  guideline       Guideline   @relation(fields: [guidelineId], references: [id])
+  user            User        @relation(fields: [userId], references: [id])
+  interventionConflicts CoiInterventionConflict[]
+  documents       CoiDocument[]
+
+  @@unique([guidelineId, userId])
+}
+
+model CoiInterventionConflict {
+  id              String      @id @default(uuid()) @db.Uuid
+  coiRecordId     String      @db.Uuid
+  interventionLabel String
+  conflictLevel   ConflictLevel @default(NONE)
+  internalComment String?
+  excludeFromVoting Boolean   @default(false)
+  isPublic        Boolean     @default(true)
+
+  coiRecord       CoiRecord   @relation(fields: [coiRecordId], references: [id])
+}
+
+model CoiDocument {
+  id              String      @id @default(uuid()) @db.Uuid
+  coiRecordId     String      @db.Uuid
+  fileName        String
+  s3Key           String
+  mimeType        String
+  uploadedAt      DateTime    @default(now())
+
+  coiRecord       CoiRecord   @relation(fields: [coiRecordId], references: [id])
+}
+
+model Milestone {
+  id              String      @id @default(uuid()) @db.Uuid
+  guidelineId     String      @db.Uuid
+  title           String
+  targetDate      DateTime?
+  responsiblePerson String?
+  isCompleted     Boolean     @default(false)
+  ordering        Int         @default(0)
+
+  guideline       Guideline   @relation(fields: [guidelineId], references: [id])
+}
+
+model ChecklistItem {
+  id              String      @id @default(uuid()) @db.Uuid
+  guidelineId     String      @db.Uuid
+  category        String
+  label           String
+  isChecked       Boolean     @default(false)
+  checkedBy       String?     @db.Uuid
+  checkedAt       DateTime?
+  ordering        Int         @default(0)
+
+  guideline       Guideline   @relation(fields: [guidelineId], references: [id])
+}
+
+model Poll {
+  id              String      @id @default(uuid()) @db.Uuid
+  guidelineId     String      @db.Uuid
+  recommendationId String?    @db.Uuid
+  title           String
+  pollType        PollType
+  options         Json?
+  isActive        Boolean     @default(true)
+  createdAt       DateTime    @default(now())
+  createdBy       String      @db.Uuid
+
+  guideline       Guideline   @relation(fields: [guidelineId], references: [id])
+  votes           PollVote[]
+}
+
+model PollVote {
+  id              String      @id @default(uuid()) @db.Uuid
+  pollId          String      @db.Uuid
+  userId          String      @db.Uuid
+  value           Json
+  comment         String?
+  votedAt         DateTime    @default(now())
+
+  poll            Poll        @relation(fields: [pollId], references: [id])
+
+  @@unique([pollId, userId])
+}
+
+model FeedbackComment {
+  id              String      @id @default(uuid()) @db.Uuid
+  recommendationId String     @db.Uuid
+  parentId        String?     @db.Uuid
+  userId          String      @db.Uuid
+  content         String      @db.Text
+  status          CommentStatus @default(OPEN)
+  createdAt       DateTime    @default(now())
+
+  recommendation  Recommendation @relation(fields: [recommendationId], references: [id])
+  parent          FeedbackComment? @relation("CommentThread", fields: [parentId], references: [id])
+  replies         FeedbackComment[] @relation("CommentThread")
+}
+
+model Task {
+  id              String      @id @default(uuid()) @db.Uuid
+  guidelineId     String      @db.Uuid
+  assigneeId      String?     @db.Uuid
+  title           String
+  description     String?     @db.Text
+  dueDate         DateTime?
+  status          TaskStatus  @default(TODO)
+  entityType      String?
+  entityId        String?     @db.Uuid
+  createdAt       DateTime    @default(now())
+  createdBy       String      @db.Uuid
+
+  guideline       Guideline   @relation(fields: [guidelineId], references: [id])
+  assignee        User?       @relation(fields: [assigneeId], references: [id])
+}
+
+// ============================================================
+// JOIN TABLES (many-to-many)
+// ============================================================
+
+model SectionReference {
+  sectionId       String      @db.Uuid
+  referenceId     String      @db.Uuid
+  ordering        Int         @default(0)
+
+  section         Section     @relation(fields: [sectionId], references: [id])
+  reference       Reference   @relation(fields: [referenceId], references: [id])
+
+  @@id([sectionId, referenceId])
+}
+
+model SectionPico {
+  sectionId       String      @db.Uuid
+  picoId          String      @db.Uuid
+  ordering        Int         @default(0)
+
+  section         Section     @relation(fields: [sectionId], references: [id])
+  pico            Pico        @relation(fields: [picoId], references: [id])
+
+  @@id([sectionId, picoId])
+}
+
+model SectionRecommendation {
+  sectionId       String      @db.Uuid
+  recommendationId String     @db.Uuid
+  ordering        Int         @default(0)
+
+  section         Section     @relation(fields: [sectionId], references: [id])
+  recommendation  Recommendation @relation(fields: [recommendationId], references: [id])
+
+  @@id([sectionId, recommendationId])
+}
+
+model PicoRecommendation {
+  picoId          String      @db.Uuid
+  recommendationId String     @db.Uuid
+
+  pico            Pico        @relation(fields: [picoId], references: [id])
+  recommendation  Recommendation @relation(fields: [recommendationId], references: [id])
+
+  @@id([picoId, recommendationId])
+}
+
+model OutcomeReference {
+  outcomeId       String      @db.Uuid
+  referenceId     String      @db.Uuid
+
+  outcome         Outcome     @relation(fields: [outcomeId], references: [id])
+  reference       Reference   @relation(fields: [referenceId], references: [id])
+
+  @@id([outcomeId, referenceId])
+}
+
+model RecommendationTag {
+  recommendationId String     @db.Uuid
+  tagId           String      @db.Uuid
+
+  recommendation  Recommendation @relation(fields: [recommendationId], references: [id])
+  tag             Tag         @relation(fields: [tagId], references: [id])
+
+  @@id([recommendationId, tagId])
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum OrgRole {
+  ADMIN
+  MEMBER
+}
+
+enum GuidelineType {
+  PERSONAL
+  ORGANIZATIONAL
+  EVIDENCE_SUMMARY
+}
+
+enum GuidelineStatus {
+  DRAFT
+  DRAFT_INTERNAL
+  PUBLISHED_INTERNAL
+  PUBLIC_CONSULTATION
+  PUBLISHED
+}
+
+enum GuidelineRole {
+  ADMIN
+  AUTHOR
+  REVIEWER
+  VIEWER
+}
+
+enum StudyType {
+  PRIMARY_STUDY
+  SYSTEMATIC_REVIEW
+  OTHER
+}
+
+enum OutcomeType {
+  DICHOTOMOUS
+  CONTINUOUS
+  NARRATIVE
+  QUALITATIVE_CERQUAL
+}
+
+enum OutcomeState {
+  UNDER_DEVELOPMENT
+  FOR_REVIEW
+  UPDATED
+  FINISHED
+}
+
+enum EffectMeasure {
+  RR
+  OR
+  HR
+  MD
+  SMD
+  PROTECTIVE_EFFICACY
+}
+
+enum CertaintyLevel {
+  HIGH
+  MODERATE
+  LOW
+  VERY_LOW
+}
+
+enum GradeRating {
+  NOT_SERIOUS
+  SERIOUS
+  VERY_SERIOUS
+}
+
+enum UpgradeRating {
+  NONE
+  PRESENT
+  LARGE
+  VERY_LARGE
+}
+
+enum CodeSystem {
+  SNOMED_CT
+  ICD10
+  ATC
+  RXNORM
+}
+
+enum PicoElement {
+  POPULATION
+  INTERVENTION
+  COMPARATOR
+  OUTCOME
+}
+
+enum ImportSource {
+  REVMAN
+  GRADEPRO
+  MAGICAPP_ZIP
+  MANUAL
+}
+
+enum RecommendationStrength {
+  STRONG_FOR
+  CONDITIONAL_FOR
+  CONDITIONAL_AGAINST
+  STRONG_AGAINST
+  NOT_SET
+}
+
+enum RecommendationType {
+  GRADE
+  PRACTICE_STATEMENT
+  STATUTORY
+  INFO_BOX
+  CONSENSUS
+  NO_LABEL
+}
+
+enum RecStatus {
+  NEW
+  UPDATED
+  IN_REVIEW
+  POSSIBLY_OUTDATED
+  UPDATED_EVIDENCE
+  REVIEWED
+  NO_LABEL
+}
+
+enum EtdMode {
+  FOUR_FACTOR
+  SEVEN_FACTOR
+  TWELVE_FACTOR
+}
+
+enum VersionType {
+  MAJOR
+  MINOR
+}
+
+enum ConflictLevel {
+  NONE
+  LOW
+  MODERATE
+  HIGH
+}
+
+enum PollType {
+  OPEN_TEXT
+  MULTIPLE_CHOICE
+  STRENGTH_VOTE
+  ETD_JUDGMENT
+}
+
+enum CommentStatus {
+  OPEN
+  RESOLVED
+  REJECTED
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+enum EmrElementType {
+  TARGET_POPULATION
+  INTERVENTION
+}
+
+enum PicoDisplay {
+  INLINE
+  ANNEX
+}
+
+enum EtdFactorType {
+  BENEFITS_HARMS
+  QUALITY_OF_EVIDENCE
+  PREFERENCES_VALUES
+  RESOURCES_OTHER
+  EQUITY
+  ACCEPTABILITY
+  FEASIBILITY
+  DESIRABLE_EFFECTS
+  UNDESIRABLE_EFFECTS
+  BALANCE
+  RESOURCES_REQUIRED
+  CERTAINTY_OF_RESOURCES
+  COST_EFFECTIVENESS
+}
+
+enum PracticalIssueCategory {
+  MEDICATION_ROUTINE
+  TESTS_AND_VISITS
+  PROCEDURE_AND_DEVICE
+  RECOVERY_AND_ADAPTATION
+  COORDINATION_OF_CARE
+  ADVERSE_EFFECTS
+  INTERACTIONS_AND_ANTIDOTE
+  PHYSICAL_WELLBEING
+  EMOTIONAL_WELLBEING
+  PREGNANCY_AND_NURSING
+  COSTS_AND_ACCESS
+  FOOD_AND_DRINKS
+  EXERCISE_AND_ACTIVITIES
+  SOCIAL_LIFE_AND_RELATIONSHIPS
+  WORK_AND_EDUCATION
+  TRAVEL_AND_DRIVING
+}
