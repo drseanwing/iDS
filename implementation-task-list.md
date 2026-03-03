@@ -5,39 +5,39 @@ Source docs:
 - `compass_artifact_wf-ac90d96b-1eee-4206-9b48-09594f3da2b5_text_markdown.md` (MAGICapp reverse-engineering technical specification artifact)
 
 ## Phase 0 — Platform Foundation (Arch §1, §3, §4, §7)
-- [ ] Create monorepo skeleton aligned to planned structure (`apps/api`, `apps/web`, `packages/fhir`, `packages/ui`, `infra`).
-- [ ] Set up NestJS 11 backend baseline with strict TypeScript, linting, formatting, and OpenAPI generation.
-- [ ] Set up React 19 + Vite frontend baseline with routing, query client, and shared UI primitives.
-- [ ] Provision local dev stack with Docker Compose (PostgreSQL, Keycloak, MinIO for object storage, API, web).
-- [ ] Add environment configuration strategy (`.env.example`, validation, per-service config).
-- [ ] Implement baseline auth handshake (OIDC login, token verification, current-user endpoint).
-- [ ] Implement organization-level multi-tenant context resolution for every request.
-- [ ] Add structured logging baseline and request correlation IDs.
+- [x] Create monorepo skeleton aligned to planned structure (`apps/api`, `apps/web`, `packages/fhir`, `packages/ui`, `infra`).
+- [x] Set up NestJS 11 backend baseline with strict TypeScript, linting, formatting, and OpenAPI generation.
+- [x] Set up React 19 + Vite frontend baseline with routing, query client, and shared UI primitives.
+- [x] Provision local dev stack with Docker Compose (PostgreSQL, Keycloak, MinIO for object storage, API, web).
+- [x] Add environment configuration strategy (`.env.example`, validation, per-service config).
+- [x] Implement baseline auth handshake (OIDC login, token verification, current-user endpoint).
+- [x] Implement organization-level multi-tenant context resolution for every request.
+- [x] Add structured logging baseline and request correlation IDs.
 
 ## Phase 1 — FHIR-Native Data Model & Persistence (Arch §2, §3)
-- [ ] Define Prisma schema for core entities: Organization, User, OrganizationMember, Guideline, GuidelineVersion.
-- [ ] Define Prisma schema for content entities: Section, Recommendation, Pico, Outcome, Reference.
-- [ ] Define Prisma schema for governance entities: GuidelinePermission, ActivityLogEntry, CoiRecord.
-- [ ] Add FHIR-native columns (`fhir_resource_type`, `fhir_meta`, `fhir_extensions`) to mapped entities.
-- [ ] Add soft-delete and hidden flags consistently (`is_deleted`, `is_hidden`) where required.
-- [ ] Add audit columns and relation fields (`created_by`, `updated_by`, timestamps).
+- [x] Define Prisma schema for core entities: Organization, User, OrganizationMember, Guideline, GuidelineVersion.
+- [x] Define Prisma schema for content entities: Section, Recommendation, Pico, Outcome, Reference.
+- [x] Define Prisma schema for governance entities: GuidelinePermission, ActivityLogEntry, CoiRecord.
+- [x] Add FHIR-native columns (`fhir_resource_type`, `fhir_meta`, `fhir_extensions`) to mapped entities.
+- [x] Add soft-delete and hidden flags consistently (`is_deleted`, `is_hidden`) where required.
+- [x] Add audit columns and relation fields (`created_by`, `updated_by`, timestamps).
 - [ ] Implement migration set for all core tables with referential integrity.
-- [ ] Add indexes identified in architecture (status, foreign-key traversal, date and lookup paths).
+- [x] Add indexes identified in architecture (status, foreign-key traversal, date and lookup paths).
 - [ ] Seed initial roles, default enums, and one sample organization.
 
 ## Phase 2 — API Module Skeleton & Core CRUD (Arch §4, §6.1)
-- [ ] Implement NestJS module boundaries: auth, organizations, guidelines, sections, recommendations, pico, outcomes, references.
-- [ ] Add DTO validation and response serialization strategy.
-- [ ] Implement CRUD APIs for Organization and Guideline with permission checks.
-- [ ] Implement CRUD APIs for Section with tree-aware parent/child operations.
-- [ ] Implement CRUD APIs for Recommendation, Pico, Outcome, Reference.
+- [x] Implement NestJS module boundaries: auth, organizations, guidelines, sections, recommendations, pico, outcomes, references.
+- [x] Add DTO validation and response serialization strategy.
+- [x] Implement CRUD APIs for Organization and Guideline with permission checks.
+- [x] Implement CRUD APIs for Section with tree-aware parent/child operations.
+- [x] Implement CRUD APIs for Recommendation, Pico, Outcome, Reference.
 - [ ] Add link-table APIs for section↔reference, section↔pico, section↔recommendation.
 - [ ] Add recommendation↔pico and outcome↔reference linking APIs.
 - [ ] Implement consistent pagination, filtering, and sort contracts across list endpoints.
-- [ ] Publish initial OpenAPI 3.1 spec for all implemented endpoints.
+- [x] Publish initial OpenAPI 3.1 spec for all implemented endpoints.
 
 ## Phase 3 — Authoring UX & Rich Text (Arch §5.2, §5.3, §5.4, §9.2)
-- [ ] Build application shell (left nav, top bar, context breadcrumbs, guideline selector).
+- [x] Build application shell (left nav, top bar, context breadcrumbs, guideline selector).
 - [ ] Build guideline workspace screen with section tree and detail panel.
 - [ ] Integrate TipTap editor for section/recommendation narrative fields.
 - [ ] Implement section drag-and-drop reorder with stable persisted ordering.
