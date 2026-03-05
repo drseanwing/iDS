@@ -10,6 +10,7 @@ const mockPrismaService = {
     findUnique: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
+    count: jest.fn(),
   },
 };
 
@@ -48,13 +49,17 @@ describe('OrganizationsService', () => {
 
   describe('findAll', () => {
     it('should return all organizations', async () => {
-      const expected = [{ id: '1', name: 'Org1' }];
-      mockPrismaService.organization.findMany.mockResolvedValue(expected);
+      const items = [{ id: '1', name: 'Org1' }];
+      mockPrismaService.organization.findMany.mockResolvedValue(items);
+      mockPrismaService.organization.count.mockResolvedValue(1);
 
       const result = await service.findAll();
-      expect(result).toEqual(expected);
+      expect(result.data).toEqual(items);
+      expect(result.meta.total).toBe(1);
       expect(mockPrismaService.organization.findMany).toHaveBeenCalledWith({
         orderBy: { updatedAt: 'desc' },
+        skip: 0,
+        take: 20,
       });
     });
   });
