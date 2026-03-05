@@ -17,9 +17,10 @@ interface AppShellProps {
   activePath: string;
   onNavigate: (path: string) => void;
   children: React.ReactNode;
+  fullHeight?: boolean;
 }
 
-export function AppShell({ activePath, onNavigate, children }: AppShellProps) {
+export function AppShell({ activePath, onNavigate, children, fullHeight = false }: AppShellProps) {
   return (
     <div className="flex h-screen bg-background text-foreground">
       {/* Sidebar */}
@@ -63,7 +64,9 @@ export function AppShell({ activePath, onNavigate, children }: AppShellProps) {
         </header>
 
         {/* Content */}
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        <main className={cn('flex-1 overflow-hidden', fullHeight ? '' : 'overflow-y-auto p-6')}>
+          {children}
+        </main>
       </div>
     </div>
   );
