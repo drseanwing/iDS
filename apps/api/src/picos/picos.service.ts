@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { PaginatedResponseDto } from '../common/dto';
 import { CreatePicoDto } from './dto/create-pico.dto';
 import { UpdatePicoDto } from './dto/update-pico.dto';
 
@@ -20,16 +21,24 @@ export class PicosService {
     });
   }
 
-  async findByGuideline(guidelineId: string) {
-    return this.prisma.pico.findMany({
-      where: { guidelineId, isDeleted: false },
-      include: {
-        outcomes: {
-          where: { isDeleted: false },
-          orderBy: { ordering: 'asc' },
+  async findByGuideline(guidelineId: string, page = 1, limit = 20) {
+    const where = { guidelineId, isDeleted: false };
+    const [data, total] = await Promise.all([
+      this.prisma.pico.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+        include: {
+          outcomes: {
+            where: { isDeleted: false },
+            orderBy: { ordering: 'asc' },
+          },
         },
-      },
-    });
+      }),
+      this.prisma.pico.count({ where }),
+    ]);
+    return new PaginatedResponseDto(data, total, page, limit);
   }
 
   async findOne(id: string) {

@@ -14,6 +14,7 @@ import { SectionsService } from './sections.service';
 import { CreateSectionDto } from './dto/create-section.dto';
 import { UpdateSectionDto } from './dto/update-section.dto';
 import { ReorderSectionsDto } from './dto/reorder-sections.dto';
+import { PaginationQueryDto } from '../common/dto';
 
 @ApiTags('Sections')
 @ApiBearerAuth()
@@ -30,8 +31,11 @@ export class SectionsController {
   @Get()
   @ApiOperation({ summary: 'List sections by guideline' })
   @ApiQuery({ name: 'guidelineId', required: true })
-  findByGuideline(@Query('guidelineId', ParseUUIDPipe) guidelineId: string) {
-    return this.sectionsService.findByGuideline(guidelineId);
+  findByGuideline(
+    @Query('guidelineId', ParseUUIDPipe) guidelineId: string,
+    @Query() pagination?: PaginationQueryDto,
+  ) {
+    return this.sectionsService.findByGuideline(guidelineId, pagination?.page, pagination?.limit);
   }
 
   @Get(':id')

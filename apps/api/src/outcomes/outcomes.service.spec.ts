@@ -9,6 +9,7 @@ const mockPrismaService = {
     findMany: jest.fn(),
     findUnique: jest.fn(),
     update: jest.fn(),
+    count: jest.fn(),
   },
 };
 
@@ -47,14 +48,18 @@ describe('OutcomesService', () => {
 
   describe('findByPico', () => {
     it('should return all non-deleted outcomes for a PICO', async () => {
-      const expected = [{ id: '1', title: 'Mortality' }];
-      mockPrismaService.outcome.findMany.mockResolvedValue(expected);
+      const items = [{ id: '1', title: 'Mortality' }];
+      mockPrismaService.outcome.findMany.mockResolvedValue(items);
+      mockPrismaService.outcome.count.mockResolvedValue(1);
 
       const result = await service.findByPico('pico-uuid');
-      expect(result).toEqual(expected);
+      expect(result.data).toEqual(items);
+      expect(result.meta.total).toBe(1);
       expect(mockPrismaService.outcome.findMany).toHaveBeenCalledWith({
         where: { picoId: 'pico-uuid', isDeleted: false },
         orderBy: { ordering: 'asc' },
+        skip: 0,
+        take: 20,
       });
     });
   });

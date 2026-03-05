@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { PaginatedResponseDto } from '../common/dto';
 import { CreateSectionDto } from './dto/create-section.dto';
 import { UpdateSectionDto } from './dto/update-section.dto';
 import { ReorderSectionsDto } from './dto/reorder-sections.dto';
@@ -22,17 +23,24 @@ export class SectionsService {
     });
   }
 
-  async findByGuideline(guidelineId: string) {
-    return this.prisma.section.findMany({
-      where: { guidelineId, isDeleted: false },
-      orderBy: { ordering: 'asc' },
-      include: {
-        children: {
-          where: { isDeleted: false },
-          orderBy: { ordering: 'asc' },
+  async findByGuideline(guidelineId: string, page = 1, limit = 20) {
+    const where = { guidelineId, isDeleted: false };
+    const [data, total] = await Promise.all([
+      this.prisma.section.findMany({
+        where,
+        orderBy: { ordering: 'asc' },
+        skip: (page - 1) * limit,
+        take: limit,
+        include: {
+          children: {
+            where: { isDeleted: false },
+            orderBy: { ordering: 'asc' },
+          },
         },
-      },
-    });
+      }),
+      this.prisma.section.count({ where }),
+    ]);
+    return new PaginatedResponseDto(data, total, page, limit);
   }
 
   async findOne(id: string) {

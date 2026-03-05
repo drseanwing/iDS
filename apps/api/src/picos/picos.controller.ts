@@ -13,6 +13,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger'
 import { PicosService } from './picos.service';
 import { CreatePicoDto } from './dto/create-pico.dto';
 import { UpdatePicoDto } from './dto/update-pico.dto';
+import { PaginationQueryDto } from '../common/dto';
 
 @ApiTags('PICOs')
 @ApiBearerAuth()
@@ -29,8 +30,11 @@ export class PicosController {
   @Get()
   @ApiOperation({ summary: 'List PICOs by guideline' })
   @ApiQuery({ name: 'guidelineId', required: true })
-  findByGuideline(@Query('guidelineId', ParseUUIDPipe) guidelineId: string) {
-    return this.picosService.findByGuideline(guidelineId);
+  findByGuideline(
+    @Query('guidelineId', ParseUUIDPipe) guidelineId: string,
+    @Query() pagination?: PaginationQueryDto,
+  ) {
+    return this.picosService.findByGuideline(guidelineId, pagination?.page, pagination?.limit);
   }
 
   @Get(':id')

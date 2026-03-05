@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { PaginatedResponseDto } from '../common/dto';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
 import { UpdateOrganizationDto } from './dto/update-organization.dto';
 
@@ -18,10 +19,16 @@ export class OrganizationsService {
     });
   }
 
-  async findAll() {
-    return this.prisma.organization.findMany({
-      orderBy: { updatedAt: 'desc' },
-    });
+  async findAll(page = 1, limit = 20) {
+    const [data, total] = await Promise.all([
+      this.prisma.organization.findMany({
+        orderBy: { updatedAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.organization.count(),
+    ]);
+    return new PaginatedResponseDto(data, total, page, limit);
   }
 
   async findOne(id: string) {

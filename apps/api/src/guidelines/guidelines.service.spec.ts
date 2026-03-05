@@ -9,6 +9,7 @@ const mockPrismaService = {
     findMany: jest.fn(),
     findUnique: jest.fn(),
     update: jest.fn(),
+    count: jest.fn(),
   },
 };
 
@@ -47,14 +48,18 @@ describe('GuidelinesService', () => {
 
   describe('findAll', () => {
     it('should return all non-deleted guidelines', async () => {
-      const expected = [{ id: '1', title: 'G1' }];
-      mockPrismaService.guideline.findMany.mockResolvedValue(expected);
+      const items = [{ id: '1', title: 'G1' }];
+      mockPrismaService.guideline.findMany.mockResolvedValue(items);
+      mockPrismaService.guideline.count.mockResolvedValue(1);
 
       const result = await service.findAll();
-      expect(result).toEqual(expected);
+      expect(result.data).toEqual(items);
+      expect(result.meta.total).toBe(1);
       expect(mockPrismaService.guideline.findMany).toHaveBeenCalledWith({
         where: { organizationId: undefined, isDeleted: false },
         orderBy: { updatedAt: 'desc' },
+        skip: 0,
+        take: 20,
       });
     });
   });
