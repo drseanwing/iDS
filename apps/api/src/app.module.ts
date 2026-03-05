@@ -11,6 +11,7 @@ import { RecommendationsModule } from './recommendations/recommendations.module'
 import { ReferencesModule } from './references/references.module';
 import { PicosModule } from './picos/picos.module';
 import { OutcomesModule } from './outcomes/outcomes.module';
+import { LinksModule } from './links/links.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -45,6 +46,7 @@ import configuration from './config/configuration';
     ReferencesModule,
     PicosModule,
     OutcomesModule,
+    LinksModule,
   ],
   controllers: [HealthController],
 })
