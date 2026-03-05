@@ -14,6 +14,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger'
 import { GuidelinesService } from './guidelines.service';
 import { CreateGuidelineDto } from './dto/create-guideline.dto';
 import { UpdateGuidelineDto } from './dto/update-guideline.dto';
+import { PaginationQueryDto } from '../common/dto';
 
 @ApiTags('Guidelines')
 @ApiBearerAuth()
@@ -30,8 +31,15 @@ export class GuidelinesController {
   @Get()
   @ApiOperation({ summary: 'List guidelines' })
   @ApiQuery({ name: 'organizationId', required: false })
-  findAll(@Query('organizationId') organizationId?: string) {
-    return this.guidelinesService.findAll({ organizationId });
+  findAll(
+    @Query('organizationId') organizationId?: string,
+    @Query() pagination?: PaginationQueryDto,
+  ) {
+    return this.guidelinesService.findAll(
+      { organizationId },
+      pagination?.page,
+      pagination?.limit,
+    );
   }
 
   @Get(':id')

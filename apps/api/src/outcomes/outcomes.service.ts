@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { PaginatedResponseDto } from '../common/dto';
 import { CreateOutcomeDto } from './dto/create-outcome.dto';
 import { UpdateOutcomeDto } from './dto/update-outcome.dto';
 
@@ -43,11 +44,18 @@ export class OutcomesService {
     });
   }
 
-  async findByPico(picoId: string) {
-    return this.prisma.outcome.findMany({
-      where: { picoId, isDeleted: false },
-      orderBy: { ordering: 'asc' },
-    });
+  async findByPico(picoId: string, page = 1, limit = 20) {
+    const where = { picoId, isDeleted: false };
+    const [data, total] = await Promise.all([
+      this.prisma.outcome.findMany({
+        where,
+        orderBy: { ordering: 'asc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.outcome.count({ where }),
+    ]);
+    return new PaginatedResponseDto(data, total, page, limit);
   }
 
   async findOne(id: string) {

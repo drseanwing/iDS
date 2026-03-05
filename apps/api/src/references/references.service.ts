@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { Prisma, StudyType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { PaginatedResponseDto } from '../common/dto';
 import { CreateReferenceDto } from './dto/create-reference.dto';
 import { UpdateReferenceDto } from './dto/update-reference.dto';
 
@@ -24,11 +25,18 @@ export class ReferencesService {
     });
   }
 
-  async findByGuideline(guidelineId: string) {
-    return this.prisma.reference.findMany({
-      where: { guidelineId, isDeleted: false },
-      orderBy: { createdAt: 'desc' },
-    });
+  async findByGuideline(guidelineId: string, page = 1, limit = 20) {
+    const where = { guidelineId, isDeleted: false };
+    const [data, total] = await Promise.all([
+      this.prisma.reference.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.reference.count({ where }),
+    ]);
+    return new PaginatedResponseDto(data, total, page, limit);
   }
 
   async findOne(id: string) {

@@ -5,6 +5,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger'
 import { OutcomesService } from './outcomes.service';
 import { CreateOutcomeDto } from './dto/create-outcome.dto';
 import { UpdateOutcomeDto } from './dto/update-outcome.dto';
+import { PaginationQueryDto } from '../common/dto';
 
 @ApiTags('Outcomes')
 @ApiBearerAuth()
@@ -21,8 +22,11 @@ export class OutcomesController {
   @Get()
   @ApiOperation({ summary: 'List outcomes by PICO' })
   @ApiQuery({ name: 'picoId', required: true })
-  findByPico(@Query('picoId', ParseUUIDPipe) picoId: string) {
-    return this.outcomesService.findByPico(picoId);
+  findByPico(
+    @Query('picoId', ParseUUIDPipe) picoId: string,
+    @Query() pagination?: PaginationQueryDto,
+  ) {
+    return this.outcomesService.findByPico(picoId, pagination?.page, pagination?.limit);
   }
 
   @Get(':id')

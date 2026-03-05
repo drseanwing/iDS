@@ -13,6 +13,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger'
 import { ReferencesService } from './references.service';
 import { CreateReferenceDto } from './dto/create-reference.dto';
 import { UpdateReferenceDto } from './dto/update-reference.dto';
+import { PaginationQueryDto } from '../common/dto';
 
 @ApiTags('References')
 @ApiBearerAuth()
@@ -29,8 +30,11 @@ export class ReferencesController {
   @Get()
   @ApiOperation({ summary: 'List references by guideline' })
   @ApiQuery({ name: 'guidelineId', required: true })
-  findByGuideline(@Query('guidelineId', ParseUUIDPipe) guidelineId: string) {
-    return this.referencesService.findByGuideline(guidelineId);
+  findByGuideline(
+    @Query('guidelineId', ParseUUIDPipe) guidelineId: string,
+    @Query() pagination?: PaginationQueryDto,
+  ) {
+    return this.referencesService.findByGuideline(guidelineId, pagination?.page, pagination?.limit);
   }
 
   @Get(':id')

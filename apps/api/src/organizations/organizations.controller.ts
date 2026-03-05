@@ -6,12 +6,14 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { OrganizationsService } from './organizations.service';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
 import { UpdateOrganizationDto } from './dto/update-organization.dto';
+import { PaginationQueryDto } from '../common/dto';
 
 @ApiTags('Organizations')
 @ApiBearerAuth()
@@ -27,8 +29,8 @@ export class OrganizationsController {
 
   @Get()
   @ApiOperation({ summary: 'List organizations' })
-  findAll() {
-    return this.organizationsService.findAll();
+  findAll(@Query() pagination?: PaginationQueryDto) {
+    return this.organizationsService.findAll(pagination?.page, pagination?.limit);
   }
 
   @Get(':id')

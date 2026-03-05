@@ -14,6 +14,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger'
 import { RecommendationsService } from './recommendations.service';
 import { CreateRecommendationDto } from './dto/create-recommendation.dto';
 import { UpdateRecommendationDto } from './dto/update-recommendation.dto';
+import { PaginationQueryDto } from '../common/dto';
 
 @ApiTags('Recommendations')
 @ApiBearerAuth()
@@ -30,8 +31,11 @@ export class RecommendationsController {
   @Get()
   @ApiOperation({ summary: 'List recommendations by guideline' })
   @ApiQuery({ name: 'guidelineId', required: true })
-  findByGuideline(@Query('guidelineId', ParseUUIDPipe) guidelineId: string) {
-    return this.recommendationsService.findByGuideline(guidelineId);
+  findByGuideline(
+    @Query('guidelineId', ParseUUIDPipe) guidelineId: string,
+    @Query() pagination?: PaginationQueryDto,
+  ) {
+    return this.recommendationsService.findByGuideline(guidelineId, pagination?.page, pagination?.limit);
   }
 
   @Get(':id')
