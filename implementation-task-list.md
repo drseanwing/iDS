@@ -23,7 +23,7 @@ Source docs:
 - [x] Add audit columns and relation fields (`created_by`, `updated_by`, timestamps).
 - [ ] Implement migration set for all core tables with referential integrity.
 - [x] Add indexes identified in architecture (status, foreign-key traversal, date and lookup paths).
-- [ ] Seed initial roles, default enums, and one sample organization.
+- [x] Seed initial roles, default enums, and one sample organization.
 
 ## Phase 2 — API Module Skeleton & Core CRUD (Arch §4, §6.1)
 - [x] Implement NestJS module boundaries: auth, organizations, guidelines, sections, recommendations, pico, outcomes, references.
@@ -31,9 +31,9 @@ Source docs:
 - [x] Implement CRUD APIs for Organization and Guideline with permission checks.
 - [x] Implement CRUD APIs for Section with tree-aware parent/child operations.
 - [x] Implement CRUD APIs for Recommendation, Pico, Outcome, Reference.
-- [ ] Add link-table APIs for section↔reference, section↔pico, section↔recommendation.
-- [ ] Add recommendation↔pico and outcome↔reference linking APIs.
-- [ ] Implement consistent pagination, filtering, and sort contracts across list endpoints.
+- [x] Add link-table APIs for section↔reference, section↔pico, section↔recommendation.
+- [x] Add recommendation↔pico and outcome↔reference linking APIs.
+- [x] Implement consistent pagination, filtering, and sort contracts across list endpoints.
 - [x] Publish initial OpenAPI 3.1 spec for all implemented endpoints.
 
 ## Phase 3 — Authoring UX & Rich Text (Arch §5.2, §5.3, §5.4, §9.2)
