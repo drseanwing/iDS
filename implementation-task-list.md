@@ -40,12 +40,12 @@ Source docs:
 - [x] Build application shell (left nav, top bar, context breadcrumbs, guideline selector).
 - [x] Build guideline workspace screen with section tree and detail panel.
 - [x] Integrate TipTap editor for section/recommendation narrative fields.
-- [ ] Implement section drag-and-drop reorder with stable persisted ordering.
-- [ ] Implement section auto-numbering and `exclude_from_numbering` behavior.
-- [ ] Add reference management UI (create/edit/search/link/unlink).
+- [x] Implement section drag-and-drop reorder with stable persisted ordering.
+- [x] Implement section auto-numbering and `exclude_from_numbering` behavior.
+- [x] Add reference management UI (create/edit/search/link/unlink).
 - [ ] Add PICO builder UI and code-entry tabs.
 - [ ] Add outcome management UI with grouped ordering and state badges.
-- [ ] Add recommendation cards with rationale/practical information blocks.
+- [x] Add recommendation cards with rationale/practical information blocks.
 
 ## Phase 4 — Evidence Engine (GRADE + EtD) (Arch §3.1, §5.3, §8, §9)
 - [ ] Implement outcome evidence fields (effect measures, CI bounds, participant counts).
