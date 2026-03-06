@@ -13,6 +13,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger'
 import { PicosService } from './picos.service';
 import { CreatePicoDto } from './dto/create-pico.dto';
 import { UpdatePicoDto } from './dto/update-pico.dto';
+import { CreatePicoCodeDto } from './dto/create-pico-code.dto';
 import { PaginationQueryDto } from '../common/dto';
 
 @ApiTags('PICOs')
@@ -56,5 +57,25 @@ export class PicosController {
   @ApiOperation({ summary: 'Soft-delete PICO' })
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.picosService.softDelete(id);
+  }
+
+  // ── PICO Codes ──────────────────────────────────────────────
+
+  @Post(':picoId/codes')
+  @ApiOperation({ summary: 'Add a terminology code to a PICO element' })
+  addCode(
+    @Param('picoId', ParseUUIDPipe) picoId: string,
+    @Body() dto: CreatePicoCodeDto,
+  ) {
+    return this.picosService.addCode(picoId, dto);
+  }
+
+  @Delete(':picoId/codes/:codeId')
+  @ApiOperation({ summary: 'Remove a terminology code from a PICO' })
+  removeCode(
+    @Param('picoId', ParseUUIDPipe) picoId: string,
+    @Param('codeId', ParseUUIDPipe) codeId: string,
+  ) {
+    return this.picosService.removeCode(picoId, codeId);
   }
 }

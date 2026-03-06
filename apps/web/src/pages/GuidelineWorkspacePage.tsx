@@ -8,6 +8,7 @@ import { useRecommendations } from '../hooks/useRecommendations';
 import { SectionTree } from '../components/guideline-authoring/SectionTree';
 import { SectionDetailPanel } from '../components/guideline-authoring/SectionDetailPanel';
 import { ReferenceList } from '../components/guideline-authoring/ReferenceList';
+import { PicoBuilderPanel } from '../components/guideline-authoring/PicoBuilderPanel';
 import type { Section } from '../hooks/useSections';
 
 type WorkspaceTab = 'recommendations' | 'evidence' | 'references';
@@ -185,9 +186,7 @@ export function GuidelineWorkspacePage({ guidelineId, onBack }: GuidelineWorkspa
             />
           )}
           {activeTab === 'evidence' && (
-            <div className="flex h-full items-center justify-center text-muted-foreground">
-              <p className="text-sm">Evidence panel — coming soon</p>
-            </div>
+            <PicoBuilderPanel guidelineId={guidelineId} />
           )}
           {activeTab === 'references' && (
             <ReferenceList

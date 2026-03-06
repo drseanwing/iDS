@@ -43,8 +43,8 @@ Source docs:
 - [x] Implement section drag-and-drop reorder with stable persisted ordering.
 - [x] Implement section auto-numbering and `exclude_from_numbering` behavior.
 - [x] Add reference management UI (create/edit/search/link/unlink).
-- [ ] Add PICO builder UI and code-entry tabs.
-- [ ] Add outcome management UI with grouped ordering and state badges.
+- [x] Add PICO builder UI and code-entry tabs.
+- [x] Add outcome management UI with grouped ordering and state badges.
 - [x] Add recommendation cards with rationale/practical information blocks.
 
 ## Phase 4 — Evidence Engine (GRADE + EtD) (Arch §3.1, §5.3, §8, §9)
