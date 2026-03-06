@@ -21,6 +21,7 @@ export class ReferencesService {
         doi: dto.doi,
         url: dto.url,
         studyType: (dto.studyType as StudyType) || StudyType.OTHER,
+        fhirMeta: (dto.fhirMeta ?? {}) as Prisma.InputJsonValue,
       },
     });
   }
@@ -33,6 +34,37 @@ export class ReferencesService {
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
         take: limit,
+      }),
+      this.prisma.reference.count({ where }),
+    ]);
+    return new PaginatedResponseDto(data, total, page, limit);
+  }
+
+  async findAll(page = 1, limit = 50, search?: string) {
+    const where: Prisma.ReferenceWhereInput = { isDeleted: false };
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: 'insensitive' } },
+        { authors: { contains: search, mode: 'insensitive' } },
+        { doi: { contains: search, mode: 'insensitive' } },
+        { pubmedId: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+    const [data, total] = await Promise.all([
+      this.prisma.reference.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+        include: {
+          guideline: { select: { id: true, title: true, shortName: true } },
+          sectionPlacements: {
+            include: { section: { select: { id: true, title: true } } },
+          },
+          outcomeLinks: {
+            include: { outcome: { select: { id: true, title: true } } },
+          },
+        },
       }),
       this.prisma.reference.count({ where }),
     ]);
@@ -65,6 +97,7 @@ export class ReferencesService {
     if (dto.doi !== undefined) data.doi = dto.doi;
     if (dto.url !== undefined) data.url = dto.url;
     if (dto.studyType !== undefined) data.studyType = dto.studyType as StudyType;
+    if (dto.fhirMeta !== undefined) data.fhirMeta = dto.fhirMeta as Prisma.InputJsonValue;
     return this.prisma.reference.update({
       where: { id },
       data,

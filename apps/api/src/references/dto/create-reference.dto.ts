@@ -44,4 +44,8 @@ export class CreateReferenceDto {
   @IsOptional()
   @IsEnum(['PRIMARY_STUDY', 'SYSTEMATIC_REVIEW', 'OTHER'])
   studyType?: string;
+
+  @ApiPropertyOptional({ description: 'FHIR Citation.meta (JSON)' })
+  @IsOptional()
+  fhirMeta?: Record<string, unknown>;
 }
