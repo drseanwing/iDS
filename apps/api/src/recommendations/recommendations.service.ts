@@ -25,15 +25,28 @@ export class RecommendationsService {
 
   async findByGuideline(guidelineId: string, page = 1, limit = 20) {
     const where = { guidelineId, isDeleted: false };
-    const [data, total] = await Promise.all([
+    const [recs, total] = await Promise.all([
       this.prisma.recommendation.findMany({
         where,
         orderBy: { ordering: 'asc' },
         skip: (page - 1) * limit,
         take: limit,
+        include: {
+          sectionPlacements: {
+            orderBy: { ordering: 'asc' },
+            take: 1,
+          },
+        },
       }),
       this.prisma.recommendation.count({ where }),
     ]);
+    // Flatten the primary section placement to a top-level sectionId field for
+    // frontend convenience (recommendations are linked to sections via a join table).
+    const data = (recs as Array<Record<string, unknown> & { sectionPlacements: Array<{ sectionId: string }> }>)
+      .map(({ sectionPlacements, ...rest }) => ({
+        ...rest,
+        sectionId: sectionPlacements[0]?.sectionId ?? null,
+      }));
     return new PaginatedResponseDto(data, total, page, limit);
   }
 

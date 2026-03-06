@@ -4,6 +4,8 @@ import { cn } from '../lib/utils';
 import { useGuideline } from '../hooks/useGuideline';
 import { useSections } from '../hooks/useSections';
 import { useReorderSections } from '../hooks/useReorderSections';
+import { useCreateSection } from '../hooks/useCreateSection';
+import { useDeleteSection } from '../hooks/useDeleteSection';
 import { useRecommendations } from '../hooks/useRecommendations';
 import { SectionTree } from '../components/guideline-authoring/SectionTree';
 import { SectionDetailPanel } from '../components/guideline-authoring/SectionDetailPanel';
@@ -58,6 +60,8 @@ export function GuidelineWorkspacePage({ guidelineId, onBack }: GuidelineWorkspa
   } = useSections(guidelineId);
 
   const { mutate: reorderSections } = useReorderSections();
+  const { mutate: createSection } = useCreateSection();
+  const { mutate: deleteSection } = useDeleteSection();
 
   const {
     data: recommendations = [],
@@ -79,6 +83,24 @@ export function GuidelineWorkspacePage({ guidelineId, onBack }: GuidelineWorkspa
       reorderSections({ guidelineId, sections: reorderedItems });
     },
     [guidelineId, reorderSections],
+  );
+
+  const handleAddSection = useCallback(
+    (title: string, parentId?: string) => {
+      createSection({ guidelineId, title, parentId });
+    },
+    [guidelineId, createSection],
+  );
+
+  const handleDeleteSection = useCallback(
+    (id: string) => {
+      deleteSection({ id, guidelineId });
+      // Deselect if the deleted section was selected
+      if (selectedSectionId === id) {
+        setSelectedSectionId(null);
+      }
+    },
+    [guidelineId, deleteSection, selectedSectionId],
   );
 
   const tabs: { id: WorkspaceTab; label: string }[] = [
@@ -171,6 +193,8 @@ export function GuidelineWorkspacePage({ guidelineId, onBack }: GuidelineWorkspa
               selectedId={selectedSectionId}
               showNumbers={guideline?.showSectionNumbers ?? true}
               onSelect={setSelectedSectionId}
+              onAddSection={handleAddSection}
+              onDeleteSection={handleDeleteSection}
               onReorder={handleReorder}
             />
           )}

@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { cn } from '../lib/utils';
 import { useGuidelines } from '../hooks/useGuidelines';
+import { useCreateGuideline } from '../hooks/useCreateGuideline';
 
 interface Guideline {
   id: string;
@@ -41,17 +43,92 @@ function LoadingSkeleton() {
 
 export function GuidelinesPage({ onOpenGuideline }: GuidelinesPageProps) {
   const { data, isLoading, isError, error } = useGuidelines();
+  const { mutate: createGuideline, isPending: isCreating } = useCreateGuideline();
+
+  const [showForm, setShowForm] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [newShortName, setNewShortName] = useState('');
 
   const guidelines: Guideline[] = data?.data ?? data ?? [];
+
+  function handleCreateSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const title = newTitle.trim();
+    if (!title) return;
+    createGuideline(
+      { title, shortName: newShortName.trim() || undefined },
+      {
+        onSuccess: () => {
+          setShowForm(false);
+          setNewTitle('');
+          setNewShortName('');
+        },
+      },
+    );
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Guidelines</h1>
-        <button className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity">
+        <button
+          onClick={() => { setShowForm(true); setNewTitle(''); setNewShortName(''); }}
+          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity"
+        >
           New Guideline
         </button>
       </div>
+
+      {showForm && (
+        <form
+          onSubmit={handleCreateSubmit}
+          className="rounded-lg border bg-card p-5 space-y-4"
+          aria-label="New guideline form"
+        >
+          <h2 className="text-sm font-semibold">New guideline</h2>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+              Title <span className="text-destructive">*</span>
+            </label>
+            <input
+              autoFocus
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              placeholder="Guideline title"
+              required
+              className="w-full rounded-md border bg-background px-3 py-1.5 text-sm outline-none ring-offset-background focus:ring-2 focus:ring-primary focus:ring-offset-1 placeholder:text-muted-foreground/60"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+              Short name
+            </label>
+            <input
+              value={newShortName}
+              onChange={(e) => setNewShortName(e.target.value)}
+              placeholder="e.g. GL-2025"
+              maxLength={100}
+              className="w-full rounded-md border bg-background px-3 py-1.5 text-sm outline-none ring-offset-background focus:ring-2 focus:ring-primary focus:ring-offset-1 placeholder:text-muted-foreground/60"
+            />
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={!newTitle.trim() || isCreating}
+              className="flex-1 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-opacity"
+            >
+              {isCreating ? 'Creating…' : 'Create guideline'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowForm(false)}
+              className="flex-1 rounded-md border px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-accent transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
 
       {isLoading && <LoadingSkeleton />}
 
