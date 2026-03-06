@@ -8,6 +8,7 @@ import {
   FlaskConical,
   Tag,
   X,
+  BarChart2,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { usePicos, type Pico, type Outcome, type PicoCode } from '../../hooks/usePicos';
@@ -19,6 +20,7 @@ import { useUpdateOutcome } from '../../hooks/useUpdateOutcome';
 import { useDeleteOutcome } from '../../hooks/useDeleteOutcome';
 import { useCreatePicoCode } from '../../hooks/useCreatePicoCode';
 import { useDeletePicoCode } from '../../hooks/useDeletePicoCode';
+import { GradeAssessmentPanel } from './GradeAssessmentPanel';
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -88,6 +90,26 @@ function outcomeStateBadgeColor(state: string): string {
   }
 }
 
+function certaintyBadgeColor(level: string | null | undefined): string {
+  switch (level) {
+    case 'HIGH': return 'bg-green-100 text-green-800';
+    case 'MODERATE': return 'bg-yellow-100 text-yellow-800';
+    case 'LOW': return 'bg-orange-100 text-orange-800';
+    case 'VERY_LOW': return 'bg-red-100 text-red-800';
+    default: return 'bg-muted text-muted-foreground';
+  }
+}
+
+function certaintySymbols(level: string | null | undefined): string {
+  switch (level) {
+    case 'HIGH': return '⊕⊕⊕⊕';
+    case 'MODERATE': return '⊕⊕⊕◯';
+    case 'LOW': return '⊕⊕◯◯';
+    case 'VERY_LOW': return '⊕◯◯◯';
+    default: return '';
+  }
+}
+
 function codeSystemLabel(system: string): string {
   return CODE_SYSTEM_OPTIONS.find((o) => o.value === system)?.label ?? system;
 }
@@ -105,6 +127,7 @@ interface OutcomeRowProps {
 
 function OutcomeRow({ outcome, guidelineId }: OutcomeRowProps) {
   const [editing, setEditing] = useState(false);
+  const [showGrade, setShowGrade] = useState(false);
   const [title, setTitle] = useState(outcome.title);
   const [outcomeType, setOutcomeType] = useState(outcome.outcomeType);
   const [state, setState] = useState(outcome.state);
@@ -138,103 +161,137 @@ function OutcomeRow({ outcome, guidelineId }: OutcomeRowProps) {
   }
 
   return (
-    <li className="flex items-center gap-2 rounded border bg-card px-3 py-2 text-sm">
-      {editing ? (
-        <div className="flex flex-1 flex-col gap-2">
-          <input
-            aria-label="Outcome title"
-            className="w-full rounded border px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
-          <div className="flex gap-2">
-            <select
-              aria-label="Outcome type"
-              className="rounded border px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-              value={outcomeType}
-              onChange={(e) => setOutcomeType(e.target.value)}
-            >
-              {OUTCOME_TYPE_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-            <select
-              aria-label="Outcome state"
-              className="rounded border px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-              value={state}
-              onChange={(e) => setState(e.target.value)}
-            >
-              {OUTCOME_STATE_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
+    <li className="rounded border bg-card text-sm">
+      <div className="flex items-center gap-2 px-3 py-2">
+        {editing ? (
+          <div className="flex flex-1 flex-col gap-2">
             <input
-              aria-label="Importance (1–9)"
-              type="number"
-              min={1}
-              max={9}
-              placeholder="Importance (1–9)"
-              className="w-28 rounded border px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-              value={importance}
-              onChange={(e) => setImportance(e.target.value)}
+              aria-label="Outcome title"
+              className="w-full rounded border px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
             />
+            <div className="flex gap-2">
+              <select
+                aria-label="Outcome type"
+                className="rounded border px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                value={outcomeType}
+                onChange={(e) => setOutcomeType(e.target.value)}
+              >
+                {OUTCOME_TYPE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+              <select
+                aria-label="Outcome state"
+                className="rounded border px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                value={state}
+                onChange={(e) => setState(e.target.value)}
+              >
+                {OUTCOME_STATE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+              <input
+                aria-label="Importance (1–9)"
+                type="number"
+                min={1}
+                max={9}
+                placeholder="Importance (1–9)"
+                className="w-28 rounded border px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                value={importance}
+                onChange={(e) => setImportance(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleSave}
+                disabled={updating}
+                className="rounded bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+              >
+                {updating ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Save'}
+              </button>
+              <button
+                onClick={handleCancel}
+                className="rounded border px-3 py-1 text-xs hover:bg-accent"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={handleSave}
-              disabled={updating}
-              className="rounded bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+        ) : (
+          <>
+            <span className="flex-1 truncate font-medium">{outcome.title}</span>
+            <span
+              className={cn(
+                'rounded-full px-2 py-0.5 text-xs font-medium flex-shrink-0',
+                outcomeTypeBadgeColor(outcome.outcomeType),
+              )}
             >
-              {updating ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Save'}
-            </button>
-            <button
-              onClick={handleCancel}
-              className="rounded border px-3 py-1 text-xs hover:bg-accent"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      ) : (
-        <>
-          <span className="flex-1 truncate font-medium">{outcome.title}</span>
-          <span
-            className={cn(
-              'rounded-full px-2 py-0.5 text-xs font-medium flex-shrink-0',
-              outcomeTypeBadgeColor(outcome.outcomeType),
-            )}
-          >
-            {outcomeTypeLabel(outcome.outcomeType)}
-          </span>
-          <span
-            className={cn(
-              'rounded-full px-2 py-0.5 text-xs flex-shrink-0',
-              outcomeStateBadgeColor(outcome.state),
-            )}
-          >
-            {outcomeStateLabel(outcome.state)}
-          </span>
-          {outcome.importance != null && (
-            <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-secondary-foreground flex-shrink-0">
-              Imp: {outcome.importance}
+              {outcomeTypeLabel(outcome.outcomeType)}
             </span>
-          )}
-          <button
-            onClick={() => setEditing(true)}
-            aria-label={`Edit outcome ${outcome.title}`}
-            className="ml-1 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-          </button>
-          <button
-            onClick={() => deleteOutcome({ id: outcome.id, guidelineId })}
-            disabled={deleting}
-            aria-label={`Delete outcome ${outcome.title}`}
-            className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
-          >
-            {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-          </button>
-        </>
+            <span
+              className={cn(
+                'rounded-full px-2 py-0.5 text-xs flex-shrink-0',
+                outcomeStateBadgeColor(outcome.state),
+              )}
+            >
+              {outcomeStateLabel(outcome.state)}
+            </span>
+            {outcome.importance != null && (
+              <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-secondary-foreground flex-shrink-0">
+                Imp: {outcome.importance}
+              </span>
+            )}
+            {outcome.certaintyOverall && (
+              <span
+                className={cn(
+                  'rounded-full px-2 py-0.5 text-xs font-mono font-medium flex-shrink-0',
+                  certaintyBadgeColor(outcome.certaintyOverall),
+                )}
+                title={`Certainty: ${outcome.certaintyOverall.toLowerCase().replace('_', ' ')}`}
+              >
+                {certaintySymbols(outcome.certaintyOverall)}
+              </span>
+            )}
+            {/* GRADE evidence toggle */}
+            <button
+              onClick={() => setShowGrade((v) => !v)}
+              aria-label={showGrade ? 'Collapse GRADE assessment' : 'Expand GRADE assessment'}
+              aria-expanded={showGrade}
+              className={cn(
+                'rounded p-1 transition-colors',
+                showGrade
+                  ? 'text-primary bg-primary/10'
+                  : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+              )}
+              title="GRADE evidence & assessment"
+            >
+              <BarChart2 className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => setEditing(true)}
+              aria-label={`Edit outcome ${outcome.title}`}
+              className="ml-1 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+            <button
+              onClick={() => deleteOutcome({ id: outcome.id, guidelineId })}
+              disabled={deleting}
+              aria-label={`Delete outcome ${outcome.title}`}
+              className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+            >
+              {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+            </button>
+          </>
+        )}
+      </div>
+      {/* GRADE assessment panel (collapsible) */}
+      {showGrade && !editing && (
+        <div className="px-3 pb-3">
+          <GradeAssessmentPanel outcome={outcome} guidelineId={guidelineId} />
+        </div>
       )}
     </li>
   );
