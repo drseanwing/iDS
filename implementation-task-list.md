@@ -51,14 +51,13 @@ Source docs:
   - [~] `RecommendationsService.findByGuideline` was not including `sectionPlacements`, so `sectionId` was never returned — **fixed** (includes first placement and maps to top-level `sectionId`). _(Was: frontend `r.sectionId === section.id` filter always returned empty; no recommendations showed per section.)_
   - [~] `GuidelinesPage` "New Guideline" button was not wired — **fixed** (inline form with title + short name; calls POST /guidelines via `useCreateGuideline`).
   - [ ] `fhirMeta` and `fhirExtensions` columns defined in Prisma schema but never read or written via any API endpoint.
-  - [ ] `EtdFactor` model has no `@@unique([recommendationId, factorType])` constraint — duplicate factor rows can be created if `getOrInit()` is called concurrently.
-  - [ ] `GET /sections` returns only one level of nested `children` (grandchildren excluded). Deep section trees need recursive fetch or a dedicated tree endpoint.
-  - [ ] `SectionsService.findByGuideline` returns top-level sections only; child sections are embedded under their parent but NOT separately enumerable without a parent ID filter.
-  - [ ] Soft-deleted content is permanently inaccessible — no admin/restore endpoint exists.
+  - [~] `EtdFactor` model has no `@@unique([recommendationId, factorType])` constraint — **fixed** (added `@@unique([recommendationId, factorType])` to schema; `createMany` now uses `skipDuplicates: true`).
+  - [~] `GET /sections` returns only one level of nested `children` (grandchildren excluded) — **fixed** (rewrote `findByGuideline` to fetch all sections and build full tree in memory).
+  - [~] `SectionsService.findByGuideline` returns top-level sections only — **fixed** (tree is now built recursively with all descendants nested under their parents).
+  - [~] Soft-deleted content is permanently inaccessible — **fixed** (added `POST /guidelines/:id/restore` and `POST /sections/:id/restore` endpoints).
   - [ ] `ReferencesPage` (top-level `/references` app path) is a "Coming soon" stub. The `ReferenceList` component inside the guideline workspace IS functional.
-  - [ ] `GuidelinesPage` "New Guideline" button is not wired — no create form or modal exists.
-  - [ ] `DashboardPage` stats (Guidelines / Sections / Recommendations counts) are hardcoded as `'--'` — no real data fetching.
-  - [ ] `AppShell` user section shows hardcoded "User" text — not wired to auth context.
+  - [~] `DashboardPage` stats (Guidelines / Sections / Recommendations counts) are hardcoded as `'--'` — **fixed** (added `GET /guidelines/stats` endpoint; `DashboardPage` now fetches real counts via `useDashboardStats` hook).
+  - [~] `AppShell` user section shows hardcoded "User" text — **fixed** (wired to `useAuth` store; displays user name/email and logout button).
 
 ---
 
@@ -83,7 +82,7 @@ Source docs:
   - [ ] Reference auto-numbering on read — architecture specifies depth-first traversal numbering, not yet implemented.
   - [ ] Track changes in TipTap — not implemented (extension not installed, no accept/reject workflow).
   - [ ] Presence/collaborative cursor indicators — not implemented.
-  - [ ] Guideline settings UI — no settings panel; `etdMode`, `showSectionNumbers` and other settings cannot be changed by the user.
+  - [~] Guideline settings UI — **fixed** (added `GuidelineSettingsPanel` component with all settings fields; accessible via "Settings" tab in guideline workspace; uses `useUpdateGuideline` hook).
   - [ ] `AppShell` top-level references tab — page is a stub ("Coming soon").
 
 ---
@@ -117,7 +116,7 @@ Source docs:
 - [ ] Implement full RBAC matrix (organization roles + guideline roles). _(Auth guard validates JWT; GuidelinePermission/OrganizationMember models exist in schema; no RBAC enforcement on any endpoint beyond authentication check.)_
 - [ ] Implement activity logging interceptor for create/update/delete/publish flows. _(ActivityLogEntry model defined in schema; no interceptor writes to it.)_
 - [ ] Build activity log screen with user/action/entity/date filters.
-- [ ] Implement undo/recover flows for soft-deleted content. _(No restore endpoint; soft-deleted content is inaccessible but not purged.)_
+- [~] Implement undo/recover flows for soft-deleted content. _(Restore API endpoints added for guidelines and sections. Admin UI for browsing/restoring deleted content not yet built.)_
 - [ ] Implement track changes model and rendering in rich-text fields.
 - [ ] Add accept/reject tracked changes workflow with role checks.
 - [ ] Implement threaded comments and status workflow (open/resolved/deprecated). _(FeedbackComment model defined in schema; no endpoints or UI.)_
@@ -193,15 +192,15 @@ The following items are confirmed bugs or incomplete wiring in the current codeb
 ### P1 — Missing functionality (unwired stubs)
 | # | Area | Issue |
 |---|------|-------|
-| U-01 | Frontend / Dashboard | `DashboardPage` stats (Guidelines, Sections, Recommendations) are hardcoded `'--'` — no API calls |
+| ~~U-01~~ | ~~Frontend / Dashboard~~ | **Fixed** — Added `GET /guidelines/stats` endpoint returning aggregate counts; `DashboardPage` now fetches real data via `useDashboardStats` hook |
 | ~~U-02~~ | ~~Frontend / Guidelines~~ | **Fixed** — "New Guideline" button now wired; inline form (title + short name) calls `POST /guidelines` via `useCreateGuideline` |
 | U-03 | Frontend / References | Top-level `ReferencesPage` (app nav → References) is a "Coming soon" stub — `ReferenceList` inside workspace is functional |
-| U-04 | Frontend / App shell | User display in `AppShell` sidebar shows hardcoded "User" — not wired to auth context |
+| ~~U-04~~ | ~~Frontend / App shell~~ | **Fixed** — Wired to `useAuth` store; displays user name/email and logout button |
 | ~~U-05~~ | ~~Frontend / Sections~~ | **Fixed** — Inline "Add Section" form added to `SectionTree` sidebar; wired via `useCreateSection` |
 | ~~U-06~~ | ~~Frontend / Sections~~ | **Fixed** — Delete button with two-step confirm added to each section tree node; wired via `useDeleteSection` |
 | ~~U-07~~ | ~~Frontend / Recommendations~~ | **Fixed** — "Add Recommendation" inline form in `SectionDetailPanel`; wired via `useCreateRecommendation` |
 | ~~U-08~~ | ~~Frontend / Recommendations~~ | **Fixed** — Delete button with two-step confirm added to `RecommendationEditorCard`; wired via `useDeleteRecommendation` |
-| U-09 | Frontend / Guideline settings | No settings panel — `etdMode`, `showSectionNumbers` and all other guideline settings are uneditable in the UI |
+| ~~U-09~~ | ~~Frontend / Guideline settings~~ | **Fixed** — Added `GuidelineSettingsPanel` component; accessible via "Settings" tab in workspace; `useUpdateGuideline` hook calls `PUT /guidelines/:id` |
 | U-10 | API / Versioning | `GuidelineVersion` Prisma model exists but no service, controller, or frontend code |
 | U-11 | API / Governance | `ActivityLogEntry` model exists but no interceptor writes to it |
 | U-12 | API / Governance | `FeedbackComment`, `CoiRecord`, `Poll`, `Milestone`, `ChecklistItem`, `Task` models exist but have no API endpoints |
@@ -215,9 +214,9 @@ The following items are confirmed bugs or incomplete wiring in the current codeb
 | # | Area | Issue |
 |---|------|-------|
 | S-01 | Database | No `prisma/migrations/` directory — schema managed via `prisma db push`; no migration history |
-| S-02 | Database | `EtdFactor` lacks `@@unique([recommendationId, factorType])` — concurrent `getOrInit()` calls can create duplicate rows |
-| S-03 | API | `GET /sections` embeds only one level of `children`; grandchildren require separate requests |
-| S-04 | API | No soft-delete restore endpoint; deleted content is permanently inaccessible via API |
+| ~~S-02~~ | ~~Database~~ | **Fixed** — Added `@@unique([recommendationId, factorType])` constraint to `EtdFactor`; `createMany` uses `skipDuplicates: true` |
+| ~~S-03~~ | ~~API~~ | **Fixed** — `findByGuideline` now fetches all sections and builds full recursive tree in memory |
+| ~~S-04~~ | ~~API~~ | **Fixed** — Added `POST /guidelines/:id/restore` and `POST /sections/:id/restore` endpoints |
 
 ### P3 — Security / operations gaps
 | # | Area | Issue |

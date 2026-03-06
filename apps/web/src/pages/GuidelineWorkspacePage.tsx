@@ -11,9 +11,10 @@ import { SectionTree } from '../components/guideline-authoring/SectionTree';
 import { SectionDetailPanel } from '../components/guideline-authoring/SectionDetailPanel';
 import { ReferenceList } from '../components/guideline-authoring/ReferenceList';
 import { PicoBuilderPanel } from '../components/guideline-authoring/PicoBuilderPanel';
+import { GuidelineSettingsPanel } from '../components/guideline-authoring/GuidelineSettingsPanel';
 import type { Section } from '../hooks/useSections';
 
-type WorkspaceTab = 'recommendations' | 'evidence' | 'references';
+type WorkspaceTab = 'recommendations' | 'evidence' | 'references' | 'settings';
 
 interface GuidelineWorkspacePageProps {
   guidelineId: string;
@@ -107,6 +108,7 @@ export function GuidelineWorkspacePage({ guidelineId, onBack }: GuidelineWorkspa
     { id: 'recommendations', label: 'Recommendations' },
     { id: 'evidence', label: 'Evidence' },
     { id: 'references', label: 'References' },
+    { id: 'settings', label: 'Settings' },
   ];
 
   if (guidelineError || sectionsError) {
@@ -218,6 +220,9 @@ export function GuidelineWorkspacePage({ guidelineId, onBack }: GuidelineWorkspa
               guidelineId={guidelineId}
               selectedSection={selectedSection}
             />
+          )}
+          {activeTab === 'settings' && guideline && (
+            <GuidelineSettingsPanel guideline={guideline} />
           )}
         </main>
       </div>

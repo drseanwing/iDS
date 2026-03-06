@@ -11,7 +11,17 @@ export interface Guideline {
   language?: string;
   guidelineType?: string;
   showSectionNumbers?: boolean;
+  showCertaintyInLabel?: boolean;
+  showGradeDescription?: boolean;
+  showSectionTextPreview?: boolean;
+  trackChangesDefault?: boolean;
+  enableSubscriptions?: boolean;
+  enablePublicComments?: boolean;
   etdMode?: string;
+  pdfColumnLayout?: number;
+  picoDisplayMode?: string;
+  coverPageUrl?: string;
+  isPublic?: boolean;
   updatedAt: string;
   createdAt: string;
 }
