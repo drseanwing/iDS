@@ -10,6 +10,10 @@ interface Guideline {
   updatedAt: string;
 }
 
+interface GuidelinesPageProps {
+  onOpenGuideline?: (id: string) => void;
+}
+
 function statusColor(status: string) {
   switch (status) {
     case 'DRAFT':
@@ -35,7 +39,7 @@ function LoadingSkeleton() {
   );
 }
 
-export function GuidelinesPage() {
+export function GuidelinesPage({ onOpenGuideline }: GuidelinesPageProps) {
   const { data, isLoading, isError, error } = useGuidelines();
 
   const guidelines: Guideline[] = data?.data ?? data ?? [];
@@ -68,7 +72,12 @@ export function GuidelinesPage() {
       {!isLoading && !isError && guidelines.length > 0 && (
         <div className="space-y-4">
           {guidelines.map((g) => (
-            <div key={g.id} className="rounded-lg border bg-card p-6">
+            <button
+              key={g.id}
+              onClick={() => onOpenGuideline?.(g.id)}
+              aria-label={`Open guideline: ${g.title}`}
+              className="w-full rounded-lg border bg-card p-6 text-left transition-colors hover:border-primary/50 hover:bg-accent/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
               <div className="flex items-start justify-between">
                 <h3 className="font-semibold">{g.title}</h3>
                 <div className="flex gap-2">
@@ -95,7 +104,7 @@ export function GuidelinesPage() {
               <p className="mt-3 text-xs text-muted-foreground">
                 Updated {new Date(g.updatedAt).toLocaleDateString()}
               </p>
-            </div>
+            </button>
           ))}
         </div>
       )}

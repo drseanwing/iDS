@@ -38,7 +38,7 @@ Source docs:
 
 ## Phase 3 — Authoring UX & Rich Text (Arch §5.2, §5.3, §5.4, §9.2)
 - [x] Build application shell (left nav, top bar, context breadcrumbs, guideline selector).
-- [ ] Build guideline workspace screen with section tree and detail panel.
+- [x] Build guideline workspace screen with section tree and detail panel.
 - [ ] Integrate TipTap editor for section/recommendation narrative fields.
 - [ ] Implement section drag-and-drop reorder with stable persisted ordering.
 - [ ] Implement section auto-numbering and `exclude_from_numbering` behavior.
