@@ -1,56 +1,9 @@
 import { BookOpen, Tag, AlignLeft } from 'lucide-react';
-import { cn } from '../../lib/utils';
 import type { Section } from '../../hooks/useSections';
 import type { Recommendation } from '../../hooks/useRecommendations';
-
-function strengthLabel(strength: string | null | undefined): string {
-  switch (strength) {
-    case 'STRONG_FOR':
-      return 'Strong For';
-    case 'CONDITIONAL_FOR':
-      return 'Conditional For';
-    case 'CONDITIONAL_AGAINST':
-      return 'Conditional Against';
-    case 'STRONG_AGAINST':
-      return 'Strong Against';
-    default:
-      return strength ?? 'Not Set';
-  }
-}
-
-function strengthColor(strength: string | null | undefined): string {
-  switch (strength) {
-    case 'STRONG_FOR':
-      return 'bg-green-100 text-green-800';
-    case 'CONDITIONAL_FOR':
-      return 'bg-blue-100 text-blue-800';
-    case 'CONDITIONAL_AGAINST':
-      return 'bg-orange-100 text-orange-800';
-    case 'STRONG_AGAINST':
-      return 'bg-red-100 text-red-800';
-    default:
-      return 'bg-muted text-muted-foreground';
-  }
-}
-
-function typeLabel(type: string | null | undefined): string {
-  switch (type) {
-    case 'GRADE':
-      return 'GRADE';
-    case 'PRACTICE_STATEMENT':
-      return 'Practice Statement';
-    case 'STATUTORY':
-      return 'Statutory';
-    case 'INFO_BOX':
-      return 'Info Box';
-    case 'CONSENSUS':
-      return 'Consensus';
-    case 'NO_LABEL':
-      return 'No Label';
-    default:
-      return type ?? '—';
-  }
-}
+import { RichTextEditor } from '../editor/RichTextEditor';
+import { RecommendationEditorCard } from './RecommendationEditorCard';
+import { useUpdateSection } from '../../hooks/useUpdateSection';
 
 interface SectionDetailPanelProps {
   section: Section | null;
@@ -59,6 +12,8 @@ interface SectionDetailPanelProps {
 }
 
 export function SectionDetailPanel({ section, recommendations, onSelectSection }: SectionDetailPanelProps) {
+  const { mutate: updateSection } = useUpdateSection();
+
   if (!section) {
     return (
       <div className="flex h-full items-center justify-center text-muted-foreground">
@@ -71,6 +26,10 @@ export function SectionDetailPanel({ section, recommendations, onSelectSection }
   }
 
   const sectionRecs = recommendations.filter((r) => r.sectionId === section.id);
+
+  function handleSaveText(json: unknown) {
+    updateSection({ id: section!.id, guidelineId: section!.guidelineId, data: { text: json } });
+  }
 
   return (
     <div className="flex flex-col h-full overflow-y-auto">
@@ -86,28 +45,18 @@ export function SectionDetailPanel({ section, recommendations, onSelectSection }
       </div>
 
       <div className="flex-1 space-y-6 px-6 py-4">
-        {/* Section text */}
-        {section.text ? (
-          <section aria-label="Section text">
-            <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-muted-foreground">
-              <AlignLeft className="h-4 w-4" />
-              Content
-            </h3>
-            <div className="rounded-md border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-              <p className="italic">[Rich text content — TipTap editor integration pending]</p>
-            </div>
-          </section>
-        ) : (
-          <section aria-label="Section text">
-            <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-muted-foreground">
-              <AlignLeft className="h-4 w-4" />
-              Content
-            </h3>
-            <div className="rounded-md border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
-              No content yet. Click to add section text.
-            </div>
-          </section>
-        )}
+        {/* Section text — TipTap rich text editor */}
+        <section aria-label="Section text">
+          <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <AlignLeft className="h-4 w-4" />
+            Content
+          </h3>
+          <RichTextEditor
+            content={section.text}
+            onBlurSave={handleSaveText}
+            placeholder="Add section content…"
+          />
+        </section>
 
         {/* Linked recommendations */}
         <section aria-label="Linked recommendations">
@@ -121,32 +70,7 @@ export function SectionDetailPanel({ section, recommendations, onSelectSection }
           ) : (
             <ul className="space-y-2">
               {sectionRecs.map((rec) => (
-                <li key={rec.id} className="rounded-md border bg-card p-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      {rec.title && (
-                        <p className="truncate text-sm font-medium">{rec.title}</p>
-                      )}
-                    </div>
-                    <div className="flex flex-shrink-0 gap-1.5">
-                      {rec.recommendationType && (
-                        <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-secondary-foreground">
-                          {typeLabel(rec.recommendationType)}
-                        </span>
-                      )}
-                      {rec.strength && (
-                        <span
-                          className={cn(
-                            'rounded-full px-2 py-0.5 text-xs font-medium',
-                            strengthColor(rec.strength),
-                          )}
-                        >
-                          {strengthLabel(rec.strength)}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </li>
+                <RecommendationEditorCard key={rec.id} recommendation={rec} />
               ))}
             </ul>
           )}
