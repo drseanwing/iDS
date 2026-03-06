@@ -7,6 +7,9 @@ export interface Recommendation {
   sectionId?: string | null;
   title?: string | null;
   description?: unknown;
+  remark?: unknown;
+  rationale?: unknown;
+  practicalInfo?: unknown;
   strength?: string | null;
   recommendationType?: string | null;
   status: string;
