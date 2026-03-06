@@ -14,6 +14,18 @@ export class CreateRecommendationDto {
   @ApiProperty({ description: 'TipTap document JSON for recommendation text' })
   description!: any;
 
+  @ApiPropertyOptional({ description: 'TipTap document JSON for remark (critical info shown at top)' })
+  @IsOptional()
+  remark?: any;
+
+  @ApiPropertyOptional({ description: 'TipTap document JSON for rationale/justification' })
+  @IsOptional()
+  rationale?: any;
+
+  @ApiPropertyOptional({ description: 'TipTap document JSON for practical information' })
+  @IsOptional()
+  practicalInfo?: any;
+
   @ApiPropertyOptional({ enum: ['STRONG_FOR', 'CONDITIONAL_FOR', 'CONDITIONAL_AGAINST', 'STRONG_AGAINST', 'NOT_SET'] })
   @IsOptional()
   @IsEnum(['STRONG_FOR', 'CONDITIONAL_FOR', 'CONDITIONAL_AGAINST', 'STRONG_AGAINST', 'NOT_SET'])

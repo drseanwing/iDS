@@ -20,7 +20,7 @@ export function useUpdateRecommendation() {
 
   return useMutation({
     mutationFn: ({ id, data }: UpdateRecommendationVars) =>
-      apiClient.patch(`/recommendations/${id}`, data).then((r) => r.data),
+      apiClient.put(`/recommendations/${id}`, data).then((r) => r.data),
     onSuccess: (_result, { guidelineId }) => {
       void queryClient.invalidateQueries({ queryKey: ['recommendations', guidelineId] });
     },

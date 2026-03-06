@@ -3,7 +3,7 @@
 
 **Version**: 0.1.0-DRAFT
 **Date**: 2026-02-10
-**Status**: Architecture Definition
+**Status**: Architecture Definition — Implementation in progress (see §11 for current status)
 **Derived From**: MAGICapp Technical Extraction (v12.2, February 2026)
 
 ---
@@ -1589,3 +1589,83 @@ Background workers (PDF generation, RevMan import, email) log to the same struct
 | Version | Date | Changes |
 |---------|------|---------|
 | 0.1.0 | 2026-02-10 | Initial architecture definition |
+| 0.1.1 | 2026-03-06 | Added §11 implementation status after full codebase audit |
+
+---
+
+## 11. Implementation Status (as of 2026-03-06)
+
+This section documents what has been built, what is partially built, and what is still pending. Cross-reference with `implementation-task-list.md` for sprint-ready task breakdowns.
+
+### 11.1 What Is Fully Implemented
+
+| Layer | Component | Notes |
+|-------|-----------|-------|
+| Infra | Docker Compose (PostgreSQL, Keycloak, MinIO) | Dev stack fully functional |
+| Backend | NestJS 11 app skeleton + Pino logging + Helmet + CORS | Structured logging with correlation IDs |
+| Backend | Auth module (Keycloak JWT guard, `/auth/me`, `/auth/status`) | JwtStrategy validates Bearer tokens |
+| Backend | Organizations CRUD (`/organizations`) | Full CRUD with pagination |
+| Backend | Guidelines CRUD (`/guidelines`) | Full CRUD; settings fields (`etdMode`, `showSectionNumbers`, etc.) now fully wired |
+| Backend | Sections CRUD + reorder (`/sections`, `POST /sections/reorder`) | Tree structure; 1-level children embedded |
+| Backend | Recommendations CRUD (`/recommendations`) | Full CRUD including `remark`/`rationale`/`practicalInfo` JSON fields (wired in audit) |
+| Backend | PICOs CRUD + terminology codes (`/picos`, `/picos/:id/codes`) | Codes use CodeSystem + code + display |
+| Backend | Outcomes CRUD (`/outcomes`) | GRADE assessment fields (5 downgrade + 3 upgrade) |
+| Backend | References CRUD (`/references`) | Soft-delete blocks in-use references |
+| Backend | Link table APIs (`/links/section-*`, `pico-*`, `outcome-*`) | Upsert + delete + list for 5 join tables |
+| Backend | EtD framework (`GET /recommendations/:id/etd`, `/etd-factors/:id`, `/etd-judgments/:id`) | Get-or-init 13 factor types; per-intervention judgments |
+| Frontend | App shell (sidebar nav, top bar, version badge) | Hardcoded "User" — not wired to auth |
+| Frontend | Guidelines list page + guideline workspace routing | "New Guideline" button not wired |
+| Frontend | Guideline workspace: section tree + detail panel + 3 tabs | Drag-and-drop reorder; auto-numbering |
+| Frontend | TipTap rich text editor (save-on-blur) | StarterKit; track changes not yet added |
+| Frontend | Section detail panel (rich text + linked recommendations + sub-sections) | — |
+| Frontend | Recommendation editor card (description, remark, rationale, practicalInfo, EtD tab) | — |
+| Frontend | PICO builder panel (PICO CRUD, outcome management, code entry) | — |
+| Frontend | GRADE assessment panel (effect data, certainty, 5+3 GRADE factors, plain language) | — |
+| Frontend | EtD panel (4/7/12 factor modes, judgment grid, intervention management) | — |
+| Frontend | Reference list (within guideline workspace: create, edit, link/unlink, search) | — |
+
+### 11.2 Partially Implemented (Stubs / Unwired Components)
+
+| Component | Status | Gap |
+|-----------|--------|-----|
+| `DashboardPage` | Renders with hardcoded `'--'` stat values | No API calls; counts not fetched |
+| `GuidelinesPage` "New Guideline" button | Renders; no action | No create form, modal, or mutation |
+| `ReferencesPage` (app nav → References) | "Coming soon" placeholder | `ReferenceList` inside workspace IS functional |
+| `AppShell` user section | Hardcoded "User" text | Not wired to `useAuth` or auth context |
+| `packages/fhir` | Stub `FhirMeta`/`FhirResource` interfaces only | No FHIR serializers |
+| `packages/ui` | Only `cn()` utility | No shared UI components |
+| Shadow outcomes | Schema fields (`isShadow`, `shadowOf`) exist | No service logic, no UI |
+| `GuidelineVersion` | Prisma model defined | No service, controller, or UI |
+| `ActivityLogEntry` | Prisma model defined | No interceptor writes to it |
+| `fhirMeta` / `fhirExtensions` columns | Defined in schema | Never read or written by any API |
+
+### 11.3 Confirmed Bugs Fixed During Audit
+
+| ID | Bug | Fix Applied |
+|----|-----|-------------|
+| B-01 | `remark`, `rationale`, `practicalInfo` silently dropped on recommendation save | Added to DTO; wired in `RecommendationsService.update()` |
+| B-02 | `useUpdateRecommendation` used HTTP `PATCH`; controller declares `@Put` | Changed hook to `PUT` |
+| B-03 | Guideline settings (`etdMode` + 11 others) absent from DTO and not persisted | Added to `CreateGuidelineDto`; wired in `GuidelinesService.update()` |
+
+### 11.4 Known Schema / Data Integrity Gaps
+
+| Gap | Risk | Recommended Fix |
+|-----|------|-----------------|
+| No `prisma/migrations/` directory | Schema drift undetectable; cannot roll back | Run `prisma migrate dev --name init` to baseline all tables |
+| `EtdFactor` lacks `@@unique([recommendationId, factorType])` | Concurrent `getOrInit()` can create duplicate factor rows | Add unique constraint + handle `createMany` with `skipDuplicates: true` |
+| `GET /sections` embeds only 1 level of `children` | Deep trees require multiple round trips | Add recursive CTE endpoint or depth param |
+| No restore endpoint for soft-deleted entities | Deleted content permanently inaccessible via API | Add `POST /:resource/:id/restore` admin endpoints |
+
+### 11.5 Not Yet Started (Phases 5–9)
+
+The following entire capability areas have **no implementation** in the current codebase:
+
+- **Versioning & Publishing** — state machine, publish actions, version snapshots, permalink routing
+- **Collaboration & Governance** — RBAC enforcement, activity log, track changes, comments, COI, voting, milestones, tasks
+- **FHIR Facade** — projection layer, FHIR endpoints, FHIR Bundle snapshots
+- **Terminology Integration** — SNOMED CT / ICD-10 / ATC / RxNorm code search (BioPortal proxy)
+- **Export** — PDF generation, DOCX, JSON exports, S3 upload integration
+- **Decision Aids** — generation, layered UI, embeddable widget
+- **Background Workers** — Bull queue, worker process, async job infrastructure
+- **Rate Limiting** — no middleware; Helmet + CORS are the only transport-level controls
+- **E2E / Integration Tests** — only unit tests exist (64 API + 68 web)
