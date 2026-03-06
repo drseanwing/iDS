@@ -28,13 +28,19 @@ export class ReferencesController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'List references by guideline' })
-  @ApiQuery({ name: 'guidelineId', required: true })
-  findByGuideline(
-    @Query('guidelineId', ParseUUIDPipe) guidelineId: string,
+  @ApiOperation({ summary: 'List references, optionally filtered by guideline or search term' })
+  @ApiQuery({ name: 'guidelineId', required: false })
+  @ApiQuery({ name: 'search', required: false })
+  findAll(
+    @Query('guidelineId') guidelineId?: string,
+    @Query('search') search?: string,
     @Query() pagination?: PaginationQueryDto,
   ) {
-    return this.referencesService.findByGuideline(guidelineId, pagination?.page, pagination?.limit);
+    return this.referencesService.findAll(
+      { guidelineId, search },
+      pagination?.page,
+      pagination?.limit,
+    );
   }
 
   @Get(':id')

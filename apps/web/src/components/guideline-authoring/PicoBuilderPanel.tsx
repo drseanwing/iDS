@@ -492,6 +492,11 @@ function PicoCard({ pico, guidelineId }: PicoCardProps) {
   const [population, setPopulation] = useState(pico.population);
   const [intervention, setIntervention] = useState(pico.intervention);
   const [comparator, setComparator] = useState(pico.comparator);
+  const [narrativeSummary, setNarrativeSummary] = useState(
+    typeof pico.narrativeSummary === 'string'
+      ? pico.narrativeSummary
+      : (pico.narrativeSummary as Record<string, unknown> | null)?.text as string ?? '',
+  );
 
   const { mutate: updatePico, isPending: savingPico } = useUpdatePico();
   const { mutate: deletePico, isPending: deletingPico } = useDeletePico();
@@ -499,6 +504,14 @@ function PicoCard({ pico, guidelineId }: PicoCardProps) {
   function handleFieldBlur(field: 'population' | 'intervention' | 'comparator', value: string) {
     if (value === pico[field]) return;
     updatePico({ id: pico.id, guidelineId, data: { [field]: value } });
+  }
+
+  function handleNarrativeBlur() {
+    const current = typeof pico.narrativeSummary === 'string'
+      ? pico.narrativeSummary
+      : (pico.narrativeSummary as Record<string, unknown> | null)?.text as string ?? '';
+    if (narrativeSummary === current) return;
+    updatePico({ id: pico.id, guidelineId, data: { narrativeSummary: { text: narrativeSummary } } });
   }
 
   const nextOrdering = pico.outcomes.length > 0
@@ -565,6 +578,22 @@ function PicoCard({ pico, guidelineId }: PicoCardProps) {
                 />
               </div>
             ))}
+          </div>
+
+          {/* Narrative summary */}
+          <div className="px-3 pb-2">
+            <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Narrative Summary
+            </label>
+            <textarea
+              rows={3}
+              className="w-full resize-none rounded border px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              value={narrativeSummary}
+              onChange={(e) => setNarrativeSummary(e.target.value)}
+              onBlur={handleNarrativeBlur}
+              placeholder="Provide a plain-language summary of this PICO question…"
+              aria-label="Narrative summary"
+            />
           </div>
 
           {/* Sub-tabs: Outcomes / Codes */}

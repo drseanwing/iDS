@@ -21,4 +21,8 @@ export class CreatePicoDto {
   @ApiPropertyOptional({ description: 'Narrative summary (TipTap JSON)' })
   @IsOptional()
   narrativeSummary?: any;
+
+  @ApiPropertyOptional({ description: 'FHIR metadata JSON (e.g. EvidenceVariable resource mapping)' })
+  @IsOptional()
+  fhirMeta?: any;
 }

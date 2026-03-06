@@ -95,4 +95,8 @@ export class CreateGuidelineDto {
   @IsOptional()
   @IsBoolean()
   isPublic?: boolean;
+
+  @ApiPropertyOptional({ description: 'FHIR metadata JSON (e.g. resource type, profile, tags)' })
+  @IsOptional()
+  fhirMeta?: any;
 }

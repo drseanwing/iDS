@@ -21,22 +21,41 @@ export class ReferencesService {
         doi: dto.doi,
         url: dto.url,
         studyType: (dto.studyType as StudyType) || StudyType.OTHER,
+        fhirMeta: dto.fhirMeta ?? {},
       },
     });
   }
 
-  async findByGuideline(guidelineId: string, page = 1, limit = 20) {
-    const where = { guidelineId, isDeleted: false };
+  async findAll(filters?: { guidelineId?: string; search?: string }, page = 1, limit = 20) {
+    const where: Prisma.ReferenceWhereInput = { isDeleted: false };
+    if (filters?.guidelineId) where.guidelineId = filters.guidelineId;
+    if (filters?.search) {
+      where.OR = [
+        { title: { contains: filters.search, mode: 'insensitive' } },
+        { authors: { contains: filters.search, mode: 'insensitive' } },
+        { doi: { contains: filters.search, mode: 'insensitive' } },
+        { pubmedId: { contains: filters.search, mode: 'insensitive' } },
+      ];
+    }
     const [data, total] = await Promise.all([
       this.prisma.reference.findMany({
         where,
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
         take: limit,
+        include: {
+          guideline: { select: { id: true, title: true, shortName: true } },
+          sectionPlacements: { select: { sectionId: true, section: { select: { title: true } } } },
+          outcomeLinks: { select: { outcomeId: true, outcome: { select: { title: true } } } },
+        },
       }),
       this.prisma.reference.count({ where }),
     ]);
     return new PaginatedResponseDto(data, total, page, limit);
+  }
+
+  async findByGuideline(guidelineId: string, page = 1, limit = 20) {
+    return this.findAll({ guidelineId }, page, limit);
   }
 
   async findOne(id: string) {
@@ -65,6 +84,7 @@ export class ReferencesService {
     if (dto.doi !== undefined) data.doi = dto.doi;
     if (dto.url !== undefined) data.url = dto.url;
     if (dto.studyType !== undefined) data.studyType = dto.studyType as StudyType;
+    if (dto.fhirMeta !== undefined) data.fhirMeta = dto.fhirMeta;
     return this.prisma.reference.update({
       where: { id },
       data,

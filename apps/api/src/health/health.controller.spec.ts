@@ -1,12 +1,18 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { HealthController } from './health.controller';
+import { PrismaService } from '../prisma/prisma.service';
 
 describe('HealthController', () => {
   let controller: HealthController;
 
+  const mockPrisma = {
+    $queryRaw: jest.fn().mockResolvedValue([{ '?column?': 1 }]),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [HealthController],
+      providers: [{ provide: PrismaService, useValue: mockPrisma }],
     }).compile();
 
     controller = module.get<HealthController>(HealthController);
@@ -21,5 +27,16 @@ describe('HealthController', () => {
     expect(result.status).toBe('ok');
     expect(result.service).toBe('opengrade-api');
     expect(result.timestamp).toBeDefined();
+  });
+
+  it('should return readiness status when database is available', async () => {
+    const result = await controller.ready();
+    expect(result.status).toBe('ok');
+    expect(result.checks.database).toBe('ok');
+  });
+
+  it('should throw when database is unavailable', async () => {
+    mockPrisma.$queryRaw.mockRejectedValueOnce(new Error('Connection refused'));
+    await expect(controller.ready()).rejects.toThrow();
   });
 });

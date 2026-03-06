@@ -17,6 +17,7 @@ export class RecommendationsService {
         description: dto.description,
         strength: (dto.strength as RecommendationStrength) || RecommendationStrength.NOT_SET,
         recommendationType: (dto.recommendationType as RecommendationType) || RecommendationType.GRADE,
+        fhirMeta: dto.fhirMeta ?? {},
         createdBy: userId,
         updatedBy: userId,
       },
@@ -75,6 +76,7 @@ export class RecommendationsService {
     if (dto.practicalInfo !== undefined) data.practicalInfo = dto.practicalInfo;
     if (dto.strength !== undefined) data.strength = dto.strength as RecommendationStrength;
     if (dto.recommendationType !== undefined) data.recommendationType = dto.recommendationType as RecommendationType;
+    if (dto.fhirMeta !== undefined) data.fhirMeta = dto.fhirMeta;
     return this.prisma.recommendation.update({
       where: { id },
       data,

@@ -35,4 +35,8 @@ export class CreateRecommendationDto {
   @IsOptional()
   @IsEnum(['GRADE', 'PRACTICE_STATEMENT', 'STATUTORY', 'INFO_BOX', 'CONSENSUS', 'NO_LABEL'])
   recommendationType?: string;
+
+  @ApiPropertyOptional({ description: 'FHIR metadata JSON (e.g. PlanDefinition resource mapping)' })
+  @IsOptional()
+  fhirMeta?: any;
 }
