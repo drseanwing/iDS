@@ -10,7 +10,32 @@ interface UpdateOutcomeVars {
     state?: string;
     importance?: number;
     ordering?: number;
+    // Effect data
+    effectMeasure?: string;
+    relativeEffect?: number;
+    relativeEffectLower?: number;
+    relativeEffectUpper?: number;
+    baselineRisk?: number;
+    absoluteEffectIntervention?: number;
+    absoluteEffectComparison?: number;
+    interventionParticipants?: number;
+    comparisonParticipants?: number;
+    numberOfStudies?: number;
+    // Continuous outcome specifics
+    continuousUnit?: string;
+    continuousScaleLower?: number;
+    continuousScaleUpper?: number;
+    // GRADE assessment
     certaintyOverall?: string;
+    riskOfBias?: string;
+    inconsistency?: string;
+    indirectness?: string;
+    imprecision?: string;
+    publicationBias?: string;
+    largeEffect?: string;
+    doseResponse?: string;
+    plausibleConfounding?: string;
+    // Plain language summary
     plainLanguageSummary?: string;
   };
 }

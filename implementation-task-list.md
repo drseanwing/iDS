@@ -48,10 +48,10 @@ Source docs:
 - [x] Add recommendation cards with rationale/practical information blocks.
 
 ## Phase 4 — Evidence Engine (GRADE + EtD) (Arch §3.1, §5.3, §8, §9)
-- [ ] Implement outcome evidence fields (effect measures, CI bounds, participant counts).
-- [ ] Implement GRADE certainty model and downgrade/upgrade factor persistence.
-- [ ] Build GRADE assessment UI (risk of bias, inconsistency, indirectness, imprecision, publication bias, upgrades).
-- [ ] Implement plain-language summary field for each outcome.
+- [x] Implement outcome evidence fields (effect measures, CI bounds, participant counts).
+- [x] Implement GRADE certainty model and downgrade/upgrade factor persistence.
+- [x] Build GRADE assessment UI (risk of bias, inconsistency, indirectness, imprecision, publication bias, upgrades).
+- [x] Implement plain-language summary field for each outcome.
 - [ ] Implement EtD models for 4-factor, 7-factor, and 12-factor modes.
 - [ ] Build EtD UI grids with per-intervention judgments and color labels.
 - [ ] Implement mode switching without data loss (hidden-but-preserved factors).
