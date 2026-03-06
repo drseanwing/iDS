@@ -7,6 +7,7 @@ import { useReorderSections } from '../hooks/useReorderSections';
 import { useRecommendations } from '../hooks/useRecommendations';
 import { SectionTree } from '../components/guideline-authoring/SectionTree';
 import { SectionDetailPanel } from '../components/guideline-authoring/SectionDetailPanel';
+import { ReferenceList } from '../components/guideline-authoring/ReferenceList';
 import type { Section } from '../hooks/useSections';
 
 type WorkspaceTab = 'recommendations' | 'evidence' | 'references';
@@ -189,9 +190,10 @@ export function GuidelineWorkspacePage({ guidelineId, onBack }: GuidelineWorkspa
             </div>
           )}
           {activeTab === 'references' && (
-            <div className="flex h-full items-center justify-center text-muted-foreground">
-              <p className="text-sm">References panel — coming soon</p>
-            </div>
+            <ReferenceList
+              guidelineId={guidelineId}
+              selectedSection={selectedSection}
+            />
           )}
         </main>
       </div>
