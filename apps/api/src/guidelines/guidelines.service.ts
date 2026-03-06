@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { EtdMode, Prisma, GuidelineType, PicoDisplay } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaginatedResponseDto } from '../common/dto';
@@ -122,5 +122,28 @@ export class GuidelinesService {
       where: { id },
       data: { isDeleted: false },
     });
+  }
+
+  async updateStatus(id: string, status: string) {
+    const guideline = await this.findOne(id);
+    const allowed = this.getAllowedTransitions(guideline.status);
+    if (!allowed.includes(status as any)) {
+      throw new BadRequestException(`Cannot transition from ${guideline.status} to ${status}`);
+    }
+    return this.prisma.guideline.update({
+      where: { id },
+      data: { status: status as any },
+    });
+  }
+
+  private getAllowedTransitions(current: string): string[] {
+    const transitions: Record<string, string[]> = {
+      DRAFT: ['DRAFT_INTERNAL', 'PUBLIC_CONSULTATION'],
+      DRAFT_INTERNAL: ['DRAFT', 'PUBLISHED_INTERNAL', 'PUBLIC_CONSULTATION'],
+      PUBLISHED_INTERNAL: ['DRAFT_INTERNAL', 'PUBLIC_CONSULTATION', 'PUBLISHED'],
+      PUBLIC_CONSULTATION: ['DRAFT_INTERNAL', 'PUBLISHED_INTERNAL', 'PUBLISHED'],
+      PUBLISHED: ['DRAFT'],
+    };
+    return transitions[current] ?? [];
   }
 }

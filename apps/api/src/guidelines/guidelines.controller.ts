@@ -75,4 +75,13 @@ export class GuidelinesController {
   restore(@Param('id', ParseUUIDPipe) id: string) {
     return this.guidelinesService.restore(id);
   }
+
+  @Put(':id/status')
+  @ApiOperation({ summary: 'Transition guideline to a new status' })
+  updateStatus(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('status') status: string,
+  ) {
+    return this.guidelinesService.updateStatus(id, status);
+  }
 }

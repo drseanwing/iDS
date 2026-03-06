@@ -4,7 +4,7 @@ Source docs:
 - `opengrade-architecture.md`
 - `compass_artifact_wf-ac90d96b-1eee-4206-9b48-09594f3da2b5_text_markdown.md` (MAGICapp reverse-engineering technical specification artifact)
 
-> **Audit status**: Last reviewed 2026-03-06. All items verified against live codebase. Latest batch: migration history, fhirMeta wiring, ReferencesPage, PICO narrative, reference places-used, health check.
+> **Audit status**: Last reviewed 2026-03-06. All items verified against live codebase. Latest batch: practical issues CRUD, guideline state machine, versioning service, activity logging interceptor, threaded comments API.
 > Legend: `[x]` = implemented & verified | `[~]` = partially implemented / known gap | `[ ]` = not yet started
 
 ---
@@ -77,7 +77,7 @@ Source docs:
   - [x] Recommendation creation UI — "Add" button + inline form added to `SectionDetailPanel`; wired via `useCreateRecommendation` (creates rec and links to section).
   - [x] Recommendation deletion UI — `Trash2` delete button with two-step confirm added to `RecommendationEditorCard`; wired via `useDeleteRecommendation`.
   - [~] PICO narrative summary field — **fixed** (added `narrativeSummary` textarea to PicoCard in PicoBuilderPanel; auto-saves on blur via `useUpdatePico`). _(Schema field is `narrativeSummary Json?`; DTO already had the field; only UI was missing.)_
-  - [ ] Practical issues (16 categories from grounded theory) for PICO — schema and service missing, not in PICO builder.
+  - [~] Practical issues (16 categories from grounded theory) for PICO — **fixed** (added `PracticalIssue` CRUD endpoints on `/picos/:picoId/practical-issues` with `CreatePracticalIssueDto` supporting all 16 categories; service methods `addPracticalIssue`, `updatePracticalIssue`, `removePracticalIssue` added to PicosService). _(UI not yet built in PicoBuilderPanel.)_
   - [~] Reference "places used" tracking — **fixed** (top-level ReferencesPage now shows section and outcome link badges per reference; API `findAll` includes `sectionPlacements` and `outcomeLinks` with titles).
   - [ ] Reference auto-numbering on read — architecture specifies depth-first traversal numbering, not yet implemented.
   - [ ] Track changes in TipTap — not implemented (extension not installed, no accept/reject workflow).
@@ -101,8 +101,8 @@ Source docs:
 ---
 
 ## Phase 5 — Workflow, Versioning, and Publishing (Arch §3.1, §5, §9.4)
-- [ ] Implement recommendation and guideline state machine transitions. _(Prisma schema has `status` enum on Guideline and `recStatus`/`recStatusDate`/`recStatusComment` on Recommendation, but no service methods or API endpoints exist to drive transitions.)_
-- [ ] Implement publish actions (minor/major) and version comment capture. _(GuidelineVersion model exists in schema but no versioning service, controller, or UI.)_
+- [~] Implement recommendation and guideline state machine transitions. — **partially fixed** (added `PUT /guidelines/:id/status` endpoint with `updateStatus()` service method enforcing allowed transitions: DRAFT→DRAFT_INTERNAL/PUBLIC_CONSULTATION, etc. Recommendation state machine not yet implemented.)
+- [~] Implement publish actions (minor/major) and version comment capture. — **partially fixed** (added `VersionsModule` with `POST /versions` to create version snapshots, `GET /versions?guidelineId=` listing, auto-incremented version numbering via `computeNextVersion()`. UI not yet built.)
 - [ ] Auto-create next draft after publish and mark prior versions as out-of-date.
 - [ ] Separate publishing from public visibility toggle with guardrails. _(`isPublic` field now settable via API but no publish workflow enforces it.)_
 - [ ] Implement permalink strategy (`shortName`, latest public, explicit version URL).
@@ -114,12 +114,12 @@ Source docs:
 
 ## Phase 6 — Collaboration, Permissions, and Governance (Arch §4.2, §6, §9.3)
 - [ ] Implement full RBAC matrix (organization roles + guideline roles). _(Auth guard validates JWT; GuidelinePermission/OrganizationMember models exist in schema; no RBAC enforcement on any endpoint beyond authentication check.)_
-- [ ] Implement activity logging interceptor for create/update/delete/publish flows. _(ActivityLogEntry model defined in schema; no interceptor writes to it.)_
-- [ ] Build activity log screen with user/action/entity/date filters.
+- [~] Implement activity logging interceptor for create/update/delete/publish flows. — **fixed** (added global `ActivityLoggingInterceptor` registered as `APP_INTERCEPTOR`; logs POST/PUT/PATCH/DELETE operations best-effort via `ActivityService.log()`; `ActivityModule` is `@Global()`).
+- [~] Build activity log screen with user/action/entity/date filters. — **partially fixed** (added `GET /activity?guidelineId=` endpoint with optional `userId`, `entityType`, `actionType` filters in `ActivityController`. UI not yet built.)
 - [~] Implement undo/recover flows for soft-deleted content. _(Restore API endpoints added for guidelines and sections. Admin UI for browsing/restoring deleted content not yet built.)_
 - [ ] Implement track changes model and rendering in rich-text fields.
 - [ ] Add accept/reject tracked changes workflow with role checks.
-- [ ] Implement threaded comments and status workflow (open/resolved/deprecated). _(FeedbackComment model defined in schema; no endpoints or UI.)_
+- [~] Implement threaded comments and status workflow (open/resolved/deprecated). — **fixed** (added `CommentsModule` with full CRUD: `POST /comments`, `GET /comments?guidelineId=`, `PUT /comments/:id`, `DELETE /comments/:id`, `PUT /comments/:id/status`; supports threaded replies via `parentId`; status transitions open→resolved→deprecated). _(UI not yet built.)_
 - [ ] Implement COI matrix storage and intervention/member conflict views. _(CoiRecord model defined in schema; no endpoints or UI.)_
 - [ ] Add voting exclusion logic linked to COI declarations.
 - [ ] Implement Poll/Delphi voting tool. _(Poll model defined in schema; no endpoints or UI.)_
@@ -201,9 +201,9 @@ The following items are confirmed bugs or incomplete wiring in the current codeb
 | ~~U-07~~ | ~~Frontend / Recommendations~~ | **Fixed** — "Add Recommendation" inline form in `SectionDetailPanel`; wired via `useCreateRecommendation` |
 | ~~U-08~~ | ~~Frontend / Recommendations~~ | **Fixed** — Delete button with two-step confirm added to `RecommendationEditorCard`; wired via `useDeleteRecommendation` |
 | ~~U-09~~ | ~~Frontend / Guideline settings~~ | **Fixed** — Added `GuidelineSettingsPanel` component; accessible via "Settings" tab in workspace; `useUpdateGuideline` hook calls `PUT /guidelines/:id` |
-| U-10 | API / Versioning | `GuidelineVersion` Prisma model exists but no service, controller, or frontend code |
-| U-11 | API / Governance | `ActivityLogEntry` model exists but no interceptor writes to it |
-| U-12 | API / Governance | `FeedbackComment`, `CoiRecord`, `Poll`, `Milestone`, `ChecklistItem`, `Task` models exist but have no API endpoints |
+| ~~U-10~~ | ~~API / Versioning~~ | **Fixed** — Added `VersionsModule` with `POST /versions` (publish), `GET /versions?guidelineId=`, `GET /versions/:id`; auto-increments version number; stores snapshot bundles |
+| ~~U-11~~ | ~~API / Governance~~ | **Fixed** — Added global `ActivityLoggingInterceptor` that writes to `ActivityLogEntry` on POST/PUT/PATCH/DELETE; `GET /activity` endpoint with filters |
+| ~~U-12 (partial)~~ | ~~API / Governance~~ | **Partially fixed** — `FeedbackComment` endpoints implemented (threaded comments with status workflow). `CoiRecord`, `Poll`, `Milestone`, `ChecklistItem`, `Task` models still have no API endpoints |
 | ~~U-13~~ | ~~API / FHIR~~ | **Fixed** — `fhirMeta` JSON field added to Create/Update DTOs and wired through services for Guideline, Reference, Pico, Recommendation |
 | U-14 | API / Evidence | Shadow outcome fields (`isShadow`, `shadowOf`) exist in Prisma Outcome model but no service logic or UI |
 | U-15 | API / Storage | MinIO provisioned in Docker Compose but no S3 client code in the API; no file upload endpoints |
