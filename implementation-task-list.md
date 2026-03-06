@@ -4,7 +4,7 @@ Source docs:
 - `opengrade-architecture.md`
 - `compass_artifact_wf-ac90d96b-1eee-4206-9b48-09594f3da2b5_text_markdown.md` (MAGICapp reverse-engineering technical specification artifact)
 
-> **Audit status**: Last reviewed 2026-03-06. All items verified against live codebase. Latest batch: reference auto-numbering, recommendation status transitions, version snapshot improvements.
+> **Audit status**: Last reviewed 2026-03-06. All items verified against live codebase. Latest batch: shadow outcomes, COI records, polls/voting, milestones/checklists, task manager.
 > Legend: `[x]` = implemented & verified | `[~]` = partially implemented / known gap | `[ ]` = not yet started
 
 ---
@@ -95,13 +95,13 @@ Source docs:
 - [x] Implement EtD models for 4-factor, 7-factor, and 12-factor modes.
 - [x] Build EtD UI grids with per-intervention judgments and color labels.
 - [x] Implement mode switching without data loss (hidden-but-preserved factors).
-- [ ] Implement shadow outcome workflow for evidence updates. _(Prisma schema has `isShadow`/`shadowOf` fields on Outcome but no service logic or UI for creating/promoting shadow outcomes.)_
+- [~] Implement shadow outcome workflow for evidence updates. — **fixed** (added `POST /outcomes/:id/shadow` to create shadow copy, `POST /outcomes/:id/promote` to promote shadow replacing original with transaction, `GET /outcomes/:id/shadows` to list shadows; all evidence fields copied). _(UI not yet built.)_
 - [ ] Add RevMan (`.rm5`) parsing/import pipeline and outcome matching controls. _(No parser, no import wizard, no background job infrastructure.)_
 
 ---
 
 ## Phase 5 — Workflow, Versioning, and Publishing (Arch §3.1, §5, §9.4)
-- [~] Implement recommendation and guideline state machine transitions. — **partially fixed** (added `PUT /guidelines/:id/status` endpoint with `updateStatus()` service method enforcing allowed transitions: DRAFT→DRAFT_INTERNAL/PUBLIC_CONSULTATION, etc. Recommendation state machine not yet implemented.)
+- [x] Implement recommendation and guideline state machine transitions. — **fixed** (guideline: `PUT /guidelines/:id/status` with allowed-transitions map; recommendation: `PUT /recommendations/:id/status` with RecStatus enum [NEW, UPDATED, IN_REVIEW, POSSIBLY_OUTDATED, UPDATED_EVIDENCE, REVIEWED, NO_LABEL] and optional comment + timestamp).
 - [~] Implement publish actions (minor/major) and version comment capture. — **partially fixed** (added `VersionsModule` with `POST /versions` to create version snapshots, `GET /versions?guidelineId=` listing, auto-incremented version numbering via `computeNextVersion()`. UI not yet built.)
 - [ ] Auto-create next draft after publish and mark prior versions as out-of-date.
 - [ ] Separate publishing from public visibility toggle with guardrails. _(`isPublic` field now settable via API but no publish workflow enforces it.)_
@@ -120,11 +120,11 @@ Source docs:
 - [ ] Implement track changes model and rendering in rich-text fields.
 - [ ] Add accept/reject tracked changes workflow with role checks.
 - [~] Implement threaded comments and status workflow (open/resolved/deprecated). — **fixed** (added `CommentsModule` with full CRUD: `POST /comments`, `GET /comments?guidelineId=`, `PUT /comments/:id`, `DELETE /comments/:id`, `PUT /comments/:id/status`; supports threaded replies via `parentId`; status transitions open→resolved→deprecated). _(UI not yet built.)_
-- [ ] Implement COI matrix storage and intervention/member conflict views. _(CoiRecord model defined in schema; no endpoints or UI.)_
-- [ ] Add voting exclusion logic linked to COI declarations.
-- [ ] Implement Poll/Delphi voting tool. _(Poll model defined in schema; no endpoints or UI.)_
-- [ ] Implement Milestone tracker with AGREE II / SNAP-IT checklists. _(Milestone and ChecklistItem models defined in schema; no endpoints or UI.)_
-- [ ] Implement Task manager (Kanban board). _(Task model defined in schema; no endpoints or UI.)_
+- [~] Implement COI matrix storage and intervention/member conflict views. — **partially fixed** (added `CoiModule` with CRUD: `POST /coi`, `GET /coi?guidelineId=`, `GET /coi/user/:userId?guidelineId=`, `PUT /coi/:id`, `DELETE /coi/:id`; supports disclosureText, conflictType, interventions JSON, isExcludedFromVoting). _(UI not yet built.)_
+- [~] Add voting exclusion logic linked to COI declarations. — **partially fixed** (PollsService `castVote` checks CoiRecord `isExcludedFromVoting` flag and throws ForbiddenException if user is excluded).
+- [~] Implement Poll/Delphi voting tool. — **partially fixed** (added `PollsModule` with `POST /polls`, `GET /polls?guidelineId=`, `GET /polls/:id`, `POST /polls/:id/vote`, `PUT /polls/:id/close`, `GET /polls/:id/results`; supports poll options, vote casting with COI exclusion check, result aggregation). _(UI not yet built.)_
+- [~] Implement Milestone tracker with AGREE II / SNAP-IT checklists. — **partially fixed** (added `MilestonesModule` with `POST /milestones`, `GET /milestones?guidelineId=`, `PUT /milestones/:id`, `DELETE /milestones/:id`, `POST /milestones/:id/items`, `PUT /milestones/items/:itemId/toggle`, `DELETE /milestones/items/:itemId`). _(UI not yet built.)_
+- [~] Implement Task manager (Kanban board). — **partially fixed** (added `TasksModule` with CRUD: `POST /tasks`, `GET /tasks?guidelineId=&status=&assigneeId=`, `GET /tasks/:id`, `PUT /tasks/:id`, `DELETE /tasks/:id`; filterable by status and assignee). _(UI not yet built.)_
 - [ ] Build guideline permission management UI (invite members, assign roles).
 
 ---
@@ -203,9 +203,9 @@ The following items are confirmed bugs or incomplete wiring in the current codeb
 | ~~U-09~~ | ~~Frontend / Guideline settings~~ | **Fixed** — Added `GuidelineSettingsPanel` component; accessible via "Settings" tab in workspace; `useUpdateGuideline` hook calls `PUT /guidelines/:id` |
 | ~~U-10~~ | ~~API / Versioning~~ | **Fixed** — Added `VersionsModule` with `POST /versions` (publish), `GET /versions?guidelineId=`, `GET /versions/:id`; auto-increments version number; stores snapshot bundles |
 | ~~U-11~~ | ~~API / Governance~~ | **Fixed** — Added global `ActivityLoggingInterceptor` that writes to `ActivityLogEntry` on POST/PUT/PATCH/DELETE; `GET /activity` endpoint with filters |
-| ~~U-12 (partial)~~ | ~~API / Governance~~ | **Partially fixed** — `FeedbackComment` endpoints implemented (threaded comments with status workflow). `CoiRecord`, `Poll`, `Milestone`, `ChecklistItem`, `Task` models still have no API endpoints |
+| ~~U-12~~ | ~~API / Governance~~ | **Fixed** — All governance models now have API endpoints: `FeedbackComment` (threaded comments), `CoiRecord` (COI declarations with exclusion), `Poll`/`PollOption`/`PollVote` (voting with COI check), `Milestone`/`ChecklistItem` (tracker with toggle), `Task` (Kanban) |
 | ~~U-13~~ | ~~API / FHIR~~ | **Fixed** — `fhirMeta` JSON field added to Create/Update DTOs and wired through services for Guideline, Reference, Pico, Recommendation |
-| U-14 | API / Evidence | Shadow outcome fields (`isShadow`, `shadowOf`) exist in Prisma Outcome model but no service logic or UI |
+| ~~U-14~~ | ~~API / Evidence~~ | **Fixed** — Added shadow outcome CRUD: `POST /outcomes/:id/shadow`, `POST /outcomes/:id/promote` (transactional), `GET /outcomes/:id/shadows` |
 | U-15 | API / Storage | MinIO provisioned in Docker Compose but no S3 client code in the API; no file upload endpoints |
 | U-16 | Packages / Widget | Architecture specifies `packages/widget` Preact micro-bundle; directory does not exist |
 | U-17 | Packages / Shared | `packages/fhir` has only stub types; `packages/ui` has only `cn()` utility — no FHIR serializers or shared UI components |

@@ -17,6 +17,10 @@ import { VersionsModule } from './versions/versions.module';
 import { ActivityModule } from './activity/activity.module';
 import { ActivityLoggingInterceptor } from './activity/activity.interceptor';
 import { CommentsModule } from './comments/comments.module';
+import { CoiModule } from './coi/coi.module';
+import { PollsModule } from './polls/polls.module';
+import { MilestonesModule } from './milestones/milestones.module';
+import { TasksModule } from './tasks/tasks.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -55,6 +59,10 @@ import configuration from './config/configuration';
     VersionsModule,
     ActivityModule,
     CommentsModule,
+    CoiModule,
+    PollsModule,
+    MilestonesModule,
+    TasksModule,
   ],
   controllers: [HealthController],
   providers: [
