@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, GuidelineType } from '@prisma/client';
+import { EtdMode, Prisma, GuidelineType, PicoDisplay } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaginatedResponseDto } from '../common/dto';
 import { CreateGuidelineDto } from './dto/create-guideline.dto';
@@ -65,6 +65,18 @@ export class GuidelinesService {
     if (dto.description !== undefined) data.description = dto.description;
     if (dto.language !== undefined) data.language = dto.language;
     if (dto.guidelineType !== undefined) data.guidelineType = dto.guidelineType as GuidelineType;
+    if (dto.etdMode !== undefined) data.etdMode = dto.etdMode as EtdMode;
+    if (dto.showSectionNumbers !== undefined) data.showSectionNumbers = dto.showSectionNumbers;
+    if (dto.showCertaintyInLabel !== undefined) data.showCertaintyInLabel = dto.showCertaintyInLabel;
+    if (dto.showGradeDescription !== undefined) data.showGradeDescription = dto.showGradeDescription;
+    if (dto.trackChangesDefault !== undefined) data.trackChangesDefault = dto.trackChangesDefault;
+    if (dto.enableSubscriptions !== undefined) data.enableSubscriptions = dto.enableSubscriptions;
+    if (dto.enablePublicComments !== undefined) data.enablePublicComments = dto.enablePublicComments;
+    if (dto.showSectionTextPreview !== undefined) data.showSectionTextPreview = dto.showSectionTextPreview;
+    if (dto.pdfColumnLayout !== undefined) data.pdfColumnLayout = dto.pdfColumnLayout;
+    if (dto.picoDisplayMode !== undefined) data.picoDisplayMode = dto.picoDisplayMode as PicoDisplay;
+    if (dto.coverPageUrl !== undefined) data.coverPageUrl = dto.coverPageUrl;
+    if (dto.isPublic !== undefined) data.isPublic = dto.isPublic;
     return this.prisma.guideline.update({
       where: { id },
       data,

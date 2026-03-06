@@ -57,6 +57,9 @@ export class RecommendationsService {
     const data: Prisma.RecommendationUpdateInput = { updatedBy: userId };
     if (dto.title !== undefined) data.title = dto.title;
     if (dto.description !== undefined) data.description = dto.description;
+    if (dto.remark !== undefined) data.remark = dto.remark;
+    if (dto.rationale !== undefined) data.rationale = dto.rationale;
+    if (dto.practicalInfo !== undefined) data.practicalInfo = dto.practicalInfo;
     if (dto.strength !== undefined) data.strength = dto.strength as RecommendationStrength;
     if (dto.recommendationType !== undefined) data.recommendationType = dto.recommendationType as RecommendationType;
     return this.prisma.recommendation.update({
