@@ -10,6 +10,7 @@ export interface Guideline {
   organizationId?: string;
   language?: string;
   guidelineType?: string;
+  showSectionNumbers?: boolean;
   updatedAt: string;
   createdAt: string;
 }

@@ -1,8 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { ArrowLeft, Loader2, AlertCircle } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useGuideline } from '../hooks/useGuideline';
 import { useSections } from '../hooks/useSections';
+import { useReorderSections } from '../hooks/useReorderSections';
 import { useRecommendations } from '../hooks/useRecommendations';
 import { SectionTree } from '../components/guideline-authoring/SectionTree';
 import { SectionDetailPanel } from '../components/guideline-authoring/SectionDetailPanel';
@@ -54,6 +55,8 @@ export function GuidelineWorkspacePage({ guidelineId, onBack }: GuidelineWorkspa
     isError: sectionsError,
   } = useSections(guidelineId);
 
+  const { mutate: reorderSections } = useReorderSections();
+
   const {
     data: recommendations = [],
   } = useRecommendations(guidelineId);
@@ -61,6 +64,19 @@ export function GuidelineWorkspacePage({ guidelineId, onBack }: GuidelineWorkspa
   const selectedSection = useMemo(
     () => (selectedSectionId ? findSection(sections, selectedSectionId) : null),
     [sections, selectedSectionId],
+  );
+
+  /**
+   * Handle reorder events from SectionTree.
+   * parentId=null means root level; otherwise it's a parent section ID.
+   * orderedIds is the new ordering of sibling IDs.
+   */
+  const handleReorder = useCallback(
+    (parentId: string | null, orderedIds: string[]) => {
+      const reorderedItems = orderedIds.map((id, index) => ({ id, ordering: index }));
+      reorderSections({ guidelineId, sections: reorderedItems });
+    },
+    [guidelineId, reorderSections],
   );
 
   const tabs: { id: WorkspaceTab; label: string }[] = [
@@ -151,7 +167,9 @@ export function GuidelineWorkspacePage({ guidelineId, onBack }: GuidelineWorkspa
             <SectionTree
               sections={sections}
               selectedId={selectedSectionId}
+              showNumbers={guideline?.showSectionNumbers ?? true}
               onSelect={setSelectedSectionId}
+              onReorder={handleReorder}
             />
           )}
         </aside>

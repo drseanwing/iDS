@@ -1,23 +1,120 @@
-import { ChevronRight, ChevronDown, FolderOpen, Folder } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { ChevronRight, ChevronDown, FolderOpen, Folder, GripVertical } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '../../lib/utils';
 import type { Section } from '../../hooks/useSections';
+
+/**
+ * Compute section numbering (e.g. "1", "1.1", "2") for all sections.
+ * Sections with excludeFromNumbering=true are skipped in the counter but still appear.
+ */
+export function computeSectionNumbers(
+  sections: Section[],
+  prefix = '',
+): Map<string, string> {
+  const map = new Map<string, string>();
+  let counter = 0;
+  for (const section of sections) {
+    if (!section.excludeFromNumbering) {
+      counter++;
+      const num = prefix ? `${prefix}.${counter}` : `${counter}`;
+      map.set(section.id, num);
+      if (section.children.length > 0) {
+        const childMap = computeSectionNumbers(section.children, num);
+        childMap.forEach((v, k) => map.set(k, v));
+      }
+    }
+  }
+  return map;
+}
 
 interface SectionTreeItemProps {
   section: Section;
   depth: number;
   selectedId: string | null;
+  showNumbers: boolean;
   onSelect: (id: string) => void;
+  onChildReorder: (parentId: string, orderedIds: string[]) => void;
+  numberMap: Map<string, string>;
 }
 
-function SectionTreeItem({ section, depth, selectedId, onSelect }: SectionTreeItemProps) {
+function SectionTreeItem({
+  section,
+  depth,
+  selectedId,
+  showNumbers,
+  onSelect,
+  onChildReorder,
+  numberMap,
+}: SectionTreeItemProps) {
   const [expanded, setExpanded] = useState(true);
   const hasChildren = section.children.length > 0;
   const isSelected = selectedId === section.id;
+  const sectionNumber = showNumbers ? numberMap.get(section.id) : undefined;
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: section.id });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  // Sensors for the child DndContext — stable since options are constant
+  const childSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  function handleChildDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const ids = section.children.map((c) => c.id);
+    const oldIndex = ids.indexOf(active.id as string);
+    const newIndex = ids.indexOf(over.id as string);
+    if (oldIndex !== -1 && newIndex !== -1) {
+      onChildReorder(section.id, arrayMove(ids, oldIndex, newIndex));
+    }
+  }
 
   return (
-    <li>
-      <div className="flex items-center">
+    <li ref={setNodeRef} style={style}>
+      <div className="flex items-center group">
+        {/* Drag handle */}
+        <button
+          {...attributes}
+          {...listeners}
+          aria-label="Drag to reorder"
+          className="flex-shrink-0 rounded p-1 text-muted-foreground/30 group-hover:text-muted-foreground cursor-grab active:cursor-grabbing transition-colors"
+          style={{ paddingLeft: `${0.25 + depth * 1}rem` }}
+          tabIndex={0}
+        >
+          <GripVertical className="h-3.5 w-3.5" />
+        </button>
+
         {hasChildren ? (
           <button
             onClick={() => setExpanded((v) => !v)}
@@ -26,7 +123,6 @@ function SectionTreeItem({ section, depth, selectedId, onSelect }: SectionTreeIt
               'flex-shrink-0 rounded p-1 text-muted-foreground hover:text-foreground transition-colors',
               isSelected ? 'text-accent-foreground' : '',
             )}
-            style={{ paddingLeft: `${0.5 + depth * 1}rem` }}
           >
             {expanded ? (
               <ChevronDown className="h-3.5 w-3.5" />
@@ -35,13 +131,13 @@ function SectionTreeItem({ section, depth, selectedId, onSelect }: SectionTreeIt
             )}
           </button>
         ) : (
-          <span className="flex-shrink-0" style={{ paddingLeft: `${0.5 + depth * 1 + 1.375}rem` }} />
+          <span className="flex-shrink-0 w-[1.375rem]" />
         )}
+
         <button
           onClick={() => onSelect(section.id)}
           className={cn(
-            'flex flex-1 min-w-0 items-center gap-1.5 rounded-md py-1.5 pr-2 text-sm transition-colors',
-            hasChildren ? 'pl-1' : '',
+            'flex flex-1 min-w-0 items-center gap-1.5 rounded-md py-1.5 pr-2 pl-1 text-sm transition-colors',
             isSelected
               ? 'bg-accent text-accent-foreground font-medium'
               : 'text-muted-foreground hover:bg-accent/50 hover:text-accent-foreground',
@@ -55,22 +151,39 @@ function SectionTreeItem({ section, depth, selectedId, onSelect }: SectionTreeIt
               <Folder className="h-3.5 w-3.5 flex-shrink-0" />
             )
           ) : null}
+          {sectionNumber && (
+            <span className="flex-shrink-0 tabular-nums text-xs opacity-60">{sectionNumber}</span>
+          )}
           <span className="truncate">{section.title}</span>
         </button>
       </div>
 
       {hasChildren && expanded && (
-        <ul role="group">
-          {section.children.map((child) => (
-            <SectionTreeItem
-              key={child.id}
-              section={child}
-              depth={depth + 1}
-              selectedId={selectedId}
-              onSelect={onSelect}
-            />
-          ))}
-        </ul>
+        <DndContext
+          sensors={childSensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleChildDragEnd}
+        >
+          <SortableContext
+            items={section.children.map((c) => c.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <ul role="group">
+              {section.children.map((child) => (
+                <SectionTreeItem
+                  key={child.id}
+                  section={child}
+                  depth={depth + 1}
+                  selectedId={selectedId}
+                  showNumbers={showNumbers}
+                  onSelect={onSelect}
+                  onChildReorder={onChildReorder}
+                  numberMap={numberMap}
+                />
+              ))}
+            </ul>
+          </SortableContext>
+        </DndContext>
       )}
     </li>
   );
@@ -79,13 +192,43 @@ function SectionTreeItem({ section, depth, selectedId, onSelect }: SectionTreeIt
 interface SectionTreeProps {
   sections: Section[];
   selectedId: string | null;
+  showNumbers?: boolean;
   onSelect: (id: string) => void;
   onAddSection?: () => void;
+  onReorder?: (parentId: string | null, orderedIds: string[]) => void;
 }
 
-export function SectionTree({ sections, selectedId, onSelect, onAddSection }: SectionTreeProps) {
+export function SectionTree({
+  sections,
+  selectedId,
+  showNumbers = true,
+  onSelect,
+  onAddSection,
+  onReorder,
+}: SectionTreeProps) {
   // Only show root-level sections (no parentId) since children are nested
   const rootSections = sections.filter((s) => !s.parentId);
+  const numberMap = computeSectionNumbers(rootSections);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  function handleRootDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const ids = rootSections.map((s) => s.id);
+    const oldIndex = ids.indexOf(active.id as string);
+    const newIndex = ids.indexOf(over.id as string);
+    if (oldIndex !== -1 && newIndex !== -1) {
+      onReorder?.(null, arrayMove(ids, oldIndex, newIndex));
+    }
+  }
+
+  function handleChildReorder(parentId: string, orderedIds: string[]) {
+    onReorder?.(parentId, orderedIds);
+  }
 
   return (
     <nav aria-label="Section tree" className="flex flex-col h-full">
@@ -121,17 +264,31 @@ export function SectionTree({ sections, selectedId, onSelect, onAddSection }: Se
             No sections yet.
           </p>
         ) : (
-          <ul role="tree" aria-label="Guideline sections" className="space-y-0.5">
-            {rootSections.map((section) => (
-              <SectionTreeItem
-                key={section.id}
-                section={section}
-                depth={0}
-                selectedId={selectedId}
-                onSelect={onSelect}
-              />
-            ))}
-          </ul>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleRootDragEnd}
+          >
+            <SortableContext
+              items={rootSections.map((s) => s.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <ul role="tree" aria-label="Guideline sections" className="space-y-0.5">
+                {rootSections.map((section) => (
+                  <SectionTreeItem
+                    key={section.id}
+                    section={section}
+                    depth={0}
+                    selectedId={selectedId}
+                    showNumbers={showNumbers}
+                    onSelect={onSelect}
+                    onChildReorder={handleChildReorder}
+                    numberMap={numberMap}
+                  />
+                ))}
+              </ul>
+            </SortableContext>
+          </DndContext>
         )}
       </div>
     </nav>
