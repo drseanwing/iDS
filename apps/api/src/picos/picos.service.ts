@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PaginatedResponseDto } from '../common/dto';
 import { CreatePicoDto } from './dto/create-pico.dto';
 import { UpdatePicoDto } from './dto/update-pico.dto';
+import { CreatePicoCodeDto } from './dto/create-pico-code.dto';
 
 @Injectable()
 export class PicosService {
@@ -79,5 +80,26 @@ export class PicosService {
       where: { id },
       data: { isDeleted: true },
     });
+  }
+
+  async addCode(picoId: string, dto: CreatePicoCodeDto) {
+    await this.findOne(picoId);
+    return this.prisma.picoCode.create({
+      data: {
+        picoId,
+        codeSystem: dto.codeSystem as any,
+        code: dto.code,
+        display: dto.display,
+        element: dto.element as any,
+      },
+    });
+  }
+
+  async removeCode(picoId: string, codeId: string) {
+    const existing = await this.prisma.picoCode.findUnique({ where: { id: codeId } });
+    if (!existing || existing.picoId !== picoId) {
+      throw new NotFoundException(`PicoCode ${codeId} not found on PICO ${picoId}`);
+    }
+    return this.prisma.picoCode.delete({ where: { id: codeId } });
   }
 }
