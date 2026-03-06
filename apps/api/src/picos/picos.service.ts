@@ -18,6 +18,7 @@ export class PicosService {
         intervention: dto.intervention,
         comparator: dto.comparator,
         narrativeSummary: dto.narrativeSummary,
+        fhirMeta: (dto.fhirMeta ?? {}) as Prisma.InputJsonValue,
       },
     });
   }
@@ -68,6 +69,7 @@ export class PicosService {
     if (dto.intervention !== undefined) data.intervention = dto.intervention;
     if (dto.comparator !== undefined) data.comparator = dto.comparator;
     if (dto.narrativeSummary !== undefined) data.narrativeSummary = dto.narrativeSummary;
+    if (dto.fhirMeta !== undefined) data.fhirMeta = dto.fhirMeta as Prisma.InputJsonValue;
     return this.prisma.pico.update({
       where: { id },
       data,

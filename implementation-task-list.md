@@ -28,7 +28,7 @@ Source docs:
 - [x] Add FHIR-native columns (`fhir_resource_type`, `fhir_meta`, `fhir_extensions`) to mapped entities.
 - [x] Add soft-delete and hidden flags consistently (`is_deleted`, `is_hidden`) where required.
 - [x] Add audit columns and relation fields (`created_by`, `updated_by`, timestamps).
-- [ ] Implement migration set for all core tables with referential integrity. _(Only `schema.prisma` + `seed.ts` exist; no `prisma/migrations/` directory. Dev uses `prisma db push`. Formal migration history required before production deployment.)_
+- [x] Implement migration set for all core tables with referential integrity. _(Initial migration `20260306000000_init` generated offline via `prisma migrate diff`; 816-line SQL covers all enums, tables, indexes, and foreign keys; `migration_lock.toml` added.)_
 - [x] Add indexes identified in architecture (status, foreign-key traversal, date and lookup paths).
 - [x] Seed initial roles, default enums, and one sample organization.
 
@@ -50,12 +50,12 @@ Source docs:
   - [~] Guideline settings (`etdMode`, `showSectionNumbers`, `showCertaintyInLabel`, `showGradeDescription`, `trackChangesDefault`, `enableSubscriptions`, `enablePublicComments`, `showSectionTextPreview`, `pdfColumnLayout`, `picoDisplayMode`, `coverPageUrl`, `isPublic`) were absent from `CreateGuidelineDto`/`UpdateGuidelineDto` and not written by the service — **fixed** (added to DTO + service).
   - [~] `RecommendationsService.findByGuideline` was not including `sectionPlacements`, so `sectionId` was never returned — **fixed** (includes first placement and maps to top-level `sectionId`). _(Was: frontend `r.sectionId === section.id` filter always returned empty; no recommendations showed per section.)_
   - [~] `GuidelinesPage` "New Guideline" button was not wired — **fixed** (inline form with title + short name; calls POST /guidelines via `useCreateGuideline`).
-  - [ ] `fhirMeta` and `fhirExtensions` columns defined in Prisma schema but never read or written via any API endpoint.
+  - [~] `fhirMeta` and `fhirExtensions` columns defined in Prisma schema but never read or written via any API endpoint — **fixed** (added `fhirMeta` to Create/Update DTOs and services for Guidelines, References, Picos, and Recommendations; cast to `Prisma.InputJsonValue` for type safety).
   - [~] `EtdFactor` model has no `@@unique([recommendationId, factorType])` constraint — **fixed** (added `@@unique([recommendationId, factorType])` to schema; `createMany` now uses `skipDuplicates: true`).
   - [~] `GET /sections` returns only one level of nested `children` (grandchildren excluded) — **fixed** (rewrote `findByGuideline` to fetch all sections and build full tree in memory).
   - [~] `SectionsService.findByGuideline` returns top-level sections only — **fixed** (tree is now built recursively with all descendants nested under their parents).
   - [~] Soft-deleted content is permanently inaccessible — **fixed** (added `POST /guidelines/:id/restore` and `POST /sections/:id/restore` endpoints).
-  - [ ] `ReferencesPage` (top-level `/references` app path) is a "Coming soon" stub. The `ReferenceList` component inside the guideline workspace IS functional.
+  - [~] `ReferencesPage` (top-level `/references` app path) is a "Coming soon" stub — **fixed** (built functional page with search, pagination, study type badges, guideline attribution, and places-used tracking showing linked sections/outcomes; backend `GET /references` now supports optional `guidelineId` and `search` params with `findAll` method including relation data).
   - [~] `DashboardPage` stats (Guidelines / Sections / Recommendations counts) are hardcoded as `'--'` — **fixed** (added `GET /guidelines/stats` endpoint; `DashboardPage` now fetches real counts via `useDashboardStats` hook).
   - [~] `AppShell` user section shows hardcoded "User" text — **fixed** (wired to `useAuth` store; displays user name/email and logout button).
 
@@ -76,14 +76,14 @@ Source docs:
   - [x] Section deletion UI — `Trash2` delete button with two-step confirm added to each `SectionTreeItem`; wired via `useDeleteSection`.
   - [x] Recommendation creation UI — "Add" button + inline form added to `SectionDetailPanel`; wired via `useCreateRecommendation` (creates rec and links to section).
   - [x] Recommendation deletion UI — `Trash2` delete button with two-step confirm added to `RecommendationEditorCard`; wired via `useDeleteRecommendation`.
-  - [ ] PICO narrative summary field — Prisma schema has `narrative Json?` but it is not exposed in the PICO builder UI.
+  - [~] PICO narrative summary field — **fixed** (added narrative summary textarea to `PicoCard` expanded view; saves on blur via `useUpdatePico`; backend DTO and service already supported the field).
   - [ ] Practical issues (16 categories from grounded theory) for PICO — schema and service missing, not in PICO builder.
-  - [ ] Reference "places used" tracking — schema has the relation but no UI surface showing where each reference is linked.
+  - [~] Reference "places used" tracking — **fixed** (top-level `ReferencesPage` now shows linked sections and outcomes as colored badges for each reference; backend `findAll` includes `sectionPlacements` and `outcomeLinks` with related entity titles).
   - [ ] Reference auto-numbering on read — architecture specifies depth-first traversal numbering, not yet implemented.
   - [ ] Track changes in TipTap — not implemented (extension not installed, no accept/reject workflow).
   - [ ] Presence/collaborative cursor indicators — not implemented.
   - [~] Guideline settings UI — **fixed** (added `GuidelineSettingsPanel` component with all settings fields; accessible via "Settings" tab in guideline workspace; uses `useUpdateGuideline` hook).
-  - [ ] `AppShell` top-level references tab — page is a stub ("Coming soon").
+  - [~] `AppShell` top-level references tab — **fixed** (see U-03; `ReferencesPage` is now a functional page with search, pagination, and places-used display).
 
 ---
 
@@ -194,7 +194,7 @@ The following items are confirmed bugs or incomplete wiring in the current codeb
 |---|------|-------|
 | ~~U-01~~ | ~~Frontend / Dashboard~~ | **Fixed** — Added `GET /guidelines/stats` endpoint returning aggregate counts; `DashboardPage` now fetches real data via `useDashboardStats` hook |
 | ~~U-02~~ | ~~Frontend / Guidelines~~ | **Fixed** — "New Guideline" button now wired; inline form (title + short name) calls `POST /guidelines` via `useCreateGuideline` |
-| U-03 | Frontend / References | Top-level `ReferencesPage` (app nav → References) is a "Coming soon" stub — `ReferenceList` inside workspace is functional |
+| ~~U-03~~ | ~~Frontend / References~~ | **Fixed** — `ReferencesPage` rebuilt with search, pagination, study type badges, guideline attribution, and places-used tracking (linked sections/outcomes); backend `GET /references` now supports optional `guidelineId` and `search` params |
 | ~~U-04~~ | ~~Frontend / App shell~~ | **Fixed** — Wired to `useAuth` store; displays user name/email and logout button |
 | ~~U-05~~ | ~~Frontend / Sections~~ | **Fixed** — Inline "Add Section" form added to `SectionTree` sidebar; wired via `useCreateSection` |
 | ~~U-06~~ | ~~Frontend / Sections~~ | **Fixed** — Delete button with two-step confirm added to each section tree node; wired via `useDeleteSection` |
@@ -204,7 +204,7 @@ The following items are confirmed bugs or incomplete wiring in the current codeb
 | U-10 | API / Versioning | `GuidelineVersion` Prisma model exists but no service, controller, or frontend code |
 | U-11 | API / Governance | `ActivityLogEntry` model exists but no interceptor writes to it |
 | U-12 | API / Governance | `FeedbackComment`, `CoiRecord`, `Poll`, `Milestone`, `ChecklistItem`, `Task` models exist but have no API endpoints |
-| U-13 | API / FHIR | `fhirMeta` and `fhirExtensions` JSON columns defined on entities but never read or written |
+| ~~U-13~~ | ~~API / FHIR~~ | **Fixed** — `fhirMeta` added to Create/Update DTOs and services for Guidelines, References, Picos, and Recommendations; values cast to `Prisma.InputJsonValue` for type safety |
 | U-14 | API / Evidence | Shadow outcome fields (`isShadow`, `shadowOf`) exist in Prisma Outcome model but no service logic or UI |
 | U-15 | API / Storage | MinIO provisioned in Docker Compose but no S3 client code in the API; no file upload endpoints |
 | U-16 | Packages / Widget | Architecture specifies `packages/widget` Preact micro-bundle; directory does not exist |
@@ -213,7 +213,7 @@ The following items are confirmed bugs or incomplete wiring in the current codeb
 ### P2 — Schema / data integrity gaps
 | # | Area | Issue |
 |---|------|-------|
-| S-01 | Database | No `prisma/migrations/` directory — schema managed via `prisma db push`; no migration history |
+| ~~S-01~~ | ~~Database~~ | **Fixed** — Initial migration `20260306000000_init` generated offline via `prisma migrate diff`; 816-line SQL covers all enums, tables, indexes, and foreign keys; `migration_lock.toml` added |
 | ~~S-02~~ | ~~Database~~ | **Fixed** — Added `@@unique([recommendationId, factorType])` constraint to `EtdFactor`; `createMany` uses `skipDuplicates: true` |
 | ~~S-03~~ | ~~API~~ | **Fixed** — `findByGuideline` now fetches all sections and builds full recursive tree in memory |
 | ~~S-04~~ | ~~API~~ | **Fixed** — Added `POST /guidelines/:id/restore` and `POST /sections/:id/restore` endpoints |

@@ -95,4 +95,12 @@ export class CreateGuidelineDto {
   @IsOptional()
   @IsBoolean()
   isPublic?: boolean;
+
+  @ApiPropertyOptional({ description: 'FHIR Composition.meta (JSON)' })
+  @IsOptional()
+  fhirMeta?: Record<string, unknown>;
+
+  @ApiPropertyOptional({ description: 'FHIR extension data (JSON)' })
+  @IsOptional()
+  fhirExtensions?: Record<string, unknown>;
 }

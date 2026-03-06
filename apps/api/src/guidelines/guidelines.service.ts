@@ -18,6 +18,7 @@ export class GuidelinesService {
         organizationId: dto.organizationId,
         language: dto.language || 'en',
         guidelineType: (dto.guidelineType as GuidelineType) || GuidelineType.ORGANIZATIONAL,
+        fhirMeta: (dto.fhirMeta ?? {}) as Prisma.InputJsonValue,
         createdBy: userId,
       },
     });
@@ -77,6 +78,7 @@ export class GuidelinesService {
     if (dto.picoDisplayMode !== undefined) data.picoDisplayMode = dto.picoDisplayMode as PicoDisplay;
     if (dto.coverPageUrl !== undefined) data.coverPageUrl = dto.coverPageUrl;
     if (dto.isPublic !== undefined) data.isPublic = dto.isPublic;
+    if (dto.fhirMeta !== undefined) data.fhirMeta = dto.fhirMeta as Prisma.InputJsonValue;
     return this.prisma.guideline.update({
       where: { id },
       data,
