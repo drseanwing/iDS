@@ -15,8 +15,8 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ChevronRight, ChevronDown, FolderOpen, Folder, GripVertical } from 'lucide-react';
-import { useState } from 'react';
+import { ChevronRight, ChevronDown, FolderOpen, Folder, GripVertical, Trash2 } from 'lucide-react';
+import { useState, useRef } from 'react';
 import { cn } from '../../lib/utils';
 import type { Section } from '../../hooks/useSections';
 
@@ -51,6 +51,7 @@ interface SectionTreeItemProps {
   showNumbers: boolean;
   onSelect: (id: string) => void;
   onChildReorder: (parentId: string, orderedIds: string[]) => void;
+  onDeleteSection?: (id: string) => void;
   numberMap: Map<string, string>;
 }
 
@@ -61,9 +62,11 @@ function SectionTreeItem({
   showNumbers,
   onSelect,
   onChildReorder,
+  onDeleteSection,
   numberMap,
 }: SectionTreeItemProps) {
   const [expanded, setExpanded] = useState(true);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const hasChildren = section.children.length > 0;
   const isSelected = selectedId === section.id;
   const sectionNumber = showNumbers ? numberMap.get(section.id) : undefined;
@@ -156,6 +159,36 @@ function SectionTreeItem({
           )}
           <span className="truncate">{section.title}</span>
         </button>
+
+        {/* Delete control */}
+        {onDeleteSection && (
+          confirmDelete ? (
+            <div className="flex flex-shrink-0 items-center gap-0.5 pr-1">
+              <button
+                onClick={() => { onDeleteSection(section.id); setConfirmDelete(false); }}
+                aria-label="Confirm delete section"
+                className="rounded px-1 py-0.5 text-xs font-medium text-destructive hover:bg-destructive/10 transition-colors"
+              >
+                Delete
+              </button>
+              <button
+                onClick={() => setConfirmDelete(false)}
+                aria-label="Cancel delete"
+                className="rounded px-1 py-0.5 text-xs text-muted-foreground hover:bg-accent transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); }}
+              aria-label={`Delete section: ${section.title}`}
+              className="flex-shrink-0 rounded p-1 text-muted-foreground/0 group-hover:text-muted-foreground/50 hover:!text-destructive transition-colors mr-1"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          )
+        )}
       </div>
 
       {hasChildren && expanded && (
@@ -178,6 +211,7 @@ function SectionTreeItem({
                   showNumbers={showNumbers}
                   onSelect={onSelect}
                   onChildReorder={onChildReorder}
+                  onDeleteSection={onDeleteSection}
                   numberMap={numberMap}
                 />
               ))}
@@ -194,7 +228,8 @@ interface SectionTreeProps {
   selectedId: string | null;
   showNumbers?: boolean;
   onSelect: (id: string) => void;
-  onAddSection?: () => void;
+  onAddSection?: (title: string, parentId?: string) => void;
+  onDeleteSection?: (id: string) => void;
   onReorder?: (parentId: string | null, orderedIds: string[]) => void;
 }
 
@@ -204,8 +239,13 @@ export function SectionTree({
   showNumbers = true,
   onSelect,
   onAddSection,
+  onDeleteSection,
   onReorder,
 }: SectionTreeProps) {
+  const [addingSection, setAddingSection] = useState(false);
+  const [newSectionTitle, setNewSectionTitle] = useState('');
+  const addInputRef = useRef<HTMLInputElement>(null);
+
   // Only show root-level sections (no parentId) since children are nested
   const rootSections = sections.filter((s) => !s.parentId);
   const numberMap = computeSectionNumbers(rootSections);
@@ -230,6 +270,28 @@ export function SectionTree({
     onReorder?.(parentId, orderedIds);
   }
 
+  function handleAddClick() {
+    setAddingSection(true);
+    setNewSectionTitle('');
+    // Focus the input on next tick after render
+    setTimeout(() => addInputRef.current?.focus(), 0);
+  }
+
+  function handleAddSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const title = newSectionTitle.trim();
+    if (title && onAddSection) {
+      onAddSection(title);
+    }
+    setAddingSection(false);
+    setNewSectionTitle('');
+  }
+
+  function handleAddCancel() {
+    setAddingSection(false);
+    setNewSectionTitle('');
+  }
+
   return (
     <nav aria-label="Section tree" className="flex flex-col h-full">
       <div className="flex items-center justify-between px-3 py-2 border-b">
@@ -238,7 +300,7 @@ export function SectionTree({
         </span>
         {onAddSection && (
           <button
-            onClick={onAddSection}
+            onClick={handleAddClick}
             aria-label="Add section"
             className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
           >
@@ -259,7 +321,7 @@ export function SectionTree({
         )}
       </div>
       <div className="flex-1 overflow-y-auto py-1 px-1">
-        {rootSections.length === 0 ? (
+        {rootSections.length === 0 && !addingSection ? (
           <p className="px-3 py-4 text-xs text-muted-foreground text-center">
             No sections yet.
           </p>
@@ -283,12 +345,47 @@ export function SectionTree({
                     showNumbers={showNumbers}
                     onSelect={onSelect}
                     onChildReorder={handleChildReorder}
+                    onDeleteSection={onDeleteSection}
                     numberMap={numberMap}
                   />
                 ))}
               </ul>
             </SortableContext>
           </DndContext>
+        )}
+
+        {/* Inline new-section form */}
+        {addingSection && (
+          <form
+            onSubmit={handleAddSubmit}
+            className="mt-1 px-1"
+            aria-label="New section form"
+          >
+            <input
+              ref={addInputRef}
+              value={newSectionTitle}
+              onChange={(e) => setNewSectionTitle(e.target.value)}
+              placeholder="Section title…"
+              className="w-full rounded-md border bg-background px-2 py-1 text-sm outline-none ring-offset-background focus:ring-2 focus:ring-primary focus:ring-offset-1 placeholder:text-muted-foreground/60"
+              onKeyDown={(e) => { if (e.key === 'Escape') handleAddCancel(); }}
+            />
+            <div className="mt-1.5 flex gap-1.5">
+              <button
+                type="submit"
+                disabled={!newSectionTitle.trim()}
+                className="flex-1 rounded-md bg-primary px-2 py-1 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-opacity"
+              >
+                Add
+              </button>
+              <button
+                type="button"
+                onClick={handleAddCancel}
+                className="flex-1 rounded-md border px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-accent transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
         )}
       </div>
     </nav>

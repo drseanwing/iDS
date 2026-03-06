@@ -48,6 +48,8 @@ Source docs:
   - [~] `UpdateRecommendationDto` previously omitted `remark`, `rationale`, `practicalInfo` JSON fields — **fixed** (added to DTO + service). _(Was: UI sent them, API silently dropped them.)_
   - [~] `useUpdateRecommendation` frontend hook previously used `PATCH` while the controller declares `@Put` — **fixed** (changed to `PUT`). _(Was: recommendation saves failed in production.)_
   - [~] Guideline settings (`etdMode`, `showSectionNumbers`, `showCertaintyInLabel`, `showGradeDescription`, `trackChangesDefault`, `enableSubscriptions`, `enablePublicComments`, `showSectionTextPreview`, `pdfColumnLayout`, `picoDisplayMode`, `coverPageUrl`, `isPublic`) were absent from `CreateGuidelineDto`/`UpdateGuidelineDto` and not written by the service — **fixed** (added to DTO + service).
+  - [~] `RecommendationsService.findByGuideline` was not including `sectionPlacements`, so `sectionId` was never returned — **fixed** (includes first placement and maps to top-level `sectionId`). _(Was: frontend `r.sectionId === section.id` filter always returned empty; no recommendations showed per section.)_
+  - [~] `GuidelinesPage` "New Guideline" button was not wired — **fixed** (inline form with title + short name; calls POST /guidelines via `useCreateGuideline`).
   - [ ] `fhirMeta` and `fhirExtensions` columns defined in Prisma schema but never read or written via any API endpoint.
   - [ ] `EtdFactor` model has no `@@unique([recommendationId, factorType])` constraint — duplicate factor rows can be created if `getOrInit()` is called concurrently.
   - [ ] `GET /sections` returns only one level of nested `children` (grandchildren excluded). Deep section trees need recursive fetch or a dedicated tree endpoint.
@@ -71,10 +73,10 @@ Source docs:
 - [x] Add outcome management UI with grouped ordering and state badges.
 - [x] Add recommendation cards with rationale/practical information blocks.
 - **Known gaps (Authoring UX):**
-  - [ ] Section creation UI — no "Add Section" / "Add Sub-section" controls exist in the section tree sidebar.
-  - [ ] Section deletion UI — no delete control on section nodes.
-  - [ ] Recommendation creation UI — no "Add Recommendation" button in the section detail panel.
-  - [ ] Recommendation deletion UI — no delete control on recommendation cards.
+  - [x] Section creation UI — inline "Add Section" form added to `SectionTree` sidebar (+ button opens title input; submits via `useCreateSection`).
+  - [x] Section deletion UI — `Trash2` delete button with two-step confirm added to each `SectionTreeItem`; wired via `useDeleteSection`.
+  - [x] Recommendation creation UI — "Add" button + inline form added to `SectionDetailPanel`; wired via `useCreateRecommendation` (creates rec and links to section).
+  - [x] Recommendation deletion UI — `Trash2` delete button with two-step confirm added to `RecommendationEditorCard`; wired via `useDeleteRecommendation`.
   - [ ] PICO narrative summary field — Prisma schema has `narrative Json?` but it is not exposed in the PICO builder UI.
   - [ ] Practical issues (16 categories from grounded theory) for PICO — schema and service missing, not in PICO builder.
   - [ ] Reference "places used" tracking — schema has the relation but no UI surface showing where each reference is linked.
@@ -186,18 +188,19 @@ The following items are confirmed bugs or incomplete wiring in the current codeb
 | B-01 | API / Recommendations | `remark`, `rationale`, `practicalInfo` JSON fields missing from `CreateRecommendationDto`/`UpdateRecommendationDto` and not written by `RecommendationsService.update()` — silently dropped on save | Added to DTO; service now writes all three fields |
 | B-02 | Frontend / Recommendations | `useUpdateRecommendation` sent HTTP `PATCH` but `RecommendationsController` declares `@Put(':id')` — all recommendation field saves failed silently | Changed hook to use `PUT` |
 | B-03 | API / Guidelines | `etdMode` and 11 other guideline settings absent from `CreateGuidelineDto`/`UpdateGuidelineDto` and not written by `GuidelinesService.update()` | Added all settings fields to DTO; service now writes them |
+| B-04 | API / Recommendations | `findByGuideline` did not include `sectionPlacements`, so `sectionId` was never populated in the response — frontend per-section filtering was always empty | Fixed: includes first `sectionPlacement` and maps to top-level `sectionId` field |
 
 ### P1 — Missing functionality (unwired stubs)
 | # | Area | Issue |
 |---|------|-------|
 | U-01 | Frontend / Dashboard | `DashboardPage` stats (Guidelines, Sections, Recommendations) are hardcoded `'--'` — no API calls |
-| U-02 | Frontend / Guidelines | "New Guideline" button in `GuidelinesPage` has no click handler — no create form or modal |
+| ~~U-02~~ | ~~Frontend / Guidelines~~ | **Fixed** — "New Guideline" button now wired; inline form (title + short name) calls `POST /guidelines` via `useCreateGuideline` |
 | U-03 | Frontend / References | Top-level `ReferencesPage` (app nav → References) is a "Coming soon" stub — `ReferenceList` inside workspace is functional |
 | U-04 | Frontend / App shell | User display in `AppShell` sidebar shows hardcoded "User" — not wired to auth context |
-| U-05 | Frontend / Sections | No "Add Section" / "Add Sub-section" button in `SectionTree` sidebar |
-| U-06 | Frontend / Sections | No section delete control in the section tree |
-| U-07 | Frontend / Recommendations | No "Add Recommendation" button in `SectionDetailPanel` |
-| U-08 | Frontend / Recommendations | No recommendation delete control on `RecommendationEditorCard` |
+| ~~U-05~~ | ~~Frontend / Sections~~ | **Fixed** — Inline "Add Section" form added to `SectionTree` sidebar; wired via `useCreateSection` |
+| ~~U-06~~ | ~~Frontend / Sections~~ | **Fixed** — Delete button with two-step confirm added to each section tree node; wired via `useDeleteSection` |
+| ~~U-07~~ | ~~Frontend / Recommendations~~ | **Fixed** — "Add Recommendation" inline form in `SectionDetailPanel`; wired via `useCreateRecommendation` |
+| ~~U-08~~ | ~~Frontend / Recommendations~~ | **Fixed** — Delete button with two-step confirm added to `RecommendationEditorCard`; wired via `useDeleteRecommendation` |
 | U-09 | Frontend / Guideline settings | No settings panel — `etdMode`, `showSectionNumbers` and all other guideline settings are uneditable in the UI |
 | U-10 | API / Versioning | `GuidelineVersion` Prisma model exists but no service, controller, or frontend code |
 | U-11 | API / Governance | `ActivityLogEntry` model exists but no interceptor writes to it |

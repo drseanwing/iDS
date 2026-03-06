@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Loader2, Trash2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { RichTextEditor } from '../editor/RichTextEditor';
 import { EtdPanel } from './EtdPanel';
@@ -59,6 +59,7 @@ function typeLabel(type: string | null | undefined): string {
 interface RecommendationEditorCardProps {
   recommendation: Recommendation;
   etdMode?: string;
+  onDelete?: () => void;
 }
 
 /**
@@ -69,9 +70,10 @@ interface RecommendationEditorCardProps {
  * - practicalInfo
  * Also includes a "Key Info / EtD" tab for the Evidence to Decision framework.
  */
-export function RecommendationEditorCard({ recommendation: rec, etdMode }: RecommendationEditorCardProps) {
+export function RecommendationEditorCard({ recommendation: rec, etdMode, onDelete }: RecommendationEditorCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState<'narrative' | 'etd'>('narrative');
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const { mutate: updateRec, isPending } = useUpdateRecommendation();
 
   function handleSaveField(field: 'description' | 'remark' | 'rationale' | 'practicalInfo') {
@@ -87,41 +89,76 @@ export function RecommendationEditorCard({ recommendation: rec, etdMode }: Recom
   return (
     <li className="rounded-md border bg-card">
       {/* Card header */}
-      <button
-        type="button"
-        onClick={() => setExpanded((v) => !v)}
-        aria-expanded={expanded}
-        className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left hover:bg-accent/30 transition-colors rounded-md"
-      >
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          {expanded ? (
-            <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+      <div className="flex items-center">
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          className="flex flex-1 min-w-0 items-center justify-between gap-2 px-3 py-2.5 text-left hover:bg-accent/30 transition-colors rounded-md"
+        >
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            {expanded ? (
+              <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+            ) : (
+              <ChevronRight className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+            )}
+            <span className="truncate text-sm font-medium">
+              {rec.title ?? 'Untitled recommendation'}
+            </span>
+            {isPending && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+          </div>
+          <div className="flex flex-shrink-0 gap-1.5">
+            {rec.recommendationType && (
+              <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-secondary-foreground">
+                {typeLabel(rec.recommendationType)}
+              </span>
+            )}
+            {rec.strength && (
+              <span
+                className={cn(
+                  'rounded-full px-2 py-0.5 text-xs font-medium',
+                  strengthColor(rec.strength),
+                )}
+              >
+                {strengthLabel(rec.strength)}
+              </span>
+            )}
+          </div>
+        </button>
+
+        {/* Delete control */}
+        {onDelete && (
+          confirmDelete ? (
+            <div className="flex flex-shrink-0 items-center gap-1 pr-2">
+              <button
+                type="button"
+                onClick={() => { onDelete(); setConfirmDelete(false); }}
+                aria-label="Confirm delete recommendation"
+                className="rounded px-1.5 py-0.5 text-xs font-medium text-destructive hover:bg-destructive/10 transition-colors"
+              >
+                Delete
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(false)}
+                aria-label="Cancel delete"
+                className="rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-accent transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
           ) : (
-            <ChevronRight className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
-          )}
-          <span className="truncate text-sm font-medium">
-            {rec.title ?? 'Untitled recommendation'}
-          </span>
-          {isPending && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
-        </div>
-        <div className="flex flex-shrink-0 gap-1.5">
-          {rec.recommendationType && (
-            <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-secondary-foreground">
-              {typeLabel(rec.recommendationType)}
-            </span>
-          )}
-          {rec.strength && (
-            <span
-              className={cn(
-                'rounded-full px-2 py-0.5 text-xs font-medium',
-                strengthColor(rec.strength),
-              )}
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(true)}
+              aria-label={`Delete recommendation: ${rec.title ?? 'Untitled recommendation'}`}
+              className="flex-shrink-0 rounded p-2 text-muted-foreground/40 hover:text-destructive transition-colors mr-1"
             >
-              {strengthLabel(rec.strength)}
-            </span>
-          )}
-        </div>
-      </button>
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )
+        )}
+      </div>
 
       {/* Expanded narrative editors */}
       {expanded && (
