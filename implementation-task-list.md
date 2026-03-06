@@ -4,7 +4,7 @@ Source docs:
 - `opengrade-architecture.md`
 - `compass_artifact_wf-ac90d96b-1eee-4206-9b48-09594f3da2b5_text_markdown.md` (MAGICapp reverse-engineering technical specification artifact)
 
-> **Audit status**: Last reviewed 2026-03-06. All items verified against live codebase. Latest batch: shadow outcomes, COI records, polls/voting, milestones/checklists, task manager.
+> **Audit status**: Last reviewed 2026-03-06. All items verified against live codebase. Latest batch: RBAC guard, guideline permissions CRUD, JSON export, shadow outcomes, COI/polls/milestones/tasks.
 > Legend: `[x]` = implemented & verified | `[~]` = partially implemented / known gap | `[ ]` = not yet started
 
 ---
@@ -113,7 +113,7 @@ Source docs:
 ---
 
 ## Phase 6 — Collaboration, Permissions, and Governance (Arch §4.2, §6, §9.3)
-- [ ] Implement full RBAC matrix (organization roles + guideline roles). _(Auth guard validates JWT; GuidelinePermission/OrganizationMember models exist in schema; no RBAC enforcement on any endpoint beyond authentication check.)_
+- [~] Implement full RBAC matrix (organization roles + guideline roles). — **partially fixed** (added `RbacGuard` with `@Roles()` decorator; resolves guidelineId from params/body/query, checks GuidelinePermission role, org ADMIN bypass; guideline permission CRUD: `POST/GET/DELETE /guidelines/:id/permissions`). _(Guard not yet applied to specific endpoints — ready for per-endpoint wiring.)_
 - [~] Implement activity logging interceptor for create/update/delete/publish flows. — **fixed** (added global `ActivityLoggingInterceptor` registered as `APP_INTERCEPTOR`; logs POST/PUT/PATCH/DELETE operations best-effort via `ActivityService.log()`; `ActivityModule` is `@Global()`).
 - [~] Build activity log screen with user/action/entity/date filters. — **partially fixed** (added `GET /activity?guidelineId=` endpoint with optional `userId`, `entityType`, `actionType` filters in `ActivityController`. UI not yet built.)
 - [~] Implement undo/recover flows for soft-deleted content. _(Restore API endpoints added for guidelines and sections. Admin UI for browsing/restoring deleted content not yet built.)_
@@ -125,7 +125,7 @@ Source docs:
 - [~] Implement Poll/Delphi voting tool. — **partially fixed** (added `PollsModule` with `POST /polls`, `GET /polls?guidelineId=`, `GET /polls/:id`, `POST /polls/:id/vote`, `PUT /polls/:id/close`, `GET /polls/:id/results`; supports poll options, vote casting with COI exclusion check, result aggregation). _(UI not yet built.)_
 - [~] Implement Milestone tracker with AGREE II / SNAP-IT checklists. — **partially fixed** (added `MilestonesModule` with `POST /milestones`, `GET /milestones?guidelineId=`, `PUT /milestones/:id`, `DELETE /milestones/:id`, `POST /milestones/:id/items`, `PUT /milestones/items/:itemId/toggle`, `DELETE /milestones/items/:itemId`). _(UI not yet built.)_
 - [~] Implement Task manager (Kanban board). — **partially fixed** (added `TasksModule` with CRUD: `POST /tasks`, `GET /tasks?guidelineId=&status=&assigneeId=`, `GET /tasks/:id`, `PUT /tasks/:id`, `DELETE /tasks/:id`; filterable by status and assignee). _(UI not yet built.)_
-- [ ] Build guideline permission management UI (invite members, assign roles).
+- [~] Build guideline permission management UI (invite members, assign roles). — **partially fixed** (API endpoints for `POST/GET/DELETE /guidelines/:id/permissions` implemented with upsert, list with user details, and removal). _(UI not yet built.)_
 
 ---
 
@@ -145,7 +145,7 @@ Source docs:
 ## Phase 8 — Export, Distribution, and Decision Aids (Arch §5.3, §9, compass §9, §13)
 - [ ] Implement async PDF generation pipeline with template customization options. _(No Bull queue, no worker process, no PDF library.)_
 - [ ] Implement DOCX export with parity to PDF structure.
-- [ ] Implement full JSON exports for guideline and key sub-resources.
+- [x] Implement full JSON exports for guideline and key sub-resources. — **fixed** (added `GET /guidelines/:id/export` endpoint returning comprehensive JSON with guideline, organization, sections tree, recommendations with EtD, PICOs with outcomes, references, permissions, versions; sets Content-Disposition header).
 - [ ] Store export artifacts by version in object storage and expose download endpoints. _(MinIO provisioned in Docker Compose but no S3 client integration in the API.)_
 - [ ] Implement decision aid generation from linked PICOs/outcomes.
 - [ ] Build layered decision aid UI (overview, pictograph, full evidence).
