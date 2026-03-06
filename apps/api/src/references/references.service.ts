@@ -51,6 +51,17 @@ export class ReferencesService {
       }),
       this.prisma.reference.count({ where }),
     ]);
+
+    // When filtering by guideline, compute and attach reference numbers
+    if (filters?.guidelineId) {
+      const numberMap = await this.computeReferenceNumbers(filters.guidelineId);
+      const numbered = data.map((ref) => ({
+        ...ref,
+        referenceNumber: numberMap.get(ref.id) ?? null,
+      }));
+      return new PaginatedResponseDto(numbered, total, page, limit);
+    }
+
     return new PaginatedResponseDto(data, total, page, limit);
   }
 
@@ -101,5 +112,68 @@ export class ReferencesService {
       where: { id },
       data: { isDeleted: true },
     });
+  }
+
+  /**
+   * Compute reference numbers for a guideline by depth-first traversal of the section tree.
+   * Numbers are assigned sequentially (1, 2, 3...) based on order of first appearance.
+   * References are not stored with numbers — they are computed on-read.
+   */
+  async computeReferenceNumbers(guidelineId: string): Promise<Map<string, number>> {
+    // Fetch all non-deleted sections with their sectionReferences ordered by ordering
+    const sections = await this.prisma.section.findMany({
+      where: { guidelineId, isDeleted: false },
+      orderBy: { ordering: 'asc' },
+      include: {
+        sectionReferences: {
+          orderBy: { ordering: 'asc' },
+        },
+      },
+    });
+
+    // Build section tree using an interface for tree nodes
+    type SectionNode = (typeof sections)[number] & { children: SectionNode[] };
+
+    const byId = new Map<string, SectionNode>(
+      sections.map((s) => [s.id, { ...s, children: [] }]),
+    );
+    const roots: SectionNode[] = [];
+
+    for (const section of sections) {
+      const node = byId.get(section.id)!;
+      if (section.parentId && byId.has(section.parentId)) {
+        byId.get(section.parentId)!.children.push(node);
+      } else if (!section.parentId) {
+        roots.push(node);
+      }
+    }
+
+    // Sort children at each level by ordering (already sorted from query, but ensure tree order)
+    for (const node of byId.values()) {
+      node.children.sort((a, b) => a.ordering - b.ordering);
+    }
+
+    // Depth-first traversal to assign reference numbers
+    const referenceNumbers = new Map<string, number>();
+    let counter = 0;
+
+    const traverse = (node: SectionNode) => {
+      if (!node.excludeFromNumbering) {
+        for (const sr of node.sectionReferences) {
+          if (!referenceNumbers.has(sr.referenceId)) {
+            referenceNumbers.set(sr.referenceId, ++counter);
+          }
+        }
+      }
+      for (const child of node.children) {
+        traverse(child);
+      }
+    };
+
+    for (const root of roots) {
+      traverse(root);
+    }
+
+    return referenceNumbers;
   }
 }

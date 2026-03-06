@@ -4,7 +4,7 @@ Source docs:
 - `opengrade-architecture.md`
 - `compass_artifact_wf-ac90d96b-1eee-4206-9b48-09594f3da2b5_text_markdown.md` (MAGICapp reverse-engineering technical specification artifact)
 
-> **Audit status**: Last reviewed 2026-03-06. All items verified against live codebase. Latest batch: practical issues CRUD, guideline state machine, versioning service, activity logging interceptor, threaded comments API.
+> **Audit status**: Last reviewed 2026-03-06. All items verified against live codebase. Latest batch: reference auto-numbering, recommendation status transitions, version snapshot improvements.
 > Legend: `[x]` = implemented & verified | `[~]` = partially implemented / known gap | `[ ]` = not yet started
 
 ---
@@ -79,7 +79,7 @@ Source docs:
   - [~] PICO narrative summary field — **fixed** (added `narrativeSummary` textarea to PicoCard in PicoBuilderPanel; auto-saves on blur via `useUpdatePico`). _(Schema field is `narrativeSummary Json?`; DTO already had the field; only UI was missing.)_
   - [~] Practical issues (16 categories from grounded theory) for PICO — **fixed** (added `PracticalIssue` CRUD endpoints on `/picos/:picoId/practical-issues` with `CreatePracticalIssueDto` supporting all 16 categories; service methods `addPracticalIssue`, `updatePracticalIssue`, `removePracticalIssue` added to PicosService). _(UI not yet built in PicoBuilderPanel.)_
   - [~] Reference "places used" tracking — **fixed** (top-level ReferencesPage now shows section and outcome link badges per reference; API `findAll` includes `sectionPlacements` and `outcomeLinks` with titles).
-  - [ ] Reference auto-numbering on read — architecture specifies depth-first traversal numbering, not yet implemented.
+  - [x] Reference auto-numbering on read — **fixed** (added `computeReferenceNumbers()` to ReferencesService with depth-first section tree traversal; `GET /references/numbered?guidelineId=` endpoint returns numbering map; `findAll` attaches `referenceNumber` to each reference when guidelineId is provided).
   - [ ] Track changes in TipTap — not implemented (extension not installed, no accept/reject workflow).
   - [ ] Presence/collaborative cursor indicators — not implemented.
   - [~] Guideline settings UI — **fixed** (added `GuidelineSettingsPanel` component with all settings fields; accessible via "Settings" tab in guideline workspace; uses `useUpdateGuideline` hook).
@@ -106,8 +106,8 @@ Source docs:
 - [ ] Auto-create next draft after publish and mark prior versions as out-of-date.
 - [ ] Separate publishing from public visibility toggle with guardrails. _(`isPublic` field now settable via API but no publish workflow enforces it.)_
 - [ ] Implement permalink strategy (`shortName`, latest public, explicit version URL).
-- [ ] Generate and store immutable version snapshot bundles. _(Schema has `snapshotBundle Json?` on GuidelineVersion but no generation logic.)_
-- [ ] Add version history UI with compare and navigation affordances.
+- [~] Generate and store immutable version snapshot bundles. — **fixed** (enhanced `VersionsService.publish()` to capture comprehensive snapshots including full guideline metadata, organization, sections tree, recommendations with EtD factors, PICOs with outcomes/codes/practical issues, references with all links). _(Snapshot is stored as structured JSON, not FHIR Bundle — FHIR transformation deferred to Phase 7.)_
+- [~] Add version history UI with compare and navigation affordances. — **partially fixed** (added `GET /versions/compare?v1=:id1&v2=:id2` endpoint returning both snapshots for frontend diffing. UI not yet built.)
 - [ ] Enforce edit redirection from historic version to active draft.
 
 ---

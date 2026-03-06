@@ -1,9 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, RecommendationStrength, RecommendationType } from '@prisma/client';
+import { Prisma, RecommendationStrength, RecommendationType, RecStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaginatedResponseDto } from '../common/dto';
 import { CreateRecommendationDto } from './dto/create-recommendation.dto';
 import { UpdateRecommendationDto } from './dto/update-recommendation.dto';
+import { UpdateRecommendationStatusDto } from './dto/update-recommendation-status.dto';
 
 @Injectable()
 export class RecommendationsService {
@@ -80,6 +81,22 @@ export class RecommendationsService {
     return this.prisma.recommendation.update({
       where: { id },
       data,
+    });
+  }
+
+  async updateStatus(id: string, dto: UpdateRecommendationStatusDto, userId: string) {
+    const rec = await this.prisma.recommendation.findUnique({ where: { id } });
+    if (!rec || rec.isDeleted) {
+      throw new NotFoundException(`Recommendation ${id} not found`);
+    }
+    return this.prisma.recommendation.update({
+      where: { id },
+      data: {
+        recStatus: dto.status as RecStatus,
+        recStatusDate: new Date(),
+        recStatusComment: dto.comment ?? null,
+        updatedBy: userId,
+      },
     });
   }
 

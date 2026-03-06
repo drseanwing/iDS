@@ -43,6 +43,18 @@ export class ReferencesController {
     );
   }
 
+  @Get('numbered')
+  @ApiOperation({ summary: 'Get auto-numbered references for a guideline (depth-first traversal order)' })
+  @ApiQuery({ name: 'guidelineId', required: true })
+  async getNumbered(@Query('guidelineId', ParseUUIDPipe) guidelineId: string) {
+    const numberMap = await this.referencesService.computeReferenceNumbers(guidelineId);
+    const data = Array.from(numberMap.entries()).map(([referenceId, referenceNumber]) => ({
+      referenceId,
+      referenceNumber,
+    }));
+    return { data };
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get reference by ID' })
   findOne(@Param('id', ParseUUIDPipe) id: string) {

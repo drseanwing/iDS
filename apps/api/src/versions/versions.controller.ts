@@ -18,6 +18,17 @@ export class VersionsController {
     return this.versionsService.publish(dto, userId);
   }
 
+  @Get('compare')
+  @ApiOperation({ summary: 'Compare two version snapshots side by side' })
+  @ApiQuery({ name: 'v1', required: true, description: 'First version ID' })
+  @ApiQuery({ name: 'v2', required: true, description: 'Second version ID' })
+  compare(
+    @Query('v1', ParseUUIDPipe) v1: string,
+    @Query('v2', ParseUUIDPipe) v2: string,
+  ) {
+    return this.versionsService.compare(v1, v2);
+  }
+
   @Get()
   @ApiOperation({ summary: 'List versions by guideline' })
   @ApiQuery({ name: 'guidelineId', required: true })

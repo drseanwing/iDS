@@ -15,6 +15,7 @@ import { RecommendationsService } from './recommendations.service';
 import { EtdService } from './etd.service';
 import { CreateRecommendationDto } from './dto/create-recommendation.dto';
 import { UpdateRecommendationDto } from './dto/update-recommendation.dto';
+import { UpdateRecommendationStatusDto } from './dto/update-recommendation-status.dto';
 import { UpdateEtdFactorDto } from './dto/update-etd-factor.dto';
 import { UpdateEtdJudgmentDto } from './dto/update-etd-judgment.dto';
 import { CreateEtdJudgmentDto } from './dto/create-etd-judgment.dto';
@@ -59,6 +60,16 @@ export class RecommendationsController {
     @Req() req: any,
   ) {
     return this.recommendationsService.update(id, dto, req.user?.sub);
+  }
+
+  @Put(':id/status')
+  @ApiOperation({ summary: 'Update recommendation status' })
+  updateStatus(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateRecommendationStatusDto,
+    @Req() req: any,
+  ) {
+    return this.recommendationsService.updateStatus(id, dto, req.user?.sub ?? 'system');
   }
 
   @Delete(':id')
