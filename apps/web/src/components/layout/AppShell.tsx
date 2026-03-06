@@ -1,5 +1,6 @@
-import { LayoutDashboard, BookOpen, FileText, User } from 'lucide-react';
+import { LayoutDashboard, BookOpen, FileText, User, LogOut } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { useAuth } from '../../hooks/useAuth';
 
 interface NavItem {
   id: string;
@@ -21,6 +22,8 @@ interface AppShellProps {
 }
 
 export function AppShell({ activePath, onNavigate, children, fullHeight = false }: AppShellProps) {
+  const { user, logout } = useAuth();
+
   return (
     <div className="flex h-screen bg-background text-foreground">
       {/* Sidebar */}
@@ -47,8 +50,17 @@ export function AppShell({ activePath, onNavigate, children, fullHeight = false 
         </nav>
         <div className="border-t px-3 py-3">
           <div className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground">
-            <User className="h-5 w-5" />
-            <span>User</span>
+            <User className="h-5 w-5 flex-shrink-0" />
+            <span className="truncate">{user?.name || user?.email || 'User'}</span>
+            {user && (
+              <button
+                onClick={logout}
+                title="Log out"
+                className="ml-auto rounded p-1 hover:bg-accent hover:text-accent-foreground transition-colors"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            )}
           </div>
         </div>
       </aside>

@@ -80,6 +80,7 @@ describe('EtdService', () => {
           expect.objectContaining({ factorType: EtdFactorType.EQUITY }),
           expect.objectContaining({ factorType: EtdFactorType.DESIRABLE_EFFECTS }),
         ]),
+        skipDuplicates: true,
       });
       expect(result).toEqual(created);
     });

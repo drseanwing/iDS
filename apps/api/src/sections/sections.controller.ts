@@ -64,4 +64,10 @@ export class SectionsController {
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.sectionsService.softDelete(id);
   }
+
+  @Post(':id/restore')
+  @ApiOperation({ summary: 'Restore a soft-deleted section' })
+  restore(@Param('id', ParseUUIDPipe) id: string) {
+    return this.sectionsService.restore(id);
+  }
 }

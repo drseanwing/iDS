@@ -24,23 +24,30 @@ export class SectionsService {
   }
 
   async findByGuideline(guidelineId: string, page = 1, limit = 20) {
-    const where = { guidelineId, isDeleted: false };
-    const [data, total] = await Promise.all([
-      this.prisma.section.findMany({
-        where,
-        orderBy: { ordering: 'asc' },
-        skip: (page - 1) * limit,
-        take: limit,
-        include: {
-          children: {
-            where: { isDeleted: false },
-            orderBy: { ordering: 'asc' },
-          },
-        },
-      }),
-      this.prisma.section.count({ where }),
-    ]);
-    return new PaginatedResponseDto(data, total, page, limit);
+    // Fetch all non-deleted sections for this guideline to build full tree in memory
+    const allSections = await this.prisma.section.findMany({
+      where: { guidelineId, isDeleted: false },
+      orderBy: { ordering: 'asc' },
+    });
+
+    // Build a map and assemble tree
+    const byId = new Map(allSections.map((s) => [s.id, { ...s, children: [] as any[] }]));
+    const roots: any[] = [];
+
+    for (const section of allSections) {
+      const node = byId.get(section.id)!;
+      if (section.parentId && byId.has(section.parentId)) {
+        byId.get(section.parentId)!.children.push(node);
+      } else if (!section.parentId) {
+        roots.push(node);
+      }
+    }
+
+    // Paginate root-level sections
+    const total = roots.length;
+    const paginatedRoots = roots.slice((page - 1) * limit, (page - 1) * limit + limit);
+
+    return new PaginatedResponseDto(paginatedRoots, total, page, limit);
   }
 
   async findOne(id: string) {
@@ -91,6 +98,17 @@ export class SectionsService {
     return this.prisma.section.update({
       where: { id },
       data: { isDeleted: true },
+    });
+  }
+
+  async restore(id: string) {
+    const section = await this.prisma.section.findUnique({ where: { id } });
+    if (!section) {
+      throw new NotFoundException(`Section ${id} not found`);
+    }
+    return this.prisma.section.update({
+      where: { id },
+      data: { isDeleted: false },
     });
   }
 }

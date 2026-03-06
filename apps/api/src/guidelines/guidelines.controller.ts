@@ -28,6 +28,13 @@ export class GuidelinesController {
     return this.guidelinesService.create(dto, req.user?.sub);
   }
 
+  @Get('stats')
+  @ApiOperation({ summary: 'Get dashboard statistics' })
+  @ApiQuery({ name: 'organizationId', required: false })
+  getStats(@Query('organizationId') organizationId?: string) {
+    return this.guidelinesService.getDashboardStats(organizationId);
+  }
+
   @Get()
   @ApiOperation({ summary: 'List guidelines' })
   @ApiQuery({ name: 'organizationId', required: false })
@@ -61,5 +68,11 @@ export class GuidelinesController {
   @ApiOperation({ summary: 'Soft-delete guideline' })
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.guidelinesService.softDelete(id);
+  }
+
+  @Post(':id/restore')
+  @ApiOperation({ summary: 'Restore a soft-deleted guideline' })
+  restore(@Param('id', ParseUUIDPipe) id: string) {
+    return this.guidelinesService.restore(id);
   }
 }

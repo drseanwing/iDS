@@ -83,11 +83,42 @@ export class GuidelinesService {
     });
   }
 
+  async getDashboardStats(organizationId?: string) {
+    const guidelineWhere = { isDeleted: false, ...(organizationId ? { organizationId } : {}) };
+    const [guidelines, sections, recommendations] = await Promise.all([
+      this.prisma.guideline.count({ where: guidelineWhere }),
+      this.prisma.section.count({
+        where: {
+          isDeleted: false,
+          guideline: guidelineWhere,
+        },
+      }),
+      this.prisma.recommendation.count({
+        where: {
+          isDeleted: false,
+          guideline: guidelineWhere,
+        },
+      }),
+    ]);
+    return { guidelines, sections, recommendations };
+  }
+
   async softDelete(id: string) {
     await this.findOne(id);
     return this.prisma.guideline.update({
       where: { id },
       data: { isDeleted: true },
+    });
+  }
+
+  async restore(id: string) {
+    const guideline = await this.prisma.guideline.findUnique({ where: { id } });
+    if (!guideline) {
+      throw new NotFoundException(`Guideline ${id} not found`);
+    }
+    return this.prisma.guideline.update({
+      where: { id },
+      data: { isDeleted: false },
     });
   }
 }

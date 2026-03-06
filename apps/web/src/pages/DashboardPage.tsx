@@ -1,10 +1,15 @@
-const stats = [
-  { label: 'Guidelines', value: '--' },
-  { label: 'Sections', value: '--' },
-  { label: 'Recommendations', value: '--' },
-];
+import { Loader2 } from 'lucide-react';
+import { useDashboardStats } from '../hooks/useDashboardStats';
 
 export function DashboardPage() {
+  const { data: stats, isLoading } = useDashboardStats();
+
+  const statItems = [
+    { label: 'Guidelines', value: stats?.guidelines },
+    { label: 'Sections', value: stats?.sections },
+    { label: 'Recommendations', value: stats?.recommendations },
+  ];
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
@@ -18,10 +23,16 @@ export function DashboardPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        {stats.map((stat) => (
+        {statItems.map((stat) => (
           <div key={stat.label} className="rounded-lg border bg-card p-6 text-center">
             <p className="text-sm font-medium text-muted-foreground">{stat.label}</p>
-            <p className="mt-1 text-3xl font-bold">{stat.value}</p>
+            <p className="mt-1 text-3xl font-bold">
+              {isLoading ? (
+                <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
+              ) : (
+                stat.value ?? '--'
+              )}
+            </p>
           </div>
         ))}
       </div>

@@ -60,6 +60,7 @@ export class EtdService {
           factorType,
           ordering: ALL_FACTOR_TYPES.indexOf(factorType),
         })),
+        skipDuplicates: true,
       });
 
       return this.prisma.etdFactor.findMany({
