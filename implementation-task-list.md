@@ -52,9 +52,9 @@ Source docs:
 - [x] Implement GRADE certainty model and downgrade/upgrade factor persistence.
 - [x] Build GRADE assessment UI (risk of bias, inconsistency, indirectness, imprecision, publication bias, upgrades).
 - [x] Implement plain-language summary field for each outcome.
-- [ ] Implement EtD models for 4-factor, 7-factor, and 12-factor modes.
-- [ ] Build EtD UI grids with per-intervention judgments and color labels.
-- [ ] Implement mode switching without data loss (hidden-but-preserved factors).
+- [x] Implement EtD models for 4-factor, 7-factor, and 12-factor modes.
+- [x] Build EtD UI grids with per-intervention judgments and color labels.
+- [x] Implement mode switching without data loss (hidden-but-preserved factors).
 - [ ] Implement shadow outcome workflow for evidence updates.
 - [ ] Add RevMan (`.rm5`) parsing/import pipeline and outcome matching controls (RevMan = Cochrane Review Manager format).
 

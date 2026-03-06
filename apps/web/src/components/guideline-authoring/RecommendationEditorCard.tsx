@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { RichTextEditor } from '../editor/RichTextEditor';
+import { EtdPanel } from './EtdPanel';
+import type { EtdMode } from './EtdPanel';
 import { useUpdateRecommendation } from '../../hooks/useUpdateRecommendation';
 import type { Recommendation } from '../../hooks/useRecommendations';
 
@@ -56,6 +58,7 @@ function typeLabel(type: string | null | undefined): string {
 
 interface RecommendationEditorCardProps {
   recommendation: Recommendation;
+  etdMode?: string;
 }
 
 /**
@@ -64,9 +67,11 @@ interface RecommendationEditorCardProps {
  * - remark (critical info shown at top)
  * - rationale
  * - practicalInfo
+ * Also includes a "Key Info / EtD" tab for the Evidence to Decision framework.
  */
-export function RecommendationEditorCard({ recommendation: rec }: RecommendationEditorCardProps) {
+export function RecommendationEditorCard({ recommendation: rec, etdMode }: RecommendationEditorCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const [activeTab, setActiveTab] = useState<'narrative' | 'etd'>('narrative');
   const { mutate: updateRec, isPending } = useUpdateRecommendation();
 
   function handleSaveField(field: 'description' | 'remark' | 'rationale' | 'practicalInfo') {
@@ -120,50 +125,91 @@ export function RecommendationEditorCard({ recommendation: rec }: Recommendation
 
       {/* Expanded narrative editors */}
       {expanded && (
-        <div className="space-y-4 border-t px-3 pb-4 pt-3">
-          <div>
-            <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Recommendation text
-            </p>
-            <RichTextEditor
-              content={rec.description}
-              onBlurSave={handleSaveField('description')}
-              placeholder="Enter recommendation text…"
-            />
+        <div className="border-t">
+          {/* Sub-tabs */}
+          <div className="flex border-b bg-muted/20">
+            <button
+              type="button"
+              onClick={() => setActiveTab('narrative')}
+              className={cn(
+                'px-3 py-2 text-xs font-medium border-b-2 transition-colors',
+                activeTab === 'narrative'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground',
+              )}
+            >
+              Narrative
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('etd')}
+              className={cn(
+                'px-3 py-2 text-xs font-medium border-b-2 transition-colors',
+                activeTab === 'etd'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground',
+              )}
+            >
+              Key Info / EtD
+            </button>
           </div>
 
-          <div>
-            <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Remark
-            </p>
-            <RichTextEditor
-              content={rec.remark}
-              onBlurSave={handleSaveField('remark')}
-              placeholder="Add a remark…"
-            />
-          </div>
+          {activeTab === 'narrative' && (
+            <div className="space-y-4 px-3 pb-4 pt-3">
+              <div>
+                <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Recommendation text
+                </p>
+                <RichTextEditor
+                  content={rec.description}
+                  onBlurSave={handleSaveField('description')}
+                  placeholder="Enter recommendation text…"
+                />
+              </div>
 
-          <div>
-            <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Rationale
-            </p>
-            <RichTextEditor
-              content={rec.rationale}
-              onBlurSave={handleSaveField('rationale')}
-              placeholder="Add rationale…"
-            />
-          </div>
+              <div>
+                <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Remark
+                </p>
+                <RichTextEditor
+                  content={rec.remark}
+                  onBlurSave={handleSaveField('remark')}
+                  placeholder="Add a remark…"
+                />
+              </div>
 
-          <div>
-            <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Practical information
-            </p>
-            <RichTextEditor
-              content={rec.practicalInfo}
-              onBlurSave={handleSaveField('practicalInfo')}
-              placeholder="Add practical information…"
-            />
-          </div>
+              <div>
+                <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Rationale
+                </p>
+                <RichTextEditor
+                  content={rec.rationale}
+                  onBlurSave={handleSaveField('rationale')}
+                  placeholder="Add rationale…"
+                />
+              </div>
+
+              <div>
+                <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Practical information
+                </p>
+                <RichTextEditor
+                  content={rec.practicalInfo}
+                  onBlurSave={handleSaveField('practicalInfo')}
+                  placeholder="Add practical information…"
+                />
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'etd' && (
+            <div className="px-3 pb-4 pt-3">
+              <EtdPanel
+                recommendationId={rec.id}
+                etdMode={(etdMode as EtdMode) ?? 'SEVEN_FACTOR'}
+              />
+            </div>
+          )}
         </div>
       )}
     </li>

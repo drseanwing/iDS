@@ -11,6 +11,7 @@ export interface Guideline {
   language?: string;
   guidelineType?: string;
   showSectionNumbers?: boolean;
+  etdMode?: string;
   updatedAt: string;
   createdAt: string;
 }
