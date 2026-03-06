@@ -8,10 +8,11 @@ import { useUpdateSection } from '../../hooks/useUpdateSection';
 interface SectionDetailPanelProps {
   section: Section | null;
   recommendations: Recommendation[];
+  etdMode?: string;
   onSelectSection?: (id: string) => void;
 }
 
-export function SectionDetailPanel({ section, recommendations, onSelectSection }: SectionDetailPanelProps) {
+export function SectionDetailPanel({ section, recommendations, etdMode, onSelectSection }: SectionDetailPanelProps) {
   const { mutate: updateSection } = useUpdateSection();
 
   if (!section) {
@@ -70,7 +71,7 @@ export function SectionDetailPanel({ section, recommendations, onSelectSection }
           ) : (
             <ul className="space-y-2">
               {sectionRecs.map((rec) => (
-                <RecommendationEditorCard key={rec.id} recommendation={rec} />
+                <RecommendationEditorCard key={rec.id} recommendation={rec} etdMode={etdMode} />
               ))}
             </ul>
           )}

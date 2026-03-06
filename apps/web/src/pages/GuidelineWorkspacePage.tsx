@@ -182,6 +182,7 @@ export function GuidelineWorkspacePage({ guidelineId, onBack }: GuidelineWorkspa
             <SectionDetailPanel
               section={selectedSection}
               recommendations={recommendations}
+              etdMode={guideline?.etdMode}
               onSelectSection={setSelectedSectionId}
             />
           )}
