@@ -17,9 +17,10 @@ import { ActivityLogPanel } from '../components/guideline-authoring/ActivityLogP
 import { TaskBoard } from '../components/guideline-authoring/TaskBoard';
 import { PollsPanel } from '../components/guideline-authoring/PollsPanel';
 import { MilestonesPanel } from '../components/guideline-authoring/MilestonesPanel';
+import { CoiDashboard } from '../components/guideline-authoring/CoiDashboard';
 import type { Section } from '../hooks/useSections';
 
-type WorkspaceTab = 'recommendations' | 'evidence' | 'references' | 'settings' | 'versions' | 'activity' | 'tasks' | 'polls' | 'milestones';
+type WorkspaceTab = 'recommendations' | 'evidence' | 'references' | 'settings' | 'versions' | 'activity' | 'tasks' | 'polls' | 'milestones' | 'coi';
 
 interface GuidelineWorkspacePageProps {
   guidelineId: string;
@@ -118,6 +119,7 @@ export function GuidelineWorkspacePage({ guidelineId, onBack }: GuidelineWorkspa
     { id: 'tasks' as const, label: 'Tasks' },
     { id: 'polls' as const, label: 'Polls' },
     { id: 'milestones' as const, label: 'Milestones' },
+    { id: 'coi' as const, label: 'COI' },
     { id: 'activity' as const, label: 'Activity' },
   ];
 
@@ -245,6 +247,9 @@ export function GuidelineWorkspacePage({ guidelineId, onBack }: GuidelineWorkspa
           )}
           {activeTab === 'milestones' && (
             <MilestonesPanel guidelineId={guidelineId} />
+          )}
+          {activeTab === 'coi' && (
+            <CoiDashboard guidelineId={guidelineId} />
           )}
           {activeTab === 'activity' && (
             <ActivityLogPanel guidelineId={guidelineId} />

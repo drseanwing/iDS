@@ -191,6 +191,17 @@ export class VersionsService {
     return new PaginatedResponseDto(enriched, total, page, limit);
   }
 
+  async findLatestPublicVersion(guidelineId: string) {
+    const version = await this.prisma.guidelineVersion.findFirst({
+      where: { guidelineId, isPublic: true },
+      orderBy: { publishedAt: 'desc' },
+    });
+    if (!version) {
+      throw new NotFoundException('No public version available');
+    }
+    return version.snapshotBundle;
+  }
+
   async findOne(id: string) {
     const version = await this.prisma.guidelineVersion.findUnique({ where: { id } });
     if (!version) throw new NotFoundException(`Version ${id} not found`);

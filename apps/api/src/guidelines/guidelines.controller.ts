@@ -15,6 +15,7 @@ import {
 import { Response } from 'express';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery, ApiParam } from '@nestjs/swagger';
 import { GuidelinesService } from './guidelines.service';
+import { VersionsService } from '../versions/versions.service';
 import { CreateGuidelineDto } from './dto/create-guideline.dto';
 import { UpdateGuidelineDto } from './dto/update-guideline.dto';
 import { AddPermissionDto } from './dto/manage-permission.dto';
@@ -27,7 +28,10 @@ import { Roles } from '../auth/roles.decorator';
 @UseGuards(RbacGuard)
 @Controller('guidelines')
 export class GuidelinesController {
-  constructor(private readonly guidelinesService: GuidelinesService) {}
+  constructor(
+    private readonly guidelinesService: GuidelinesService,
+    private readonly versionsService: VersionsService,
+  ) {}
 
   @Post()
   @ApiOperation({ summary: 'Create a new guideline' })
@@ -54,6 +58,21 @@ export class GuidelinesController {
       pagination?.page,
       pagination?.limit,
     );
+  }
+
+  @Get('by-slug/:shortName')
+  @ApiOperation({ summary: 'Get guideline by short name slug' })
+  @ApiParam({ name: 'shortName', description: 'Short name slug of the guideline' })
+  findBySlug(@Param('shortName') shortName: string) {
+    return this.guidelinesService.findBySlug(shortName);
+  }
+
+  @Get('by-slug/:shortName/latest')
+  @ApiOperation({ summary: 'Get the latest public version of a guideline by short name slug' })
+  @ApiParam({ name: 'shortName', description: 'Short name slug of the guideline' })
+  async findLatestPublicBySlug(@Param('shortName') shortName: string) {
+    const guideline = await this.guidelinesService.findBySlug(shortName);
+    return this.versionsService.findLatestPublicVersion(guideline.id);
   }
 
   @Get(':id/export')
