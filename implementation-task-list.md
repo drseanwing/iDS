@@ -77,7 +77,7 @@ Source docs:
   - [x] Recommendation creation UI — "Add" button + inline form added to `SectionDetailPanel`; wired via `useCreateRecommendation` (creates rec and links to section).
   - [x] Recommendation deletion UI — `Trash2` delete button with two-step confirm added to `RecommendationEditorCard`; wired via `useDeleteRecommendation`.
   - [~] PICO narrative summary field — **fixed** (added `narrativeSummary` textarea to PicoCard in PicoBuilderPanel; auto-saves on blur via `useUpdatePico`). _(Schema field is `narrativeSummary Json?`; DTO already had the field; only UI was missing.)_
-  - [~] Practical issues (16 categories from grounded theory) for PICO — **fixed** (added `PracticalIssue` CRUD endpoints on `/picos/:picoId/practical-issues` with `CreatePracticalIssueDto` supporting all 16 categories; service methods `addPracticalIssue`, `updatePracticalIssue`, `removePracticalIssue` added to PicosService). _(UI not yet built in PicoBuilderPanel.)_
+  - [x] Practical issues (16 categories from grounded theory) for PICO — **fixed** (API: CRUD endpoints on `/picos/:picoId/practical-issues` with all 16 categories. UI: "Practical Issues" tab added to PicoCard in PicoBuilderPanel with category badge, inline create form with category dropdown, delete with confirm.)
   - [~] Reference "places used" tracking — **fixed** (top-level ReferencesPage now shows section and outcome link badges per reference; API `findAll` includes `sectionPlacements` and `outcomeLinks` with titles).
   - [x] Reference auto-numbering on read — **fixed** (added `computeReferenceNumbers()` to ReferencesService with depth-first section tree traversal; `GET /references/numbered?guidelineId=` endpoint returns numbering map; `findAll` attaches `referenceNumber` to each reference when guidelineId is provided).
   - [ ] Track changes in TipTap — not implemented (extension not installed, no accept/reject workflow).
@@ -136,8 +136,8 @@ Source docs:
 - [x] Implement guideline version snapshot as FHIR Bundle document export. — **fixed** (Added `GET /fhir/Bundle/:guidelineId` returning a FHIR Bundle of type 'document' with all resources.)
 - [x] Add ETag/Last-Modified support for FHIR read operations. — **fixed** (Created `FhirEtagInterceptor` applied to all FHIR controller endpoints; computes MD5 ETag from response body, sets Last-Modified from `meta.lastUpdated`, supports If-None-Match conditional requests returning 304.)
 - [ ] Implement terminology lookup integration (SNOMED CT, ICD-10, ATC, RxNorm) via BioPortal proxy with Redis cache.
-- [ ] Implement EMR element modeling on recommendations. _(EmrElement model referenced in architecture but absent from Prisma schema.)_
-- [ ] Build clinical codes API for downstream EHR consumption.
+- [x] Implement EMR element modeling on recommendations. — **fixed** (EmrElement model exists in schema; added CRUD endpoints `POST/GET/DELETE /recommendations/:id/emr-elements` with `CreateEmrElementDto` supporting elementType, codeSystem, code, display, implementationDescription.)
+- [x] Build clinical codes API for downstream EHR consumption. — **fixed** (Added `GET /guidelines/:id/clinical-codes` aggregating all PicoCodes and EmrElements for a guideline.)
 - [ ] Validate produced resources against selected CPG-on-FHIR and EBM-on-FHIR profiles.
 
 ---
@@ -157,7 +157,7 @@ Source docs:
 
 ## Phase 9 — Quality, Security, and Operations (Arch §7, §10)
 - [~] Create unit/integration/E2E test suites for critical authoring and publish flows. _(Unit tests exist for all API services and most web components — 64 API + 68 web tests. No integration tests against a real database; no E2E tests.)_
-- [ ] Add schema/data validation checks for orphan links and missing evidence metadata.
+- [x] Add schema/data validation checks for orphan links and missing evidence metadata. — **fixed** (Added `GET /guidelines/:id/validate` checking orphan section-reference links, orphan recommendation-pico links, PICOs with no outcomes, outcomes without certainty assessment, recommendations without section placement. Returns structured issues list with severity/entity/message.)
 - [ ] Add performance tests for large guideline trees and export jobs.
 - [~] Add API rate limiting, secure file upload validation, and input sanitization checks. — **partially fixed** (Installed `@nestjs/throttler` with global 100 req/min rate limiting. Helmet and CORS configured. No file upload endpoints or input sanitization beyond class-validator.)
 - [ ] Add backup/restore jobs for PostgreSQL and object storage.
@@ -223,6 +223,6 @@ The following items are confirmed bugs or incomplete wiring in the current codeb
 |---|------|-------|
 | ~~O-01~~ | ~~Security~~ | **Fixed** — Installed `@nestjs/throttler` with global `ThrottlerGuard` at 100 req/min |
 | O-02 | Security | No file upload endpoints exist yet; upload validation not specified |
-| O-03 | Auth | RBAC guard validates JWT signature but does not enforce guideline-level role permissions |
+| ~~O-03~~ | ~~Auth~~ | **Fixed** — RbacGuard checks org-level ADMIN membership and guideline-level `GuidelinePermission` role against `@Roles()` requirements |
 | ~~O-04~~ | ~~Ops~~ | **Fixed** — Added `GET /health/ready` endpoint with database connectivity check (`$queryRaw SELECT 1`); returns 503 when DB unavailable |
 | O-05 | Testing | No integration tests against a real database; no E2E test suite |
