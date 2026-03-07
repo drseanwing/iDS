@@ -33,6 +33,7 @@ function makePico(overrides: Partial<Pico> = {}): Pico {
     comparator: 'Placebo',
     outcomes: [],
     codes: [],
+    practicalIssues: [],
     isDeleted: false,
     createdAt: '2024-01-01T00:00:00Z',
     updatedAt: '2024-01-01T00:00:00Z',

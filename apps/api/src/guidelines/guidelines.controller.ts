@@ -83,6 +83,18 @@ export class GuidelinesController {
     return this.versionsService.findLatestPublicVersion(guideline.id);
   }
 
+  @Get(':id/clinical-codes')
+  @ApiOperation({ summary: 'Get all clinical codes (PICO codes + EMR elements) for a guideline' })
+  findClinicalCodes(@Param('id', ParseUUIDPipe) id: string) {
+    return this.guidelinesService.findClinicalCodes(id);
+  }
+
+  @Get(':id/validate')
+  @ApiOperation({ summary: 'Validate guideline data integrity (orphan links, missing metadata)' })
+  validate(@Param('id', ParseUUIDPipe) id: string) {
+    return this.guidelinesService.validate(id);
+  }
+
   @Get(':id/export')
   @ApiOperation({ summary: 'Export complete guideline as JSON' })
   async exportJson(

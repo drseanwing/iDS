@@ -12,7 +12,8 @@ import {
   GitBranch,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { usePicos, type Pico, type Outcome, type PicoCode } from '../../hooks/usePicos';
+import { usePicos, type Pico, type Outcome, type PicoCode, type PracticalIssue, type PracticalIssueCategory } from '../../hooks/usePicos';
+import { useCreatePracticalIssue, useDeletePracticalIssue } from '../../hooks/usePracticalIssues';
 import { useCreatePico } from '../../hooks/useCreatePico';
 import { useUpdatePico } from '../../hooks/useUpdatePico';
 import { useDeletePico } from '../../hooks/useDeletePico';
@@ -114,6 +115,51 @@ function certaintySymbols(level: string | null | undefined): string {
 
 function codeSystemLabel(system: string): string {
   return CODE_SYSTEM_OPTIONS.find((o) => o.value === system)?.label ?? system;
+}
+
+const PRACTICAL_ISSUE_CATEGORY_OPTIONS: { value: PracticalIssueCategory; label: string }[] = [
+  { value: 'MEDICATION_ROUTINE', label: 'Medication Routine' },
+  { value: 'TESTS_AND_VISITS', label: 'Tests and Visits' },
+  { value: 'PROCEDURE_AND_DEVICE', label: 'Procedure and Device' },
+  { value: 'RECOVERY_AND_ADAPTATION', label: 'Recovery and Adaptation' },
+  { value: 'COORDINATION_OF_CARE', label: 'Coordination of Care' },
+  { value: 'ADVERSE_EFFECTS', label: 'Adverse Effects' },
+  { value: 'INTERACTIONS_AND_ANTIDOTE', label: 'Interactions and Antidote' },
+  { value: 'PHYSICAL_WELLBEING', label: 'Physical Wellbeing' },
+  { value: 'EMOTIONAL_WELLBEING', label: 'Emotional Wellbeing' },
+  { value: 'PREGNANCY_AND_NURSING', label: 'Pregnancy and Nursing' },
+  { value: 'COSTS_AND_ACCESS', label: 'Costs and Access' },
+  { value: 'FOOD_AND_DRINKS', label: 'Food and Drinks' },
+  { value: 'EXERCISE_AND_ACTIVITIES', label: 'Exercise and Activities' },
+  { value: 'SOCIAL_LIFE_AND_RELATIONSHIPS', label: 'Social Life and Relationships' },
+  { value: 'WORK_AND_EDUCATION', label: 'Work and Education' },
+  { value: 'TRAVEL_AND_DRIVING', label: 'Travel and Driving' },
+];
+
+function practicalIssueCategoryLabel(category: string): string {
+  return PRACTICAL_ISSUE_CATEGORY_OPTIONS.find((o) => o.value === category)?.label ?? category;
+}
+
+function practicalIssueCategoryBadgeColor(category: string): string {
+  switch (category) {
+    case 'MEDICATION_ROUTINE': return 'bg-blue-100 text-blue-800';
+    case 'TESTS_AND_VISITS': return 'bg-indigo-100 text-indigo-800';
+    case 'PROCEDURE_AND_DEVICE': return 'bg-violet-100 text-violet-800';
+    case 'RECOVERY_AND_ADAPTATION': return 'bg-teal-100 text-teal-800';
+    case 'COORDINATION_OF_CARE': return 'bg-cyan-100 text-cyan-800';
+    case 'ADVERSE_EFFECTS': return 'bg-red-100 text-red-800';
+    case 'INTERACTIONS_AND_ANTIDOTE': return 'bg-orange-100 text-orange-800';
+    case 'PHYSICAL_WELLBEING': return 'bg-green-100 text-green-800';
+    case 'EMOTIONAL_WELLBEING': return 'bg-pink-100 text-pink-800';
+    case 'PREGNANCY_AND_NURSING': return 'bg-rose-100 text-rose-800';
+    case 'COSTS_AND_ACCESS': return 'bg-amber-100 text-amber-800';
+    case 'FOOD_AND_DRINKS': return 'bg-lime-100 text-lime-800';
+    case 'EXERCISE_AND_ACTIVITIES': return 'bg-emerald-100 text-emerald-800';
+    case 'SOCIAL_LIFE_AND_RELATIONSHIPS': return 'bg-purple-100 text-purple-800';
+    case 'WORK_AND_EDUCATION': return 'bg-sky-100 text-sky-800';
+    case 'TRAVEL_AND_DRIVING': return 'bg-stone-100 text-stone-800';
+    default: return 'bg-muted text-muted-foreground';
+  }
 }
 
 function elementLabel(element: string): string {
@@ -498,9 +544,106 @@ function AddCodeForm({ picoId, guidelineId, onDone }: AddCodeFormProps) {
   );
 }
 
+// ── PracticalIssueRow ──────────────────────────────────────────────────────
+
+interface PracticalIssueRowProps {
+  issue: PracticalIssue;
+  picoId: string;
+  guidelineId: string;
+}
+
+function PracticalIssueRow({ issue, picoId, guidelineId }: PracticalIssueRowProps) {
+  const { mutate: deleteIssue, isPending } = useDeletePracticalIssue();
+
+  return (
+    <li className="flex items-center gap-2 rounded border bg-card px-3 py-1.5 text-sm">
+      <span
+        className={cn(
+          'rounded-full px-2 py-0.5 text-xs font-medium flex-shrink-0',
+          practicalIssueCategoryBadgeColor(issue.category),
+        )}
+      >
+        {practicalIssueCategoryLabel(issue.category)}
+      </span>
+      <span className="flex-1 truncate">{issue.title}</span>
+      <button
+        onClick={() => deleteIssue({ picoId, issueId: issue.id, guidelineId })}
+        disabled={isPending}
+        aria-label={`Delete practical issue ${issue.title}`}
+        className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+      >
+        {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+      </button>
+    </li>
+  );
+}
+
+// ── AddPracticalIssueForm ──────────────────────────────────────────────────
+
+interface AddPracticalIssueFormProps {
+  picoId: string;
+  guidelineId: string;
+  nextOrdering: number;
+  onDone: () => void;
+}
+
+function AddPracticalIssueForm({ picoId, guidelineId, nextOrdering, onDone }: AddPracticalIssueFormProps) {
+  const [category, setCategory] = useState<PracticalIssueCategory>('MEDICATION_ROUTINE');
+  const [title, setTitle] = useState('');
+  const { mutate: createIssue, isPending } = useCreatePracticalIssue();
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!title.trim()) return;
+    createIssue(
+      { picoId, guidelineId, category, title: title.trim(), ordering: nextOrdering },
+      { onSuccess: onDone },
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="mt-2 flex flex-col gap-2 rounded border bg-muted/30 p-3">
+      <select
+        aria-label="Practical issue category"
+        className="rounded border px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+        value={category}
+        onChange={(e) => setCategory(e.target.value as PracticalIssueCategory)}
+      >
+        {PRACTICAL_ISSUE_CATEGORY_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>{o.label}</option>
+        ))}
+      </select>
+      <input
+        aria-label="Practical issue title"
+        placeholder="Title…"
+        className="w-full rounded border px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        autoFocus
+      />
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          disabled={isPending || !title.trim()}
+          className="rounded bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+        >
+          {isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Add issue'}
+        </button>
+        <button
+          type="button"
+          onClick={onDone}
+          className="rounded border px-3 py-1.5 text-xs hover:bg-accent"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
 // ── PicoCard ───────────────────────────────────────────────────────────────
 
-type PicoTab = 'outcomes' | 'codes';
+type PicoTab = 'outcomes' | 'codes' | 'practical-issues';
 
 interface PicoCardProps {
   pico: Pico;
@@ -512,6 +655,7 @@ function PicoCard({ pico, guidelineId }: PicoCardProps) {
   const [activeTab, setActiveTab] = useState<PicoTab>('outcomes');
   const [addingOutcome, setAddingOutcome] = useState(false);
   const [addingCode, setAddingCode] = useState(false);
+  const [addingPracticalIssue, setAddingPracticalIssue] = useState(false);
 
   const [population, setPopulation] = useState(pico.population);
   const [intervention, setIntervention] = useState(pico.intervention);
@@ -620,20 +764,26 @@ function PicoCard({ pico, guidelineId }: PicoCardProps) {
             />
           </div>
 
-          {/* Sub-tabs: Outcomes / Codes */}
+          {/* Sub-tabs: Outcomes / Codes / Practical Issues */}
           <div className="flex border-b px-3">
-            {(['outcomes', 'codes'] as PicoTab[]).map((tab) => (
+            {(
+              [
+                { value: 'outcomes' as PicoTab, label: 'Outcomes' },
+                { value: 'codes' as PicoTab, label: 'PICO Codes' },
+                { value: 'practical-issues' as PicoTab, label: 'Practical Issues' },
+              ] as const
+            ).map(({ value, label }) => (
               <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
+                key={value}
+                onClick={() => setActiveTab(value)}
                 className={cn(
-                  'px-3 py-2 text-xs font-medium border-b-2 transition-colors capitalize',
-                  activeTab === tab
+                  'px-3 py-2 text-xs font-medium border-b-2 transition-colors',
+                  activeTab === value
                     ? 'border-primary text-primary'
                     : 'border-transparent text-muted-foreground hover:text-foreground',
                 )}
               >
-                {tab === 'codes' ? 'PICO Codes' : 'Outcomes'}
+                {label}
               </button>
             ))}
           </div>
@@ -703,6 +853,46 @@ function PicoCard({ pico, guidelineId }: PicoCardProps) {
                 >
                   <Tag className="h-3.5 w-3.5" />
                   Add code
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Practical Issues tab */}
+          {activeTab === 'practical-issues' && (
+            <div className="px-3 py-3">
+              {(pico.practicalIssues ?? []).length === 0 && !addingPracticalIssue ? (
+                <p className="text-sm text-muted-foreground">No practical issues added yet.</p>
+              ) : (
+                <ul className="space-y-1.5">
+                  {(pico.practicalIssues ?? []).map((issue) => (
+                    <PracticalIssueRow
+                      key={issue.id}
+                      issue={issue}
+                      picoId={pico.id}
+                      guidelineId={guidelineId}
+                    />
+                  ))}
+                </ul>
+              )}
+              {addingPracticalIssue ? (
+                <AddPracticalIssueForm
+                  picoId={pico.id}
+                  guidelineId={guidelineId}
+                  nextOrdering={
+                    (pico.practicalIssues ?? []).length > 0
+                      ? Math.max(...(pico.practicalIssues ?? []).map((i) => i.ordering ?? 0)) + 1
+                      : 0
+                  }
+                  onDone={() => setAddingPracticalIssue(false)}
+                />
+              ) : (
+                <button
+                  onClick={() => setAddingPracticalIssue(true)}
+                  className="mt-2 flex items-center gap-1 rounded border border-dashed px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Add practical issue
                 </button>
               )}
             </div>

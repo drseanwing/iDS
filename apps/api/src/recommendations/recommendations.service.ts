@@ -5,6 +5,7 @@ import { PaginatedResponseDto } from '../common/dto';
 import { CreateRecommendationDto } from './dto/create-recommendation.dto';
 import { UpdateRecommendationDto } from './dto/update-recommendation.dto';
 import { UpdateRecommendationStatusDto } from './dto/update-recommendation-status.dto';
+import { CreateEmrElementDto } from './dto/create-emr-element.dto';
 
 @Injectable()
 export class RecommendationsService {
@@ -106,5 +107,40 @@ export class RecommendationsService {
       where: { id },
       data: { isDeleted: true },
     });
+  }
+
+  // ── EMR Elements ──────────────────────────────────────────────────────────
+
+  async addEmrElement(recommendationId: string, dto: CreateEmrElementDto) {
+    const rec = await this.prisma.recommendation.findUnique({ where: { id: recommendationId } });
+    if (!rec || rec.isDeleted) {
+      throw new NotFoundException(`Recommendation ${recommendationId} not found`);
+    }
+    return this.prisma.emrElement.create({
+      data: {
+        recommendationId,
+        elementType: dto.elementType as any,
+        codeSystem: dto.codeSystem as any,
+        code: dto.code,
+        display: dto.display,
+        implementationDescription: dto.implementationDescription ?? null,
+      },
+    });
+  }
+
+  async removeEmrElement(recommendationId: string, elementId: string) {
+    const existing = await this.prisma.emrElement.findUnique({ where: { id: elementId } });
+    if (!existing || existing.recommendationId !== recommendationId) {
+      throw new NotFoundException(`EmrElement ${elementId} not found on Recommendation ${recommendationId}`);
+    }
+    return this.prisma.emrElement.delete({ where: { id: elementId } });
+  }
+
+  async findEmrElements(recommendationId: string) {
+    const rec = await this.prisma.recommendation.findUnique({ where: { id: recommendationId } });
+    if (!rec || rec.isDeleted) {
+      throw new NotFoundException(`Recommendation ${recommendationId} not found`);
+    }
+    return this.prisma.emrElement.findMany({ where: { recommendationId } });
   }
 }

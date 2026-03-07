@@ -20,6 +20,7 @@ import { UpdateRecommendationStatusDto } from './dto/update-recommendation-statu
 import { UpdateEtdFactorDto } from './dto/update-etd-factor.dto';
 import { UpdateEtdJudgmentDto } from './dto/update-etd-judgment.dto';
 import { CreateEtdJudgmentDto } from './dto/create-etd-judgment.dto';
+import { CreateEmrElementDto } from './dto/create-emr-element.dto';
 import { PaginationQueryDto } from '../common/dto';
 import { RbacGuard } from '../auth/rbac.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -84,6 +85,34 @@ export class RecommendationsController {
   @ApiOperation({ summary: 'Soft-delete recommendation' })
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.recommendationsService.softDelete(id);
+  }
+
+  // ── EMR Element endpoints ─────────────────────────────────────────────────
+
+  @Post(':id/emr-elements')
+  @Roles('ADMIN', 'AUTHOR')
+  @ApiOperation({ summary: 'Add an EMR element to a recommendation' })
+  addEmrElement(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateEmrElementDto,
+  ) {
+    return this.recommendationsService.addEmrElement(id, dto);
+  }
+
+  @Get(':id/emr-elements')
+  @ApiOperation({ summary: 'List EMR elements for a recommendation' })
+  findEmrElements(@Param('id', ParseUUIDPipe) id: string) {
+    return this.recommendationsService.findEmrElements(id);
+  }
+
+  @Delete(':id/emr-elements/:elementId')
+  @Roles('ADMIN', 'AUTHOR')
+  @ApiOperation({ summary: 'Remove an EMR element from a recommendation' })
+  removeEmrElement(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('elementId', ParseUUIDPipe) elementId: string,
+  ) {
+    return this.recommendationsService.removeEmrElement(id, elementId);
   }
 
   // ── EtD endpoints ────────────────────────────────────────────────────────

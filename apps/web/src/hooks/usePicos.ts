@@ -55,6 +55,33 @@ export interface Outcome {
   updatedAt: string;
 }
 
+export type PracticalIssueCategory =
+  | 'MEDICATION_ROUTINE'
+  | 'TESTS_AND_VISITS'
+  | 'PROCEDURE_AND_DEVICE'
+  | 'RECOVERY_AND_ADAPTATION'
+  | 'COORDINATION_OF_CARE'
+  | 'ADVERSE_EFFECTS'
+  | 'INTERACTIONS_AND_ANTIDOTE'
+  | 'PHYSICAL_WELLBEING'
+  | 'EMOTIONAL_WELLBEING'
+  | 'PREGNANCY_AND_NURSING'
+  | 'COSTS_AND_ACCESS'
+  | 'FOOD_AND_DRINKS'
+  | 'EXERCISE_AND_ACTIVITIES'
+  | 'SOCIAL_LIFE_AND_RELATIONSHIPS'
+  | 'WORK_AND_EDUCATION'
+  | 'TRAVEL_AND_DRIVING';
+
+export interface PracticalIssue {
+  id: string;
+  picoId: string;
+  category: PracticalIssueCategory;
+  title: string;
+  description?: unknown;
+  ordering: number;
+}
+
 export interface Pico {
   id: string;
   guidelineId: string;
@@ -64,6 +91,7 @@ export interface Pico {
   narrativeSummary?: unknown;
   outcomes: Outcome[];
   codes: PicoCode[];
+  practicalIssues: PracticalIssue[];
   isDeleted: boolean;
   createdAt: string;
   updatedAt: string;

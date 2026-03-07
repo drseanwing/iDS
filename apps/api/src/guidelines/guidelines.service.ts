@@ -390,12 +390,137 @@ export class GuidelinesService {
     };
   }
 
+  async findClinicalCodes(guidelineId: string) {
+    await this.findOne(guidelineId);
+    const [picos, recommendations] = await Promise.all([
+      this.prisma.pico.findMany({
+        where: { guidelineId, isDeleted: false },
+        include: { codes: true },
+      }),
+      this.prisma.recommendation.findMany({
+        where: { guidelineId, isDeleted: false },
+        include: { emrElements: true },
+      }),
+    ]);
+
+    const picoCodes = picos.flatMap((p) =>
+      p.codes.map((c) => ({ ...c, picoId: p.id })),
+    );
+    const emrElements = recommendations.flatMap((r) =>
+      r.emrElements.map((e) => ({ ...e, recommendationId: r.id })),
+    );
+
+    return { picoCodes, emrElements };
+  }
+
   private stripSectionInternal(section: any): any {
     const { guidelineId, createdAt, updatedAt, isDeleted, ...rest } = section;
     if (rest.children && Array.isArray(rest.children)) {
       rest.children = rest.children.map((c: any) => this.stripSectionInternal(c));
     }
     return rest;
+  }
+
+  async validate(guidelineId: string) {
+    const guideline = await this.prisma.guideline.findUnique({
+      where: { id: guidelineId },
+    });
+    if (!guideline || guideline.isDeleted) {
+      throw new NotFoundException(`Guideline ${guidelineId} not found`);
+    }
+
+    const issues: { severity: 'error' | 'warning'; entity: string; entityId: string; message: string }[] = [];
+
+    // 1. Check for orphan section-reference links (referencing deleted references)
+    const sectionRefLinks = await this.prisma.sectionReference.findMany({
+      where: { section: { guidelineId, isDeleted: false } },
+      include: { reference: { select: { id: true, isDeleted: true } } },
+    });
+    for (const link of sectionRefLinks) {
+      if (link.reference.isDeleted) {
+        issues.push({
+          severity: 'error',
+          entity: 'SectionReference',
+          entityId: `${link.sectionId}-${link.referenceId}`,
+          message: `Section-reference link points to deleted reference ${link.referenceId}`,
+        });
+      }
+    }
+
+    // 2. Check for orphan recommendation-pico links
+    const recPicoLinks = await this.prisma.picoRecommendation.findMany({
+      where: { recommendation: { guidelineId, isDeleted: false } },
+      include: {
+        pico: { select: { id: true, isDeleted: true } },
+        recommendation: { select: { id: true, isDeleted: true } },
+      },
+    });
+    for (const link of recPicoLinks) {
+      if (link.pico.isDeleted) {
+        issues.push({
+          severity: 'error',
+          entity: 'PicoRecommendation',
+          entityId: `${link.picoId}-${link.recommendationId}`,
+          message: `Recommendation ${link.recommendationId} links to deleted PICO ${link.picoId}`,
+        });
+      }
+    }
+
+    // 3. Check for PICOs with no outcomes
+    const picos = await this.prisma.pico.findMany({
+      where: { guidelineId, isDeleted: false },
+      include: { outcomes: { where: { isDeleted: false }, select: { id: true } } },
+    });
+    for (const pico of picos) {
+      if (pico.outcomes.length === 0) {
+        issues.push({
+          severity: 'warning',
+          entity: 'Pico',
+          entityId: pico.id,
+          message: `PICO "${pico.population} / ${pico.intervention}" has no outcomes`,
+        });
+      }
+    }
+
+    // 4. Check for outcomes without certainty assessment
+    const outcomes = await this.prisma.outcome.findMany({
+      where: { pico: { guidelineId, isDeleted: false }, isDeleted: false },
+      select: { id: true, title: true, certaintyOverall: true },
+    });
+    for (const outcome of outcomes) {
+      if (!outcome.certaintyOverall) {
+        issues.push({
+          severity: 'warning',
+          entity: 'Outcome',
+          entityId: outcome.id,
+          message: `Outcome "${outcome.title}" has no certainty assessment`,
+        });
+      }
+    }
+
+    // 5. Check for recommendations without section placement
+    const recs = await this.prisma.recommendation.findMany({
+      where: { guidelineId, isDeleted: false },
+      include: { sectionPlacements: { select: { sectionId: true } } },
+    });
+    for (const rec of recs) {
+      if ((rec as any).sectionPlacements.length === 0) {
+        issues.push({
+          severity: 'warning',
+          entity: 'Recommendation',
+          entityId: rec.id,
+          message: `Recommendation "${rec.title}" is not placed in any section`,
+        });
+      }
+    }
+
+    return {
+      guidelineId,
+      valid: issues.filter((i) => i.severity === 'error').length === 0,
+      errorCount: issues.filter((i) => i.severity === 'error').length,
+      warningCount: issues.filter((i) => i.severity === 'warning').length,
+      issues,
+    };
   }
 
   private getAllowedTransitions(current: string): string[] {
