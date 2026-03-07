@@ -5,8 +5,10 @@ import {
   ParseUUIDPipe,
   NotFoundException,
   Header,
+  UseInterceptors,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiParam } from '@nestjs/swagger';
+import { FhirEtagInterceptor } from './fhir-etag.interceptor';
 import { PrismaService } from '../prisma/prisma.service';
 import { GuidelineCompositionProjection } from './projections/guideline-to-composition';
 import { ReferenceCitationProjection } from './projections/reference-to-citation';
@@ -20,6 +22,7 @@ import { PicoEvidenceProjection } from './projections/pico-to-evidence';
  * All endpoints return `application/fhir+json`.
  */
 @ApiTags('FHIR')
+@UseInterceptors(FhirEtagInterceptor)
 @Controller('fhir')
 export class FhirController {
   constructor(

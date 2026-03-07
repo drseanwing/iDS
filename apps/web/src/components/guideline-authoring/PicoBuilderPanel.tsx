@@ -9,6 +9,7 @@ import {
   Tag,
   X,
   BarChart2,
+  GitBranch,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { usePicos, type Pico, type Outcome, type PicoCode } from '../../hooks/usePicos';
@@ -21,6 +22,7 @@ import { useDeleteOutcome } from '../../hooks/useDeleteOutcome';
 import { useCreatePicoCode } from '../../hooks/useCreatePicoCode';
 import { useDeletePicoCode } from '../../hooks/useDeletePicoCode';
 import { GradeAssessmentPanel } from './GradeAssessmentPanel';
+import { ShadowOutcomePanel } from './ShadowOutcomePanel';
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -128,6 +130,7 @@ interface OutcomeRowProps {
 function OutcomeRow({ outcome, guidelineId }: OutcomeRowProps) {
   const [editing, setEditing] = useState(false);
   const [showGrade, setShowGrade] = useState(false);
+  const [showShadows, setShowShadows] = useState(false);
   const [title, setTitle] = useState(outcome.title);
   const [outcomeType, setOutcomeType] = useState(outcome.outcomeType);
   const [state, setState] = useState(outcome.state);
@@ -269,6 +272,21 @@ function OutcomeRow({ outcome, guidelineId }: OutcomeRowProps) {
             >
               <BarChart2 className="h-3.5 w-3.5" />
             </button>
+            {/* Shadow outcomes toggle */}
+            <button
+              onClick={() => setShowShadows((v) => !v)}
+              aria-label={showShadows ? 'Collapse evidence updates' : 'Expand evidence updates'}
+              aria-expanded={showShadows}
+              className={cn(
+                'rounded p-1 transition-colors',
+                showShadows
+                  ? 'text-green-600 bg-green-50'
+                  : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+              )}
+              title="Evidence updates (shadows)"
+            >
+              <GitBranch className="h-3.5 w-3.5" />
+            </button>
             <button
               onClick={() => setEditing(true)}
               aria-label={`Edit outcome ${outcome.title}`}
@@ -291,6 +309,12 @@ function OutcomeRow({ outcome, guidelineId }: OutcomeRowProps) {
       {showGrade && !editing && (
         <div className="px-3 pb-3">
           <GradeAssessmentPanel outcome={outcome} guidelineId={guidelineId} />
+        </div>
+      )}
+      {/* Shadow outcomes panel (collapsible) */}
+      {showShadows && !editing && (
+        <div className="px-3 pb-3">
+          <ShadowOutcomePanel outcomeId={outcome.id} outcomeTitle={outcome.title} />
         </div>
       )}
     </li>

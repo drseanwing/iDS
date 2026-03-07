@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Loader2, Download } from 'lucide-react';
+import { Loader2, Download, ArrowLeftRight, AlertTriangle } from 'lucide-react';
 import { useVersions } from '../../hooks/useVersions';
 import { PublishDialog } from './PublishDialog';
+import { VersionCompareDialog } from './VersionCompareDialog';
 import { apiClient } from '../../lib/api-client';
 
 interface VersionHistoryPanelProps {
@@ -18,6 +19,7 @@ const dateFormatter = new Intl.DateTimeFormat(undefined, {
 
 export function VersionHistoryPanel({ guidelineId }: VersionHistoryPanelProps) {
   const [showPublishDialog, setShowPublishDialog] = useState(false);
+  const [showCompareDialog, setShowCompareDialog] = useState(false);
   const { data, isLoading } = useVersions(guidelineId);
 
   const versions = data?.versions ?? [];
@@ -39,15 +41,41 @@ export function VersionHistoryPanel({ guidelineId }: VersionHistoryPanelProps) {
 
   return (
     <div className="overflow-y-auto p-6 space-y-6 max-w-2xl">
+      {/* Historic version banner */}
+      {versions.length > 0 && (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+          <AlertTriangle className="h-5 w-5 flex-shrink-0 text-amber-600 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-amber-900">
+              Published versions are read-only snapshots
+            </p>
+            <p className="text-xs text-amber-700 mt-0.5">
+              To make changes, edit the active draft. Your edits will be captured in the next published version.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold">Version History</h2>
-        <button
-          onClick={() => setShowPublishDialog(true)}
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-        >
-          Publish New Version
-        </button>
+        <div className="flex items-center gap-2">
+          {versions.length >= 2 && (
+            <button
+              onClick={() => setShowCompareDialog(true)}
+              className="inline-flex items-center gap-1.5 rounded-md border px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              <ArrowLeftRight className="h-4 w-4" />
+              Compare
+            </button>
+          )}
+          <button
+            onClick={() => setShowPublishDialog(true)}
+            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            Publish New Version
+          </button>
+        </div>
       </div>
 
       {/* Loading */}
@@ -69,7 +97,7 @@ export function VersionHistoryPanel({ guidelineId }: VersionHistoryPanelProps) {
       {/* Version list */}
       {!isLoading && versions.length > 0 && (
         <div className="space-y-3">
-          {versions.map((version) => (
+          {versions.map((version, index) => (
             <div
               key={version.id}
               className="rounded-lg border p-4 space-y-2"
@@ -88,6 +116,16 @@ export function VersionHistoryPanel({ guidelineId }: VersionHistoryPanelProps) {
                 {version.isPublic && (
                   <span className="rounded-full bg-green-100 text-green-800 px-2 py-0.5 text-xs font-medium">
                     Public
+                  </span>
+                )}
+                {index === 0 && (
+                  <span className="rounded-full bg-purple-100 text-purple-800 px-2 py-0.5 text-xs font-medium">
+                    Latest
+                  </span>
+                )}
+                {index > 0 && (
+                  <span className="rounded-full bg-gray-100 text-gray-500 px-2 py-0.5 text-xs font-medium">
+                    Superseded
                   </span>
                 )}
               </div>
@@ -121,6 +159,14 @@ export function VersionHistoryPanel({ guidelineId }: VersionHistoryPanelProps) {
           guidelineId={guidelineId}
           latestVersion={latestVersion}
           onClose={() => setShowPublishDialog(false)}
+        />
+      )}
+
+      {/* Compare dialog */}
+      {showCompareDialog && (
+        <VersionCompareDialog
+          versions={versions}
+          onClose={() => setShowCompareDialog(false)}
         />
       )}
     </div>
