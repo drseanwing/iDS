@@ -101,13 +101,24 @@ export class VersionsService {
       },
     });
 
-    // Update guideline status to PUBLISHED if it was a major version
+    // Mark all prior public versions as no longer the latest (superseded)
     if (dto.versionType === 'MAJOR') {
-      await this.prisma.guideline.update({
-        where: { id: dto.guidelineId },
-        data: { status: GuidelineStatus.PUBLISHED },
+      await this.prisma.guidelineVersion.updateMany({
+        where: {
+          guidelineId: dto.guidelineId,
+          id: { not: version.id },
+          isPublic: true,
+        },
+        data: { isPublic: false },
       });
     }
+
+    // Auto-create next draft: reset guideline to DRAFT so editing can continue.
+    // The published content is preserved in the immutable snapshotBundle.
+    await this.prisma.guideline.update({
+      where: { id: dto.guidelineId },
+      data: { status: GuidelineStatus.DRAFT },
+    });
 
     return version;
   }

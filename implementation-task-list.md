@@ -102,12 +102,12 @@ Source docs:
 
 ## Phase 5 — Workflow, Versioning, and Publishing (Arch §3.1, §5, §9.4)
 - [x] Implement recommendation and guideline state machine transitions. — **fixed** (guideline: `PUT /guidelines/:id/status` with allowed-transitions map; recommendation: `PUT /recommendations/:id/status` with RecStatus enum [NEW, UPDATED, IN_REVIEW, POSSIBLY_OUTDATED, UPDATED_EVIDENCE, REVIEWED, NO_LABEL] and optional comment + timestamp).
-- [~] Implement publish actions (minor/major) and version comment capture. — **partially fixed** (added `VersionsModule` with `POST /versions` to create version snapshots, `GET /versions?guidelineId=` listing, auto-incremented version numbering via `computeNextVersion()`. UI not yet built.)
+- [~] Implement publish actions (minor/major) and version comment capture. — **partially fixed** (added `VersionsModule` with `POST /versions` to create version snapshots, `GET /versions?guidelineId=` listing, auto-incremented version numbering via `computeNextVersion()`. **UI added**: `VersionHistoryPanel` + `PublishDialog` with major/minor selection, version preview, comment, public toggle; accessible via "Versions" tab in workspace.)
 - [ ] Auto-create next draft after publish and mark prior versions as out-of-date.
 - [ ] Separate publishing from public visibility toggle with guardrails. _(`isPublic` field now settable via API but no publish workflow enforces it.)_
 - [ ] Implement permalink strategy (`shortName`, latest public, explicit version URL).
 - [~] Generate and store immutable version snapshot bundles. — **fixed** (enhanced `VersionsService.publish()` to capture comprehensive snapshots including full guideline metadata, organization, sections tree, recommendations with EtD factors, PICOs with outcomes/codes/practical issues, references with all links). _(Snapshot is stored as structured JSON, not FHIR Bundle — FHIR transformation deferred to Phase 7.)_
-- [~] Add version history UI with compare and navigation affordances. — **partially fixed** (added `GET /versions/compare?v1=:id1&v2=:id2` endpoint returning both snapshots for frontend diffing. UI not yet built.)
+- [~] Add version history UI with compare and navigation affordances. — **partially fixed** (added `GET /versions/compare?v1=:id1&v2=:id2` endpoint returning both snapshots for frontend diffing. **UI added**: `VersionHistoryPanel` lists versions with type badges, dates, publisher names, JSON export download. Compare UI not yet built.)
 - [ ] Enforce edit redirection from historic version to active draft.
 
 ---
@@ -115,17 +115,17 @@ Source docs:
 ## Phase 6 — Collaboration, Permissions, and Governance (Arch §4.2, §6, §9.3)
 - [~] Implement full RBAC matrix (organization roles + guideline roles). — **partially fixed** (added `RbacGuard` with `@Roles()` decorator; resolves guidelineId from params/body/query, checks GuidelinePermission role, org ADMIN bypass; guideline permission CRUD: `POST/GET/DELETE /guidelines/:id/permissions`). _(Guard not yet applied to specific endpoints — ready for per-endpoint wiring.)_
 - [~] Implement activity logging interceptor for create/update/delete/publish flows. — **fixed** (added global `ActivityLoggingInterceptor` registered as `APP_INTERCEPTOR`; logs POST/PUT/PATCH/DELETE operations best-effort via `ActivityService.log()`; `ActivityModule` is `@Global()`).
-- [~] Build activity log screen with user/action/entity/date filters. — **partially fixed** (added `GET /activity?guidelineId=` endpoint with optional `userId`, `entityType`, `actionType` filters in `ActivityController`. UI not yet built.)
+- [x] Build activity log screen with user/action/entity/date filters. — **fixed** (API: `GET /activity?guidelineId=` with filters. UI: `ActivityLogPanel` with entity type, action type dropdowns, text filter, relative timestamps, action badges, load-more pagination. Accessible via "Activity" tab in workspace.)
 - [~] Implement undo/recover flows for soft-deleted content. _(Restore API endpoints added for guidelines and sections. Admin UI for browsing/restoring deleted content not yet built.)_
 - [ ] Implement track changes model and rendering in rich-text fields.
 - [ ] Add accept/reject tracked changes workflow with role checks.
-- [~] Implement threaded comments and status workflow (open/resolved/deprecated). — **fixed** (added `CommentsModule` with full CRUD: `POST /comments`, `GET /comments?guidelineId=`, `PUT /comments/:id`, `DELETE /comments/:id`, `PUT /comments/:id/status`; supports threaded replies via `parentId`; status transitions open→resolved→deprecated). _(UI not yet built.)_
+- [x] Implement threaded comments and status workflow (open/resolved/deprecated). — **fixed** (API: full CRUD with threading and status transitions. UI: `CommentsPanel` with threaded display, inline reply forms, status badges, resolve/delete actions. Accessible via "Comments" sub-tab in RecommendationEditorCard.)
 - [~] Implement COI matrix storage and intervention/member conflict views. — **partially fixed** (added `CoiModule` with CRUD: `POST /coi`, `GET /coi?guidelineId=`, `GET /coi/user/:userId?guidelineId=`, `PUT /coi/:id`, `DELETE /coi/:id`; supports disclosureText, conflictType, interventions JSON, isExcludedFromVoting). _(UI not yet built.)_
 - [~] Add voting exclusion logic linked to COI declarations. — **partially fixed** (PollsService `castVote` checks CoiRecord `isExcludedFromVoting` flag and throws ForbiddenException if user is excluded).
 - [~] Implement Poll/Delphi voting tool. — **partially fixed** (added `PollsModule` with `POST /polls`, `GET /polls?guidelineId=`, `GET /polls/:id`, `POST /polls/:id/vote`, `PUT /polls/:id/close`, `GET /polls/:id/results`; supports poll options, vote casting with COI exclusion check, result aggregation). _(UI not yet built.)_
 - [~] Implement Milestone tracker with AGREE II / SNAP-IT checklists. — **partially fixed** (added `MilestonesModule` with `POST /milestones`, `GET /milestones?guidelineId=`, `PUT /milestones/:id`, `DELETE /milestones/:id`, `POST /milestones/:id/items`, `PUT /milestones/items/:itemId/toggle`, `DELETE /milestones/items/:itemId`). _(UI not yet built.)_
-- [~] Implement Task manager (Kanban board). — **partially fixed** (added `TasksModule` with CRUD: `POST /tasks`, `GET /tasks?guidelineId=&status=&assigneeId=`, `GET /tasks/:id`, `PUT /tasks/:id`, `DELETE /tasks/:id`; filterable by status and assignee). _(UI not yet built.)_
-- [~] Build guideline permission management UI (invite members, assign roles). — **partially fixed** (API endpoints for `POST/GET/DELETE /guidelines/:id/permissions` implemented with upsert, list with user details, and removal). _(UI not yet built.)_
+- [x] Implement Task manager (Kanban board). — **fixed** (API: full CRUD with status/assignee filters. UI: `TaskBoard` Kanban with TODO/IN_PROGRESS/DONE columns, task cards with assignee badges, due date color-coding, status-change buttons, inline create form. Accessible via "Tasks" tab in workspace.)
+- [x] Build guideline permission management UI (invite members, assign roles). — **fixed** (API: CRUD endpoints for permissions. UI: `PermissionManagementPanel` with member list, role badges (ADMIN/AUTHOR/REVIEWER/VIEWER), add member form, remove with confirm. Embedded in GuidelineSettingsPanel.)
 
 ---
 

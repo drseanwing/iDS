@@ -1,16 +1,20 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, ParseUUIDPipe, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { CommentsService } from './comments.service';
 import { CreateCommentDto, UpdateCommentStatusDto } from './dto/create-comment.dto';
 import { PaginationQueryDto } from '../common/dto';
+import { RbacGuard } from '../auth/rbac.guard';
+import { Roles } from '../auth/roles.decorator';
 
 @ApiTags('Comments')
 @ApiBearerAuth()
+@UseGuards(RbacGuard)
 @Controller('comments')
 export class CommentsController {
   constructor(private readonly commentsService: CommentsService) {}
 
   @Post()
+  @Roles('ADMIN', 'AUTHOR', 'REVIEWER')
   @ApiOperation({ summary: 'Create a feedback comment' })
   create(@Body() dto: CreateCommentDto) {
     // TODO: extract userId from JWT when auth is wired
@@ -29,6 +33,7 @@ export class CommentsController {
   }
 
   @Put(':id/status')
+  @Roles('ADMIN')
   @ApiOperation({ summary: 'Update comment status (open/resolved/rejected)' })
   updateStatus(
     @Param('id', ParseUUIDPipe) id: string,
@@ -38,6 +43,7 @@ export class CommentsController {
   }
 
   @Delete(':id')
+  @Roles('ADMIN')
   @ApiOperation({ summary: 'Delete a comment' })
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.commentsService.remove(id);

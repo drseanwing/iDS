@@ -10,6 +10,7 @@ import {
   Req,
   Res,
   ParseUUIDPipe,
+  UseGuards,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery, ApiParam } from '@nestjs/swagger';
@@ -18,9 +19,12 @@ import { CreateGuidelineDto } from './dto/create-guideline.dto';
 import { UpdateGuidelineDto } from './dto/update-guideline.dto';
 import { AddPermissionDto } from './dto/manage-permission.dto';
 import { PaginationQueryDto } from '../common/dto';
+import { RbacGuard } from '../auth/rbac.guard';
+import { Roles } from '../auth/roles.decorator';
 
 @ApiTags('Guidelines')
 @ApiBearerAuth()
+@UseGuards(RbacGuard)
 @Controller('guidelines')
 export class GuidelinesController {
   constructor(private readonly guidelinesService: GuidelinesService) {}
@@ -72,6 +76,7 @@ export class GuidelinesController {
   }
 
   @Put(':id')
+  @Roles('ADMIN', 'AUTHOR')
   @ApiOperation({ summary: 'Update guideline' })
   update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -81,18 +86,21 @@ export class GuidelinesController {
   }
 
   @Delete(':id')
+  @Roles('ADMIN')
   @ApiOperation({ summary: 'Soft-delete guideline' })
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.guidelinesService.softDelete(id);
   }
 
   @Post(':id/restore')
+  @Roles('ADMIN')
   @ApiOperation({ summary: 'Restore a soft-deleted guideline' })
   restore(@Param('id', ParseUUIDPipe) id: string) {
     return this.guidelinesService.restore(id);
   }
 
   @Put(':id/status')
+  @Roles('ADMIN')
   @ApiOperation({ summary: 'Transition guideline to a new status' })
   updateStatus(
     @Param('id', ParseUUIDPipe) id: string,
@@ -104,6 +112,7 @@ export class GuidelinesController {
   // ── Permission endpoints ──────────────────────────────────
 
   @Post(':id/permissions')
+  @Roles('ADMIN')
   @ApiOperation({ summary: 'Add or update a permission on a guideline' })
   @ApiParam({ name: 'id', description: 'Guideline ID' })
   addPermission(
@@ -121,6 +130,7 @@ export class GuidelinesController {
   }
 
   @Delete(':id/permissions/:userId')
+  @Roles('ADMIN')
   @ApiOperation({ summary: 'Remove a user permission from a guideline' })
   @ApiParam({ name: 'id', description: 'Guideline ID' })
   @ApiParam({ name: 'userId', description: 'User ID to remove' })

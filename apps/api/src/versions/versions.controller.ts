@@ -1,16 +1,20 @@
-import { Controller, Get, Post, Body, Param, Query, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, ParseUUIDPipe, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { VersionsService } from './versions.service';
 import { CreateVersionDto } from './dto/create-version.dto';
 import { PaginationQueryDto } from '../common/dto';
+import { RbacGuard } from '../auth/rbac.guard';
+import { Roles } from '../auth/roles.decorator';
 
 @ApiTags('Versions')
 @ApiBearerAuth()
+@UseGuards(RbacGuard)
 @Controller('versions')
 export class VersionsController {
   constructor(private readonly versionsService: VersionsService) {}
 
   @Post()
+  @Roles('ADMIN')
   @ApiOperation({ summary: 'Publish a new guideline version' })
   publish(@Body() dto: CreateVersionDto) {
     // TODO: extract userId from JWT when auth is wired

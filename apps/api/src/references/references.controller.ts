@@ -8,20 +8,25 @@ import {
   Param,
   Query,
   ParseUUIDPipe,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { ReferencesService } from './references.service';
 import { CreateReferenceDto } from './dto/create-reference.dto';
 import { UpdateReferenceDto } from './dto/update-reference.dto';
 import { PaginationQueryDto } from '../common/dto';
+import { RbacGuard } from '../auth/rbac.guard';
+import { Roles } from '../auth/roles.decorator';
 
 @ApiTags('References')
 @ApiBearerAuth()
+@UseGuards(RbacGuard)
 @Controller('references')
 export class ReferencesController {
   constructor(private readonly referencesService: ReferencesService) {}
 
   @Post()
+  @Roles('ADMIN', 'AUTHOR')
   @ApiOperation({ summary: 'Create a reference' })
   create(@Body() dto: CreateReferenceDto) {
     return this.referencesService.create(dto);
@@ -62,6 +67,7 @@ export class ReferencesController {
   }
 
   @Put(':id')
+  @Roles('ADMIN', 'AUTHOR')
   @ApiOperation({ summary: 'Update reference' })
   update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -71,6 +77,7 @@ export class ReferencesController {
   }
 
   @Delete(':id')
+  @Roles('ADMIN', 'AUTHOR')
   @ApiOperation({ summary: 'Soft-delete reference' })
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.referencesService.softDelete(id);

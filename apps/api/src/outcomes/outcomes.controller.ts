@@ -1,19 +1,23 @@
 import {
-  Controller, Get, Post, Put, Delete, Body, Param, Query, ParseUUIDPipe,
+  Controller, Get, Post, Put, Delete, Body, Param, Query, ParseUUIDPipe, UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery, ApiParam } from '@nestjs/swagger';
 import { OutcomesService } from './outcomes.service';
 import { CreateOutcomeDto } from './dto/create-outcome.dto';
 import { UpdateOutcomeDto } from './dto/update-outcome.dto';
 import { PaginationQueryDto } from '../common/dto';
+import { RbacGuard } from '../auth/rbac.guard';
+import { Roles } from '../auth/roles.decorator';
 
 @ApiTags('Outcomes')
 @ApiBearerAuth()
+@UseGuards(RbacGuard)
 @Controller('outcomes')
 export class OutcomesController {
   constructor(private readonly outcomesService: OutcomesService) {}
 
   @Post()
+  @Roles('ADMIN', 'AUTHOR')
   @ApiOperation({ summary: 'Create an outcome' })
   create(@Body() dto: CreateOutcomeDto) {
     return this.outcomesService.create(dto);
@@ -36,12 +40,14 @@ export class OutcomesController {
   }
 
   @Put(':id')
+  @Roles('ADMIN', 'AUTHOR')
   @ApiOperation({ summary: 'Update outcome' })
   update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateOutcomeDto) {
     return this.outcomesService.update(id, dto);
   }
 
   @Delete(':id')
+  @Roles('ADMIN', 'AUTHOR')
   @ApiOperation({ summary: 'Soft-delete outcome' })
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.outcomesService.softDelete(id);
@@ -52,6 +58,7 @@ export class OutcomesController {
   // ---------------------------------------------------------------------------
 
   @Post(':id/shadow')
+  @Roles('ADMIN', 'AUTHOR')
   @ApiOperation({ summary: 'Create a shadow (draft copy) of an outcome' })
   @ApiParam({ name: 'id', description: 'ID of the outcome to shadow' })
   createShadow(@Param('id', ParseUUIDPipe) id: string) {
@@ -61,6 +68,7 @@ export class OutcomesController {
   }
 
   @Post(':id/promote')
+  @Roles('ADMIN', 'AUTHOR')
   @ApiOperation({ summary: 'Promote a shadow outcome to replace the original' })
   @ApiParam({ name: 'id', description: 'ID of the shadow outcome to promote' })
   promoteShadow(@Param('id', ParseUUIDPipe) id: string) {

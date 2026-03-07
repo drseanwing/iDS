@@ -8,6 +8,7 @@ import {
   Param,
   Query,
   ParseUUIDPipe,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -18,14 +19,18 @@ import {
 import { TasksService } from './tasks.service';
 import { CreateTaskDto, UpdateTaskDto } from './dto/create-task.dto';
 import { PaginationQueryDto } from '../common/dto';
+import { RbacGuard } from '../auth/rbac.guard';
+import { Roles } from '../auth/roles.decorator';
 
 @ApiTags('Tasks')
 @ApiBearerAuth()
+@UseGuards(RbacGuard)
 @Controller('tasks')
 export class TasksController {
   constructor(private readonly tasksService: TasksService) {}
 
   @Post()
+  @Roles('ADMIN', 'AUTHOR')
   @ApiOperation({ summary: 'Create a task' })
   create(@Body() dto: CreateTaskDto) {
     // TODO: extract userId from JWT when auth is wired
@@ -59,6 +64,7 @@ export class TasksController {
   }
 
   @Put(':id')
+  @Roles('ADMIN', 'AUTHOR')
   @ApiOperation({ summary: 'Update a task' })
   update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -70,6 +76,7 @@ export class TasksController {
   }
 
   @Delete(':id')
+  @Roles('ADMIN')
   @ApiOperation({ summary: 'Delete a task' })
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.tasksService.remove(id);

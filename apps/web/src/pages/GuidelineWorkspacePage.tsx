@@ -15,9 +15,11 @@ import { GuidelineSettingsPanel } from '../components/guideline-authoring/Guidel
 import { VersionHistoryPanel } from '../components/guideline-authoring/VersionHistoryPanel';
 import { ActivityLogPanel } from '../components/guideline-authoring/ActivityLogPanel';
 import { TaskBoard } from '../components/guideline-authoring/TaskBoard';
+import { PollsPanel } from '../components/guideline-authoring/PollsPanel';
+import { MilestonesPanel } from '../components/guideline-authoring/MilestonesPanel';
 import type { Section } from '../hooks/useSections';
 
-type WorkspaceTab = 'recommendations' | 'evidence' | 'references' | 'settings' | 'versions' | 'activity' | 'tasks';
+type WorkspaceTab = 'recommendations' | 'evidence' | 'references' | 'settings' | 'versions' | 'activity' | 'tasks' | 'polls' | 'milestones';
 
 interface GuidelineWorkspacePageProps {
   guidelineId: string;
@@ -114,6 +116,8 @@ export function GuidelineWorkspacePage({ guidelineId, onBack }: GuidelineWorkspa
     { id: 'settings', label: 'Settings' },
     { id: 'versions' as const, label: 'Versions' },
     { id: 'tasks' as const, label: 'Tasks' },
+    { id: 'polls' as const, label: 'Polls' },
+    { id: 'milestones' as const, label: 'Milestones' },
     { id: 'activity' as const, label: 'Activity' },
   ];
 
@@ -235,6 +239,12 @@ export function GuidelineWorkspacePage({ guidelineId, onBack }: GuidelineWorkspa
           )}
           {activeTab === 'tasks' && (
             <TaskBoard guidelineId={guidelineId} />
+          )}
+          {activeTab === 'polls' && (
+            <PollsPanel guidelineId={guidelineId} />
+          )}
+          {activeTab === 'milestones' && (
+            <MilestonesPanel guidelineId={guidelineId} />
           )}
           {activeTab === 'activity' && (
             <ActivityLogPanel guidelineId={guidelineId} />

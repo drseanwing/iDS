@@ -9,6 +9,7 @@ import {
   Query,
   Req,
   ParseUUIDPipe,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { RecommendationsService } from './recommendations.service';
@@ -20,9 +21,12 @@ import { UpdateEtdFactorDto } from './dto/update-etd-factor.dto';
 import { UpdateEtdJudgmentDto } from './dto/update-etd-judgment.dto';
 import { CreateEtdJudgmentDto } from './dto/create-etd-judgment.dto';
 import { PaginationQueryDto } from '../common/dto';
+import { RbacGuard } from '../auth/rbac.guard';
+import { Roles } from '../auth/roles.decorator';
 
 @ApiTags('Recommendations')
 @ApiBearerAuth()
+@UseGuards(RbacGuard)
 @Controller('recommendations')
 export class RecommendationsController {
   constructor(
@@ -31,6 +35,7 @@ export class RecommendationsController {
   ) {}
 
   @Post()
+  @Roles('ADMIN', 'AUTHOR')
   @ApiOperation({ summary: 'Create a recommendation' })
   create(@Body() dto: CreateRecommendationDto, @Req() req: any) {
     return this.recommendationsService.create(dto, req.user?.sub);
@@ -53,6 +58,7 @@ export class RecommendationsController {
   }
 
   @Put(':id')
+  @Roles('ADMIN', 'AUTHOR')
   @ApiOperation({ summary: 'Update recommendation' })
   update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -63,6 +69,7 @@ export class RecommendationsController {
   }
 
   @Put(':id/status')
+  @Roles('ADMIN', 'AUTHOR')
   @ApiOperation({ summary: 'Update recommendation status' })
   updateStatus(
     @Param('id', ParseUUIDPipe) id: string,
@@ -73,6 +80,7 @@ export class RecommendationsController {
   }
 
   @Delete(':id')
+  @Roles('ADMIN', 'AUTHOR')
   @ApiOperation({ summary: 'Soft-delete recommendation' })
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.recommendationsService.softDelete(id);
@@ -89,17 +97,20 @@ export class RecommendationsController {
 
 @ApiTags('EtD Factors')
 @ApiBearerAuth()
+@UseGuards(RbacGuard)
 @Controller('etd-factors')
 export class EtdFactorsController {
   constructor(private readonly etdService: EtdService) {}
 
   @Put(':id')
+  @Roles('ADMIN', 'AUTHOR')
   @ApiOperation({ summary: 'Update EtD factor content and visibility' })
   updateFactor(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateEtdFactorDto) {
     return this.etdService.updateFactor(id, dto);
   }
 
   @Post(':id/judgments')
+  @Roles('ADMIN', 'AUTHOR')
   @ApiOperation({ summary: 'Add an intervention judgment to an EtD factor' })
   addJudgment(@Param('id', ParseUUIDPipe) id: string, @Body() dto: CreateEtdJudgmentDto) {
     return this.etdService.addJudgment(id, dto);
@@ -108,17 +119,20 @@ export class EtdFactorsController {
 
 @ApiTags('EtD Judgments')
 @ApiBearerAuth()
+@UseGuards(RbacGuard)
 @Controller('etd-judgments')
 export class EtdJudgmentsController {
   constructor(private readonly etdService: EtdService) {}
 
   @Put(':id')
+  @Roles('ADMIN', 'AUTHOR')
   @ApiOperation({ summary: 'Update an EtD judgment value and color' })
   updateJudgment(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateEtdJudgmentDto) {
     return this.etdService.updateJudgment(id, dto);
   }
 
   @Delete(':id')
+  @Roles('ADMIN', 'AUTHOR')
   @ApiOperation({ summary: 'Delete an EtD judgment (remove intervention from factor)' })
   deleteJudgment(@Param('id', ParseUUIDPipe) id: string) {
     return this.etdService.deleteJudgment(id);
