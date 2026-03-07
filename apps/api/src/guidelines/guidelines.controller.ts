@@ -131,6 +131,23 @@ export class GuidelinesController {
     return this.guidelinesService.softDelete(id);
   }
 
+  @Post('import')
+  @Roles('ADMIN')
+  @ApiOperation({
+    summary: 'Import/adapt a guideline from a JSON export',
+    description:
+      'Creates a new guideline (with sections and references) from an exported JSON payload. ' +
+      'All IDs are regenerated. The title gets " (Imported)" appended.',
+  })
+  importGuideline(
+    @Body('exportData') exportData: any,
+    @Body('organizationId') organizationId: string,
+    @Req() req: any,
+  ) {
+    const userId: string = req.user?.sub;
+    return this.guidelinesService.importGuideline(exportData, organizationId, userId);
+  }
+
   @Post(':id/restore')
   @Roles('ADMIN')
   @ApiOperation({ summary: 'Restore a soft-deleted guideline' })

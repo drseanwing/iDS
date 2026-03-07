@@ -135,10 +135,10 @@ Source docs:
 - [x] Implement read-only `/fhir/*` facade endpoints with core search params. — **fixed** (Added `FhirController` with `GET /fhir/Composition/:id`, `GET /fhir/Citation/:id`, `GET /fhir/PlanDefinition/:id`, `GET /fhir/Evidence/:id`.)
 - [x] Implement guideline version snapshot as FHIR Bundle document export. — **fixed** (Added `GET /fhir/Bundle/:guidelineId` returning a FHIR Bundle of type 'document' with all resources.)
 - [x] Add ETag/Last-Modified support for FHIR read operations. — **fixed** (Created `FhirEtagInterceptor` applied to all FHIR controller endpoints; computes MD5 ETag from response body, sets Last-Modified from `meta.lastUpdated`, supports If-None-Match conditional requests returning 304.)
-- [ ] Implement terminology lookup integration (SNOMED CT, ICD-10, ATC, RxNorm) via BioPortal proxy with Redis cache.
+- [~] Implement terminology lookup integration (SNOMED CT, ICD-10, ATC, RxNorm) via BioPortal proxy with Redis cache. — **partially fixed** (Added `TerminologyModule` with `GET /terminology/search?system=&query=&limit=` endpoint. Currently uses hardcoded stub data (~20 codes per system) with substring search. Designed for swap to BioPortal API proxy + Redis cache.)
 - [x] Implement EMR element modeling on recommendations. — **fixed** (EmrElement model exists in schema; added CRUD endpoints `POST/GET/DELETE /recommendations/:id/emr-elements` with `CreateEmrElementDto` supporting elementType, codeSystem, code, display, implementationDescription.)
 - [x] Build clinical codes API for downstream EHR consumption. — **fixed** (Added `GET /guidelines/:id/clinical-codes` aggregating all PicoCodes and EmrElements for a guideline.)
-- [ ] Validate produced resources against selected CPG-on-FHIR and EBM-on-FHIR profiles.
+- [x] Validate produced resources against selected CPG-on-FHIR and EBM-on-FHIR profiles. — **fixed** (Added `FhirValidationService` with per-resource-type validation: checks `resourceType`, `id`, `meta.profile`, and type-specific fields. `POST /fhir/$validate` endpoint accepts any FHIR resource and returns `{ valid, errors }`.)
 
 ---
 
@@ -150,7 +150,7 @@ Source docs:
 - [ ] Implement decision aid generation from linked PICOs/outcomes.
 - [ ] Build layered decision aid UI (overview, pictograph, full evidence).
 - [ ] Implement embeddable decision-aid widget URLs and config parameters. _(Architecture describes a `packages/widget` Preact micro-bundle; directory does not exist.)_
-- [ ] Add adaptation/portability pack export-import workflow.
+- [x] Add adaptation/portability pack export-import workflow. — **fixed** (Added `POST /guidelines/import` endpoint that accepts a JSON export payload + organizationId. Creates new guideline with " (Imported)" suffix, preserves section tree structure via topological sort, creates references. Wrapped in `$transaction` for atomicity.)
 - [ ] Add multilingual content and UI support for the documented language set. _(Language field on Guideline exists; no i18n framework for the UI.)_
 
 ---

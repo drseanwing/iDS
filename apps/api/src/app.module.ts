@@ -23,6 +23,7 @@ import { PollsModule } from './polls/polls.module';
 import { MilestonesModule } from './milestones/milestones.module';
 import { TasksModule } from './tasks/tasks.module';
 import { FhirModule } from './fhir/fhir.module';
+import { TerminologyModule } from './terminology/terminology.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -67,6 +68,7 @@ import configuration from './config/configuration';
     MilestonesModule,
     TasksModule,
     FhirModule,
+    TerminologyModule,
   ],
   controllers: [HealthController],
   providers: [

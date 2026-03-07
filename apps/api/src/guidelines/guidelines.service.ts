@@ -523,6 +523,90 @@ export class GuidelinesService {
     };
   }
 
+  async importGuideline(exportData: any, organizationId: string, userId: string) {
+    const src = exportData?.guideline ?? exportData;
+
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Create the new guideline
+      const guideline = await tx.guideline.create({
+        data: {
+          title: `${src.title ?? 'Untitled'} (Imported)`,
+          shortName: undefined, // avoid unique constraint clash — let caller update after
+          description: src.description ?? null,
+          language: src.language ?? 'en',
+          guidelineType: src.guidelineType ?? 'ORGANIZATIONAL',
+          organizationId,
+          createdBy: userId,
+          fhirMeta: (src.fhirMeta ?? {}) as any,
+        },
+      });
+
+      // 2. Build a map from old section id → new section id to preserve parent-child
+      const sectionIdMap = new Map<string, string>();
+
+      const rawSections: any[] = exportData?.sections ?? [];
+      // Sort: parents first (no parentId or parentId not in the set yet)
+      const sorted = this.topologicallySortSections(rawSections);
+
+      for (const s of sorted) {
+        const newParentId = s.parentId ? sectionIdMap.get(s.parentId) : null;
+        const created = await tx.section.create({
+          data: {
+            guidelineId: guideline.id,
+            title: s.title ?? '',
+            text: s.text ?? null,
+            ordering: s.ordering ?? 0,
+            nestingLevel: s.nestingLevel ?? 0,
+            parentId: newParentId ?? null,
+          },
+        });
+        sectionIdMap.set(s.id, created.id);
+      }
+
+      // 3. Create references
+      const rawRefs: any[] = exportData?.references ?? [];
+      for (const ref of rawRefs) {
+        await tx.reference.create({
+          data: {
+            guidelineId: guideline.id,
+            title: ref.title ?? '',
+            authors: ref.authors ?? null,
+            year: ref.year ?? null,
+            abstract: ref.abstract ?? null,
+            doi: ref.doi ?? null,
+            pubmedId: ref.pubmedId ?? ref.pmid ?? null,
+            url: ref.url ?? null,
+            studyType: ref.studyType ?? 'OTHER',
+          },
+        });
+      }
+
+      return guideline;
+    });
+  }
+
+  private topologicallySortSections(sections: any[]): any[] {
+    const ids = new Set(sections.map((s) => s.id));
+    const result: any[] = [];
+    const visited = new Set<string>();
+
+    const visit = (s: any) => {
+      if (visited.has(s.id)) return;
+      if (s.parentId && ids.has(s.parentId) && !visited.has(s.parentId)) {
+        const parent = sections.find((x) => x.id === s.parentId);
+        if (parent) visit(parent);
+      }
+      visited.add(s.id);
+      result.push(s);
+    };
+
+    for (const s of sections) {
+      visit(s);
+    }
+
+    return result;
+  }
+
   private getAllowedTransitions(current: string): string[] {
     const transitions: Record<string, string[]> = {
       DRAFT: ['DRAFT_INTERNAL', 'PUBLIC_CONSULTATION'],

@@ -1,19 +1,22 @@
 import {
   Controller,
   Get,
+  Post,
+  Body,
   Param,
   ParseUUIDPipe,
   NotFoundException,
   Header,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiParam } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiParam, ApiBody } from '@nestjs/swagger';
 import { FhirEtagInterceptor } from './fhir-etag.interceptor';
 import { PrismaService } from '../prisma/prisma.service';
 import { GuidelineCompositionProjection } from './projections/guideline-to-composition';
 import { ReferenceCitationProjection } from './projections/reference-to-citation';
 import { RecommendationPlanDefinitionProjection } from './projections/recommendation-to-plan-definition';
 import { PicoEvidenceProjection } from './projections/pico-to-evidence';
+import { FhirValidationService } from './fhir-validation.service';
 
 /**
  * Read-only FHIR R5 facade.
@@ -31,7 +34,17 @@ export class FhirController {
     private readonly citationProjection: ReferenceCitationProjection,
     private readonly planDefinitionProjection: RecommendationPlanDefinitionProjection,
     private readonly evidenceProjection: PicoEvidenceProjection,
+    private readonly fhirValidation: FhirValidationService,
   ) {}
+
+  // ── Validation ──────────────────────────────────────────────
+
+  @Post('$validate')
+  @ApiOperation({ summary: 'Validate a FHIR R5 resource' })
+  @ApiBody({ schema: { type: 'object', description: 'Any FHIR R5 resource object' } })
+  validateResource(@Body() resource: any) {
+    return this.fhirValidation.validate(resource);
+  }
 
   // ── Composition (Guideline) ─────────────────────────────────
 
