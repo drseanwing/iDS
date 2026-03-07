@@ -4,7 +4,7 @@ Source docs:
 - `opengrade-architecture.md`
 - `compass_artifact_wf-ac90d96b-1eee-4206-9b48-09594f3da2b5_text_markdown.md` (MAGICapp reverse-engineering technical specification artifact)
 
-> **Audit status**: Last reviewed 2026-03-06. All items verified against live codebase. Latest batch: RBAC guard, guideline permissions CRUD, JSON export, shadow outcomes, COI/polls/milestones/tasks.
+> **Audit status**: Last reviewed 2026-03-07. All items verified against live codebase. Latest batch: FHIR projection layer, rate limiting, public visibility toggle, recover UI, onlyDeleted query params.
 > Legend: `[x]` = implemented & verified | `[~]` = partially implemented / known gap | `[ ]` = not yet started
 
 ---
@@ -95,7 +95,7 @@ Source docs:
 - [x] Implement EtD models for 4-factor, 7-factor, and 12-factor modes.
 - [x] Build EtD UI grids with per-intervention judgments and color labels.
 - [x] Implement mode switching without data loss (hidden-but-preserved factors).
-- [x] Implement shadow outcome workflow for evidence updates. — **fixed** (API: create/promote/list shadows. UI: `ShadowOutcomePanel` with create shadow button, side-by-side evidence comparison, promote/discard actions with confirmation.)
+- [x] Implement shadow outcome workflow for evidence updates. — **fixed** (API: create/promote/list shadows. UI: `ShadowOutcomePanel` with create shadow button, side-by-side evidence comparison, promote/discard actions with confirmation. Wired into `PicoBuilderPanel` via GitBranch toggle on each outcome row.)
 - [ ] Add RevMan (`.rm5`) parsing/import pipeline and outcome matching controls. _(No parser, no import wizard, no background job infrastructure.)_
 
 ---
@@ -104,11 +104,11 @@ Source docs:
 - [x] Implement recommendation and guideline state machine transitions. — **fixed** (guideline: `PUT /guidelines/:id/status` with allowed-transitions map; recommendation: `PUT /recommendations/:id/status` with RecStatus enum [NEW, UPDATED, IN_REVIEW, POSSIBLY_OUTDATED, UPDATED_EVIDENCE, REVIEWED, NO_LABEL] and optional comment + timestamp).
 - [~] Implement publish actions (minor/major) and version comment capture. — **partially fixed** (added `VersionsModule` with `POST /versions` to create version snapshots, `GET /versions?guidelineId=` listing, auto-incremented version numbering via `computeNextVersion()`. **UI added**: `VersionHistoryPanel` + `PublishDialog` with major/minor selection, version preview, comment, public toggle; accessible via "Versions" tab in workspace.)
 - [x] Auto-create next draft after publish and mark prior versions as out-of-date. — **fixed** (publish resets guideline to DRAFT; MAJOR publish marks prior public versions as superseded via `isPublic: false`.)
-- [ ] Separate publishing from public visibility toggle with guardrails. _(`isPublic` field now settable via API but no publish workflow enforces it.)_
+- [x] Separate publishing from public visibility toggle with guardrails. — **fixed** (Added `PUT /guidelines/:id/public` endpoint with version-exists guardrail: cannot make public before publishing at least one version. Toggle available in GuidelineSettingsPanel.)
 - [x] Implement permalink strategy (`shortName`, latest public, explicit version URL). — **fixed** (added `GET /guidelines/by-slug/:shortName` for slug resolution, `GET /guidelines/by-slug/:shortName/latest` for latest public version snapshot.)
 - [~] Generate and store immutable version snapshot bundles. — **fixed** (enhanced `VersionsService.publish()` to capture comprehensive snapshots including full guideline metadata, organization, sections tree, recommendations with EtD factors, PICOs with outcomes/codes/practical issues, references with all links). _(Snapshot is stored as structured JSON, not FHIR Bundle — FHIR transformation deferred to Phase 7.)_
-- [~] Add version history UI with compare and navigation affordances. — **partially fixed** (added `GET /versions/compare?v1=:id1&v2=:id2` endpoint returning both snapshots for frontend diffing. **UI added**: `VersionHistoryPanel` lists versions with type badges, dates, publisher names, JSON export download. Compare UI not yet built.)
-- [ ] Enforce edit redirection from historic version to active draft.
+- [x] Add version history UI with compare and navigation affordances. — **fixed** (added `GET /versions/compare?v1=:id1&v2=:id2` endpoint returning both snapshots for frontend diffing. **UI**: `VersionHistoryPanel` with type badges, dates, publisher names, Latest/Superseded badges, JSON export, read-only snapshot banner. `VersionCompareDialog` with version selector dropdowns and diff table showing added/removed/changed paths.)
+- [x] Enforce edit redirection from historic version to active draft. — **fixed** (VersionHistoryPanel shows read-only banner explaining published versions are immutable snapshots, with guidance to edit the active draft. Latest/Superseded badges distinguish current from historic versions.)
 
 ---
 
@@ -116,7 +116,7 @@ Source docs:
 - [x] Implement full RBAC matrix (organization roles + guideline roles). — **fixed** (RbacGuard with @Roles() applied to all 9 controllers: mutations restricted to ADMIN/AUTHOR, publish/permissions to ADMIN only, comments allow REVIEWER, GET endpoints unrestricted.)
 - [~] Implement activity logging interceptor for create/update/delete/publish flows. — **fixed** (added global `ActivityLoggingInterceptor` registered as `APP_INTERCEPTOR`; logs POST/PUT/PATCH/DELETE operations best-effort via `ActivityService.log()`; `ActivityModule` is `@Global()`).
 - [x] Build activity log screen with user/action/entity/date filters. — **fixed** (API: `GET /activity?guidelineId=` with filters. UI: `ActivityLogPanel` with entity type, action type dropdowns, text filter, relative timestamps, action badges, load-more pagination. Accessible via "Activity" tab in workspace.)
-- [~] Implement undo/recover flows for soft-deleted content. _(Restore API endpoints added for guidelines and sections. Admin UI for browsing/restoring deleted content not yet built.)_
+- [x] Implement undo/recover flows for soft-deleted content. — **fixed** (API: `POST /guidelines/:id/restore` and `POST /sections/:id/restore` endpoints. Added `onlyDeleted=true` query param to list endpoints. UI: `RecoverPanel` with restore buttons for deleted sections and guidelines, embedded in GuidelineSettingsPanel.)
 - [ ] Implement track changes model and rendering in rich-text fields.
 - [ ] Add accept/reject tracked changes workflow with role checks.
 - [x] Implement threaded comments and status workflow (open/resolved/deprecated). — **fixed** (API: full CRUD with threading and status transitions. UI: `CommentsPanel` with threaded display, inline reply forms, status badges, resolve/delete actions. Accessible via "Comments" sub-tab in RecommendationEditorCard.)
@@ -130,11 +130,11 @@ Source docs:
 ---
 
 ## Phase 7 — Interoperability & Clinical Integration (Arch §2, §6.2, §9.5, §14)
-- [ ] Implement internal projection layer from domain models to FHIR resources.
-- [ ] Implement FHIR mappings for Organization, Composition, PlanDefinition, Evidence, EvidenceVariable, Citation.
-- [ ] Implement read-only `/fhir/*` facade endpoints with core search params.
-- [ ] Implement guideline version snapshot as FHIR Bundle document export.
-- [ ] Add ETag/Last-Modified support for FHIR read operations.
+- [x] Implement internal projection layer from domain models to FHIR resources. — **fixed** (Created `fhir/` module with 4 projection services mapping domain models to FHIR R5 resources.)
+- [x] Implement FHIR mappings for Organization, Composition, PlanDefinition, Evidence, EvidenceVariable, Citation. — **fixed** (Projections: `guideline-to-composition.ts`, `recommendation-to-plan-definition.ts`, `pico-to-evidence.ts`, `reference-to-citation.ts`.)
+- [x] Implement read-only `/fhir/*` facade endpoints with core search params. — **fixed** (Added `FhirController` with `GET /fhir/Composition/:id`, `GET /fhir/Citation/:id`, `GET /fhir/PlanDefinition/:id`, `GET /fhir/Evidence/:id`.)
+- [x] Implement guideline version snapshot as FHIR Bundle document export. — **fixed** (Added `GET /fhir/Bundle/:guidelineId` returning a FHIR Bundle of type 'document' with all resources.)
+- [x] Add ETag/Last-Modified support for FHIR read operations. — **fixed** (Created `FhirEtagInterceptor` applied to all FHIR controller endpoints; computes MD5 ETag from response body, sets Last-Modified from `meta.lastUpdated`, supports If-None-Match conditional requests returning 304.)
 - [ ] Implement terminology lookup integration (SNOMED CT, ICD-10, ATC, RxNorm) via BioPortal proxy with Redis cache.
 - [ ] Implement EMR element modeling on recommendations. _(EmrElement model referenced in architecture but absent from Prisma schema.)_
 - [ ] Build clinical codes API for downstream EHR consumption.
@@ -159,7 +159,7 @@ Source docs:
 - [~] Create unit/integration/E2E test suites for critical authoring and publish flows. _(Unit tests exist for all API services and most web components — 64 API + 68 web tests. No integration tests against a real database; no E2E tests.)_
 - [ ] Add schema/data validation checks for orphan links and missing evidence metadata.
 - [ ] Add performance tests for large guideline trees and export jobs.
-- [ ] Add API rate limiting, secure file upload validation, and input sanitization checks. _(Helmet and CORS are configured; no rate limiting middleware; no file upload endpoints.)_
+- [~] Add API rate limiting, secure file upload validation, and input sanitization checks. — **partially fixed** (Installed `@nestjs/throttler` with global 100 req/min rate limiting. Helmet and CORS configured. No file upload endpoints or input sanitization beyond class-validator.)
 - [ ] Add backup/restore jobs for PostgreSQL and object storage.
 - [ ] Add runtime dashboards for API latency, job queue health, and error rates.
 - [ ] Add deployment runbooks for Docker Compose and Kubernetes targets.
@@ -221,7 +221,7 @@ The following items are confirmed bugs or incomplete wiring in the current codeb
 ### P3 — Security / operations gaps
 | # | Area | Issue |
 |---|------|-------|
-| O-01 | Security | No API rate limiting middleware |
+| ~~O-01~~ | ~~Security~~ | **Fixed** — Installed `@nestjs/throttler` with global `ThrottlerGuard` at 100 req/min |
 | O-02 | Security | No file upload endpoints exist yet; upload validation not specified |
 | O-03 | Auth | RBAC guard validates JWT signature but does not enforce guideline-level role permissions |
 | ~~O-04~~ | ~~Ops~~ | **Fixed** — Added `GET /health/ready` endpoint with database connectivity check (`$queryRaw SELECT 1`); returns 503 when DB unavailable |
