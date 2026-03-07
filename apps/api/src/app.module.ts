@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { LoggerModule } from 'nestjs-pino';
 import { HealthController } from './health/health.controller';
 import { PrismaModule } from './prisma/prisma.module';
@@ -21,6 +22,7 @@ import { CoiModule } from './coi/coi.module';
 import { PollsModule } from './polls/polls.module';
 import { MilestonesModule } from './milestones/milestones.module';
 import { TasksModule } from './tasks/tasks.module';
+import { FhirModule } from './fhir/fhir.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -46,6 +48,7 @@ import configuration from './config/configuration';
         },
       }),
     }),
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     PrismaModule,
     AuthModule,
     OrganizationsModule,
@@ -63,9 +66,11 @@ import configuration from './config/configuration';
     PollsModule,
     MilestonesModule,
     TasksModule,
+    FhirModule,
   ],
   controllers: [HealthController],
   providers: [
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_INTERCEPTOR, useClass: ActivityLoggingInterceptor },
   ],
 })

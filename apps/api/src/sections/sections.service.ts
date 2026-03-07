@@ -23,10 +23,10 @@ export class SectionsService {
     });
   }
 
-  async findByGuideline(guidelineId: string, page = 1, limit = 20) {
-    // Fetch all non-deleted sections for this guideline to build full tree in memory
+  async findByGuideline(guidelineId: string, page = 1, limit = 20, onlyDeleted = false) {
+    // Fetch sections for this guideline to build full tree in memory
     const allSections = await this.prisma.section.findMany({
-      where: { guidelineId, isDeleted: false },
+      where: { guidelineId, isDeleted: onlyDeleted ? true : false },
       orderBy: { ordering: 'asc' },
     });
 

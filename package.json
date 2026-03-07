@@ -1,8 +1,14 @@
 {
   "name": "@opengrade/root",
   "private": true,
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "engines": {
     "node": ">=20"
+  },
+  "dependencies": {
+    "@nestjs/throttler": "^6.5.0"
   }
 }

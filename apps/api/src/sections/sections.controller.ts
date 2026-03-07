@@ -36,11 +36,18 @@ export class SectionsController {
   @Get()
   @ApiOperation({ summary: 'List sections by guideline' })
   @ApiQuery({ name: 'guidelineId', required: true })
+  @ApiQuery({ name: 'onlyDeleted', required: false, type: Boolean, description: 'Show only soft-deleted sections' })
   findByGuideline(
     @Query('guidelineId', ParseUUIDPipe) guidelineId: string,
+    @Query('onlyDeleted') onlyDeleted?: string,
     @Query() pagination?: PaginationQueryDto,
   ) {
-    return this.sectionsService.findByGuideline(guidelineId, pagination?.page, pagination?.limit);
+    return this.sectionsService.findByGuideline(
+      guidelineId,
+      pagination?.page,
+      pagination?.limit,
+      onlyDeleted === 'true',
+    );
   }
 
   @Get(':id')

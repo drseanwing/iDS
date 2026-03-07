@@ -3,6 +3,7 @@ import { Loader2 } from 'lucide-react';
 import type { Guideline } from '../../hooks/useGuideline';
 import { useUpdateGuideline } from '../../hooks/useUpdateGuideline';
 import { PermissionManagementPanel } from './PermissionManagementPanel';
+import { RecoverPanel } from './RecoverPanel';
 
 interface GuidelineSettingsPanelProps {
   guideline: Guideline;
@@ -228,6 +229,11 @@ export function GuidelineSettingsPanel({ guideline }: GuidelineSettingsPanelProp
       {/* Team / Permissions */}
       <section className="border-t pt-6">
         <PermissionManagementPanel guidelineId={guideline.id} />
+      </section>
+
+      {/* Recover Deleted Content */}
+      <section className="border-t pt-6">
+        <RecoverPanel guidelineId={guideline.id} />
       </section>
     </div>
   );

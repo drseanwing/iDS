@@ -25,10 +25,14 @@ export class GuidelinesService {
   }
 
   async findAll(filters?: { organizationId?: string; isDeleted?: boolean }, page = 1, limit = 20) {
-    const where = {
+    const where: any = {
       organizationId: filters?.organizationId,
-      isDeleted: filters?.isDeleted ?? false,
     };
+    if (filters?.isDeleted !== undefined) {
+      where.isDeleted = filters.isDeleted;
+    } else {
+      where.isDeleted = false;
+    }
     const [data, total] = await Promise.all([
       this.prisma.guideline.findMany({
         where,
@@ -203,6 +207,24 @@ export class GuidelinesService {
         user: { select: { id: true, displayName: true, email: true } },
       },
       orderBy: { role: 'asc' },
+    });
+  }
+
+  async togglePublic(id: string, isPublic: boolean) {
+    await this.findOne(id);
+    if (isPublic) {
+      const versionCount = await this.prisma.guidelineVersion.count({
+        where: { guidelineId: id },
+      });
+      if (versionCount === 0) {
+        throw new BadRequestException(
+          'Cannot make guideline public before publishing at least one version',
+        );
+      }
+    }
+    return this.prisma.guideline.update({
+      where: { id },
+      data: { isPublic },
     });
   }
 

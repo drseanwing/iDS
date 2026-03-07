@@ -49,12 +49,20 @@ export class GuidelinesController {
   @Get()
   @ApiOperation({ summary: 'List guidelines' })
   @ApiQuery({ name: 'organizationId', required: false })
+  @ApiQuery({ name: 'includeDeleted', required: false, type: Boolean, description: 'Include all items regardless of deletion status' })
+  @ApiQuery({ name: 'onlyDeleted', required: false, type: Boolean, description: 'Show only soft-deleted items' })
   findAll(
     @Query('organizationId') organizationId?: string,
+    @Query('includeDeleted') includeDeleted?: string,
+    @Query('onlyDeleted') onlyDeleted?: string,
     @Query() pagination?: PaginationQueryDto,
   ) {
+    let isDeleted: boolean | undefined = false;
+    if (onlyDeleted === 'true') isDeleted = true;
+    else if (includeDeleted === 'true') isDeleted = undefined;
+
     return this.guidelinesService.findAll(
-      { organizationId },
+      { organizationId, isDeleted },
       pagination?.page,
       pagination?.limit,
     );
@@ -116,6 +124,17 @@ export class GuidelinesController {
   @ApiOperation({ summary: 'Restore a soft-deleted guideline' })
   restore(@Param('id', ParseUUIDPipe) id: string) {
     return this.guidelinesService.restore(id);
+  }
+
+  @Put(':id/public')
+  @Roles('ADMIN')
+  @UseGuards(RbacGuard)
+  @ApiOperation({ summary: 'Toggle public visibility of a guideline' })
+  togglePublic(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('isPublic') isPublic: boolean,
+  ) {
+    return this.guidelinesService.togglePublic(id, isPublic);
   }
 
   @Put(':id/status')
