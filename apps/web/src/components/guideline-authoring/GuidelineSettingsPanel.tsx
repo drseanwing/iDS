@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 import type { Guideline } from '../../hooks/useGuideline';
 import { useUpdateGuideline } from '../../hooks/useUpdateGuideline';
+import { PermissionManagementPanel } from './PermissionManagementPanel';
 
 interface GuidelineSettingsPanelProps {
   guideline: Guideline;
@@ -223,6 +224,11 @@ export function GuidelineSettingsPanel({ guideline }: GuidelineSettingsPanelProp
           Save Settings
         </button>
       </div>
+
+      {/* Team / Permissions */}
+      <section className="border-t pt-6">
+        <PermissionManagementPanel guidelineId={guideline.id} />
+      </section>
     </div>
   );
 }

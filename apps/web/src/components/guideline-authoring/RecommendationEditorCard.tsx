@@ -4,6 +4,7 @@ import { cn } from '../../lib/utils';
 import { RichTextEditor } from '../editor/RichTextEditor';
 import { EtdPanel } from './EtdPanel';
 import type { EtdMode } from './EtdPanel';
+import { CommentsPanel } from './CommentsPanel';
 import { useUpdateRecommendation } from '../../hooks/useUpdateRecommendation';
 import type { Recommendation } from '../../hooks/useRecommendations';
 
@@ -72,7 +73,7 @@ interface RecommendationEditorCardProps {
  */
 export function RecommendationEditorCard({ recommendation: rec, etdMode, onDelete }: RecommendationEditorCardProps) {
   const [expanded, setExpanded] = useState(false);
-  const [activeTab, setActiveTab] = useState<'narrative' | 'etd'>('narrative');
+  const [activeTab, setActiveTab] = useState<'narrative' | 'etd' | 'comments'>('narrative');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const { mutate: updateRec, isPending } = useUpdateRecommendation();
 
@@ -189,6 +190,18 @@ export function RecommendationEditorCard({ recommendation: rec, etdMode, onDelet
             >
               Key Info / EtD
             </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('comments')}
+              className={cn(
+                'px-3 py-2 text-xs font-medium border-b-2 transition-colors',
+                activeTab === 'comments'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground',
+              )}
+            >
+              Comments
+            </button>
           </div>
 
           {activeTab === 'narrative' && (
@@ -245,6 +258,12 @@ export function RecommendationEditorCard({ recommendation: rec, etdMode, onDelet
                 recommendationId={rec.id}
                 etdMode={(etdMode as EtdMode) ?? 'SEVEN_FACTOR'}
               />
+            </div>
+          )}
+
+          {activeTab === 'comments' && (
+            <div className="px-3 pb-4 pt-3">
+              <CommentsPanel recommendationId={rec.id} />
             </div>
           )}
         </div>

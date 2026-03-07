@@ -13,9 +13,11 @@ import { ReferenceList } from '../components/guideline-authoring/ReferenceList';
 import { PicoBuilderPanel } from '../components/guideline-authoring/PicoBuilderPanel';
 import { GuidelineSettingsPanel } from '../components/guideline-authoring/GuidelineSettingsPanel';
 import { VersionHistoryPanel } from '../components/guideline-authoring/VersionHistoryPanel';
+import { ActivityLogPanel } from '../components/guideline-authoring/ActivityLogPanel';
+import { TaskBoard } from '../components/guideline-authoring/TaskBoard';
 import type { Section } from '../hooks/useSections';
 
-type WorkspaceTab = 'recommendations' | 'evidence' | 'references' | 'settings' | 'versions';
+type WorkspaceTab = 'recommendations' | 'evidence' | 'references' | 'settings' | 'versions' | 'activity' | 'tasks';
 
 interface GuidelineWorkspacePageProps {
   guidelineId: string;
@@ -111,6 +113,8 @@ export function GuidelineWorkspacePage({ guidelineId, onBack }: GuidelineWorkspa
     { id: 'references', label: 'References' },
     { id: 'settings', label: 'Settings' },
     { id: 'versions' as const, label: 'Versions' },
+    { id: 'tasks' as const, label: 'Tasks' },
+    { id: 'activity' as const, label: 'Activity' },
   ];
 
   if (guidelineError || sectionsError) {
@@ -228,6 +232,12 @@ export function GuidelineWorkspacePage({ guidelineId, onBack }: GuidelineWorkspa
           )}
           {activeTab === 'versions' && guideline && (
             <VersionHistoryPanel guidelineId={guideline.id} />
+          )}
+          {activeTab === 'tasks' && (
+            <TaskBoard guidelineId={guidelineId} />
+          )}
+          {activeTab === 'activity' && (
+            <ActivityLogPanel guidelineId={guidelineId} />
           )}
         </main>
       </div>
