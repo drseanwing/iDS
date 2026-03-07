@@ -148,16 +148,49 @@ export class VersionsService {
         orderBy: { publishedAt: 'desc' },
         skip: (page - 1) * limit,
         take: limit,
+        select: {
+          id: true,
+          guidelineId: true,
+          versionNumber: true,
+          versionType: true,
+          comment: true,
+          isPublic: true,
+          publishedAt: true,
+          publishedBy: true,
+          pdfS3Key: true,
+          jsonS3Key: true,
+        },
       }),
       this.prisma.guidelineVersion.count({ where }),
     ]);
-    return new PaginatedResponseDto(data, total, page, limit);
+
+    const publisherIds = [...new Set(data.map((v) => v.publishedBy))];
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: publisherIds } },
+      select: { id: true, displayName: true, email: true },
+    });
+    const userMap = new Map(users.map((u) => [u.id, u]));
+
+    const enriched = data.map((v) => {
+      const user = userMap.get(v.publishedBy);
+      const publisherName = user?.displayName || user?.email || 'Unknown';
+      return { ...v, publisherName };
+    });
+
+    return new PaginatedResponseDto(enriched, total, page, limit);
   }
 
   async findOne(id: string) {
     const version = await this.prisma.guidelineVersion.findUnique({ where: { id } });
     if (!version) throw new NotFoundException(`Version ${id} not found`);
-    return version;
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: version.publishedBy },
+      select: { displayName: true, email: true },
+    });
+    const publisherName = user?.displayName || user?.email || 'Unknown';
+
+    return { ...version, publisherName };
   }
 
   private buildSnapshotBundle(guideline: any) {
