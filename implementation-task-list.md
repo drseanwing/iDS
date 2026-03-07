@@ -95,7 +95,7 @@ Source docs:
 - [x] Implement EtD models for 4-factor, 7-factor, and 12-factor modes.
 - [x] Build EtD UI grids with per-intervention judgments and color labels.
 - [x] Implement mode switching without data loss (hidden-but-preserved factors).
-- [~] Implement shadow outcome workflow for evidence updates. — **fixed** (added `POST /outcomes/:id/shadow` to create shadow copy, `POST /outcomes/:id/promote` to promote shadow replacing original with transaction, `GET /outcomes/:id/shadows` to list shadows; all evidence fields copied). _(UI not yet built.)_
+- [x] Implement shadow outcome workflow for evidence updates. — **fixed** (API: create/promote/list shadows. UI: `ShadowOutcomePanel` with create shadow button, side-by-side evidence comparison, promote/discard actions with confirmation.)
 - [ ] Add RevMan (`.rm5`) parsing/import pipeline and outcome matching controls. _(No parser, no import wizard, no background job infrastructure.)_
 
 ---
@@ -105,7 +105,7 @@ Source docs:
 - [~] Implement publish actions (minor/major) and version comment capture. — **partially fixed** (added `VersionsModule` with `POST /versions` to create version snapshots, `GET /versions?guidelineId=` listing, auto-incremented version numbering via `computeNextVersion()`. **UI added**: `VersionHistoryPanel` + `PublishDialog` with major/minor selection, version preview, comment, public toggle; accessible via "Versions" tab in workspace.)
 - [x] Auto-create next draft after publish and mark prior versions as out-of-date. — **fixed** (publish resets guideline to DRAFT; MAJOR publish marks prior public versions as superseded via `isPublic: false`.)
 - [ ] Separate publishing from public visibility toggle with guardrails. _(`isPublic` field now settable via API but no publish workflow enforces it.)_
-- [ ] Implement permalink strategy (`shortName`, latest public, explicit version URL).
+- [x] Implement permalink strategy (`shortName`, latest public, explicit version URL). — **fixed** (added `GET /guidelines/by-slug/:shortName` for slug resolution, `GET /guidelines/by-slug/:shortName/latest` for latest public version snapshot.)
 - [~] Generate and store immutable version snapshot bundles. — **fixed** (enhanced `VersionsService.publish()` to capture comprehensive snapshots including full guideline metadata, organization, sections tree, recommendations with EtD factors, PICOs with outcomes/codes/practical issues, references with all links). _(Snapshot is stored as structured JSON, not FHIR Bundle — FHIR transformation deferred to Phase 7.)_
 - [~] Add version history UI with compare and navigation affordances. — **partially fixed** (added `GET /versions/compare?v1=:id1&v2=:id2` endpoint returning both snapshots for frontend diffing. **UI added**: `VersionHistoryPanel` lists versions with type badges, dates, publisher names, JSON export download. Compare UI not yet built.)
 - [ ] Enforce edit redirection from historic version to active draft.
@@ -120,7 +120,7 @@ Source docs:
 - [ ] Implement track changes model and rendering in rich-text fields.
 - [ ] Add accept/reject tracked changes workflow with role checks.
 - [x] Implement threaded comments and status workflow (open/resolved/deprecated). — **fixed** (API: full CRUD with threading and status transitions. UI: `CommentsPanel` with threaded display, inline reply forms, status badges, resolve/delete actions. Accessible via "Comments" sub-tab in RecommendationEditorCard.)
-- [~] Implement COI matrix storage and intervention/member conflict views. — **partially fixed** (added `CoiModule` with CRUD: `POST /coi`, `GET /coi?guidelineId=`, `GET /coi/user/:userId?guidelineId=`, `PUT /coi/:id`, `DELETE /coi/:id`; supports disclosureText, conflictType, interventions JSON, isExcludedFromVoting). _(UI not yet built.)_
+- [x] Implement COI matrix storage and intervention/member conflict views. — **fixed** (API: full CRUD. UI: `CoiDashboard` with conflict type badges, voting exclusion indicators, inline create/edit forms, expandable disclosure text. Accessible via "COI" tab in workspace.)
 - [~] Add voting exclusion logic linked to COI declarations. — **partially fixed** (PollsService `castVote` checks CoiRecord `isExcludedFromVoting` flag and throws ForbiddenException if user is excluded).
 - [x] Implement Poll/Delphi voting tool. — **fixed** (API: full CRUD with voting and COI exclusion check. UI: `PollsPanel` with poll creation, inline voting per type (OPEN_TEXT, MULTIPLE_CHOICE, STRENGTH_VOTE, ETD_JUDGMENT), close poll, vote tally. Accessible via "Polls" tab in workspace.)
 - [x] Implement Milestone tracker with AGREE II / SNAP-IT checklists. — **fixed** (API: full CRUD with checklist items and toggle. UI: `MilestonesPanel` with progress bar, vertical timeline, completion checkboxes, color-coded dates, checklist items with toggle. Accessible via "Milestones" tab in workspace.)
