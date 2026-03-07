@@ -28,7 +28,7 @@ export class ReferencesController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'List references, optionally filtered by guideline' })
+  @ApiOperation({ summary: 'List references, optionally filtered by guideline or search term' })
   @ApiQuery({ name: 'guidelineId', required: false })
   @ApiQuery({ name: 'search', required: false })
   findAll(
@@ -36,10 +36,23 @@ export class ReferencesController {
     @Query('search') search?: string,
     @Query() pagination?: PaginationQueryDto,
   ) {
-    if (guidelineId) {
-      return this.referencesService.findByGuideline(guidelineId, pagination?.page, pagination?.limit);
-    }
-    return this.referencesService.findAll(pagination?.page, pagination?.limit, search);
+    return this.referencesService.findAll(
+      { guidelineId, search },
+      pagination?.page,
+      pagination?.limit,
+    );
+  }
+
+  @Get('numbered')
+  @ApiOperation({ summary: 'Get auto-numbered references for a guideline (depth-first traversal order)' })
+  @ApiQuery({ name: 'guidelineId', required: true })
+  async getNumbered(@Query('guidelineId', ParseUUIDPipe) guidelineId: string) {
+    const numberMap = await this.referencesService.computeReferenceNumbers(guidelineId);
+    const data = Array.from(numberMap.entries()).map(([referenceId, referenceNumber]) => ({
+      referenceId,
+      referenceNumber,
+    }));
+    return { data };
   }
 
   @Get(':id')

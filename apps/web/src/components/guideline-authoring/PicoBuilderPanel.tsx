@@ -493,7 +493,9 @@ function PicoCard({ pico, guidelineId }: PicoCardProps) {
   const [intervention, setIntervention] = useState(pico.intervention);
   const [comparator, setComparator] = useState(pico.comparator);
   const [narrativeSummary, setNarrativeSummary] = useState(
-    typeof pico.narrativeSummary === 'string' ? pico.narrativeSummary : '',
+    typeof pico.narrativeSummary === 'string'
+      ? pico.narrativeSummary
+      : (pico.narrativeSummary as Record<string, unknown> | null)?.text as string ?? '',
   );
 
   const { mutate: updatePico, isPending: savingPico } = useUpdatePico();
@@ -505,9 +507,11 @@ function PicoCard({ pico, guidelineId }: PicoCardProps) {
   }
 
   function handleNarrativeBlur() {
-    const current = typeof pico.narrativeSummary === 'string' ? pico.narrativeSummary : '';
+    const current = typeof pico.narrativeSummary === 'string'
+      ? pico.narrativeSummary
+      : (pico.narrativeSummary as Record<string, unknown> | null)?.text as string ?? '';
     if (narrativeSummary === current) return;
-    updatePico({ id: pico.id, guidelineId, data: { narrativeSummary } });
+    updatePico({ id: pico.id, guidelineId, data: { narrativeSummary: { text: narrativeSummary } } });
   }
 
   const nextOrdering = pico.outcomes.length > 0
@@ -587,7 +591,7 @@ function PicoCard({ pico, guidelineId }: PicoCardProps) {
               value={narrativeSummary}
               onChange={(e) => setNarrativeSummary(e.target.value)}
               onBlur={handleNarrativeBlur}
-              placeholder="Plain-language summary of the evidence for this PICO question..."
+              placeholder="Provide a plain-language summary of this PICO question…"
               aria-label="Narrative summary"
             />
           </div>

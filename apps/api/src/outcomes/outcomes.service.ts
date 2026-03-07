@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaginatedResponseDto } from '../common/dto';
@@ -106,5 +106,151 @@ export class OutcomesService {
   async softDelete(id: string) {
     await this.findOne(id);
     return this.prisma.outcome.update({ where: { id }, data: { isDeleted: true } });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Shadow-outcome workflow
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Create a shadow (draft copy) of an existing outcome.
+   * All evidence fields are duplicated; the shadow is linked back to the
+   * original via `shadowOfId`.
+   */
+  async createShadow(outcomeId: string, userId: string) {
+    const original = await this.prisma.outcome.findUnique({
+      where: { id: outcomeId },
+    });
+    if (!original) {
+      throw new NotFoundException(`Outcome ${outcomeId} not found`);
+    }
+
+    return this.prisma.outcome.create({
+      data: {
+        picoId: original.picoId,
+        title: original.title,
+        outcomeType: original.outcomeType,
+        state: original.state,
+        ordering: original.ordering,
+        importance: original.importance,
+
+        effectMeasure: original.effectMeasure,
+        relativeEffect: original.relativeEffect,
+        relativeEffectLower: original.relativeEffectLower,
+        relativeEffectUpper: original.relativeEffectUpper,
+        baselineRisk: original.baselineRisk,
+        absoluteEffectIntervention: original.absoluteEffectIntervention,
+        absoluteEffectComparison: original.absoluteEffectComparison,
+        interventionParticipants: original.interventionParticipants,
+        comparisonParticipants: original.comparisonParticipants,
+        numberOfStudies: original.numberOfStudies,
+
+        continuousUnit: original.continuousUnit,
+        continuousScaleLower: original.continuousScaleLower,
+        continuousScaleUpper: original.continuousScaleUpper,
+
+        certaintyOverall: original.certaintyOverall,
+        riskOfBias: original.riskOfBias,
+        inconsistency: original.inconsistency,
+        indirectness: original.indirectness,
+        imprecision: original.imprecision,
+        publicationBias: original.publicationBias,
+        largeEffect: original.largeEffect,
+        doseResponse: original.doseResponse,
+        plausibleConfounding: original.plausibleConfounding,
+
+        gradeFootnotes: original.gradeFootnotes ?? Prisma.JsonNull,
+        plainLanguageSummary: original.plainLanguageSummary,
+        forestPlotS3Key: original.forestPlotS3Key,
+
+        isShadow: true,
+        shadowOfId: outcomeId,
+      },
+    });
+  }
+
+  /**
+   * Promote a shadow outcome: copy its evidence fields back to the original,
+   * then soft-delete the shadow.  Returns the updated original.
+   */
+  async promoteShadow(shadowId: string, userId: string) {
+    const shadow = await this.prisma.outcome.findUnique({
+      where: { id: shadowId },
+    });
+    if (!shadow) {
+      throw new NotFoundException(`Outcome ${shadowId} not found`);
+    }
+    if (!shadow.isShadow || !shadow.shadowOfId) {
+      throw new BadRequestException(`Outcome ${shadowId} is not a shadow outcome`);
+    }
+
+    const original = await this.prisma.outcome.findUnique({
+      where: { id: shadow.shadowOfId },
+    });
+    if (!original) {
+      throw new NotFoundException(`Original outcome ${shadow.shadowOfId} not found`);
+    }
+
+    const [updatedOriginal] = await this.prisma.$transaction([
+      this.prisma.outcome.update({
+        where: { id: original.id },
+        data: {
+          title: shadow.title,
+          outcomeType: shadow.outcomeType,
+          state: shadow.state,
+          ordering: shadow.ordering,
+          importance: shadow.importance,
+
+          effectMeasure: shadow.effectMeasure,
+          relativeEffect: shadow.relativeEffect,
+          relativeEffectLower: shadow.relativeEffectLower,
+          relativeEffectUpper: shadow.relativeEffectUpper,
+          baselineRisk: shadow.baselineRisk,
+          absoluteEffectIntervention: shadow.absoluteEffectIntervention,
+          absoluteEffectComparison: shadow.absoluteEffectComparison,
+          interventionParticipants: shadow.interventionParticipants,
+          comparisonParticipants: shadow.comparisonParticipants,
+          numberOfStudies: shadow.numberOfStudies,
+
+          continuousUnit: shadow.continuousUnit,
+          continuousScaleLower: shadow.continuousScaleLower,
+          continuousScaleUpper: shadow.continuousScaleUpper,
+
+          certaintyOverall: shadow.certaintyOverall,
+          riskOfBias: shadow.riskOfBias,
+          inconsistency: shadow.inconsistency,
+          indirectness: shadow.indirectness,
+          imprecision: shadow.imprecision,
+          publicationBias: shadow.publicationBias,
+          largeEffect: shadow.largeEffect,
+          doseResponse: shadow.doseResponse,
+          plausibleConfounding: shadow.plausibleConfounding,
+
+          gradeFootnotes: shadow.gradeFootnotes ?? Prisma.JsonNull,
+          plainLanguageSummary: shadow.plainLanguageSummary,
+          forestPlotS3Key: shadow.forestPlotS3Key,
+        },
+      }),
+      this.prisma.outcome.update({
+        where: { id: shadowId },
+        data: { isDeleted: true },
+      }),
+    ]);
+
+    return updatedOriginal;
+  }
+
+  /**
+   * List all non-deleted shadow outcomes that belong to the given original.
+   */
+  async findShadows(outcomeId: string) {
+    return this.prisma.outcome.findMany({
+      where: {
+        shadowOfId: outcomeId,
+        isShadow: true,
+        isDeleted: false,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 }

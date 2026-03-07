@@ -5,6 +5,7 @@ import { PaginatedResponseDto } from '../common/dto';
 import { CreatePicoDto } from './dto/create-pico.dto';
 import { UpdatePicoDto } from './dto/update-pico.dto';
 import { CreatePicoCodeDto } from './dto/create-pico-code.dto';
+import { CreatePracticalIssueDto } from './dto/create-practical-issue.dto';
 
 @Injectable()
 export class PicosService {
@@ -103,5 +104,39 @@ export class PicosService {
       throw new NotFoundException(`PicoCode ${codeId} not found on PICO ${picoId}`);
     }
     return this.prisma.picoCode.delete({ where: { id: codeId } });
+  }
+
+  async addPracticalIssue(picoId: string, dto: CreatePracticalIssueDto) {
+    await this.findOne(picoId);
+    return this.prisma.practicalIssue.create({
+      data: {
+        picoId,
+        category: dto.category as any,
+        title: dto.title,
+        description: dto.description,
+        ordering: dto.ordering ?? 0,
+      },
+    });
+  }
+
+  async updatePracticalIssue(picoId: string, issueId: string, dto: Partial<CreatePracticalIssueDto>) {
+    const existing = await this.prisma.practicalIssue.findUnique({ where: { id: issueId } });
+    if (!existing || existing.picoId !== picoId) {
+      throw new NotFoundException(`PracticalIssue ${issueId} not found on PICO ${picoId}`);
+    }
+    const data: any = {};
+    if (dto.category !== undefined) data.category = dto.category;
+    if (dto.title !== undefined) data.title = dto.title;
+    if (dto.description !== undefined) data.description = dto.description;
+    if (dto.ordering !== undefined) data.ordering = dto.ordering;
+    return this.prisma.practicalIssue.update({ where: { id: issueId }, data });
+  }
+
+  async removePracticalIssue(picoId: string, issueId: string) {
+    const existing = await this.prisma.practicalIssue.findUnique({ where: { id: issueId } });
+    if (!existing || existing.picoId !== picoId) {
+      throw new NotFoundException(`PracticalIssue ${issueId} not found on PICO ${picoId}`);
+    }
+    return this.prisma.practicalIssue.delete({ where: { id: issueId } });
   }
 }

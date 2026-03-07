@@ -14,6 +14,7 @@ import { PicosService } from './picos.service';
 import { CreatePicoDto } from './dto/create-pico.dto';
 import { UpdatePicoDto } from './dto/update-pico.dto';
 import { CreatePicoCodeDto } from './dto/create-pico-code.dto';
+import { CreatePracticalIssueDto } from './dto/create-practical-issue.dto';
 import { PaginationQueryDto } from '../common/dto';
 
 @ApiTags('PICOs')
@@ -77,5 +78,35 @@ export class PicosController {
     @Param('codeId', ParseUUIDPipe) codeId: string,
   ) {
     return this.picosService.removeCode(picoId, codeId);
+  }
+
+  // ── Practical Issues ──────────────────────────────────────────────
+
+  @Post(':picoId/practical-issues')
+  @ApiOperation({ summary: 'Add a practical issue to a PICO' })
+  addPracticalIssue(
+    @Param('picoId', ParseUUIDPipe) picoId: string,
+    @Body() dto: CreatePracticalIssueDto,
+  ) {
+    return this.picosService.addPracticalIssue(picoId, dto);
+  }
+
+  @Put(':picoId/practical-issues/:issueId')
+  @ApiOperation({ summary: 'Update a practical issue' })
+  updatePracticalIssue(
+    @Param('picoId', ParseUUIDPipe) picoId: string,
+    @Param('issueId', ParseUUIDPipe) issueId: string,
+    @Body() dto: CreatePracticalIssueDto,
+  ) {
+    return this.picosService.updatePracticalIssue(picoId, issueId, dto);
+  }
+
+  @Delete(':picoId/practical-issues/:issueId')
+  @ApiOperation({ summary: 'Remove a practical issue from a PICO' })
+  removePracticalIssue(
+    @Param('picoId', ParseUUIDPipe) picoId: string,
+    @Param('issueId', ParseUUIDPipe) issueId: string,
+  ) {
+    return this.picosService.removePracticalIssue(picoId, issueId);
   }
 }
