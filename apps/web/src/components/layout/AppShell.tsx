@@ -28,7 +28,7 @@ export function AppShell({ activePath, onNavigate, children, fullHeight = false 
     <div className="flex h-screen bg-background text-foreground">
       {/* Sidebar */}
       <aside className="flex w-64 flex-col border-r bg-muted/40">
-        <div className="flex h-14 items-center px-6 font-bold text-lg text-primary">
+        <div className="flex h-14 items-center px-6 font-bold text-lg text-primary" aria-label="Application brand">
           OpenGRADE
         </div>
         <nav className="flex-1 space-y-1 px-3 py-2">

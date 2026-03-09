@@ -1,5 +1,6 @@
 import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { Public } from '../auth/public.decorator';
 import { PrismaService } from '../prisma/prisma.service';
 
 @ApiTags('Health')
@@ -8,6 +9,7 @@ export class HealthController {
   constructor(private readonly prisma: PrismaService) {}
 
   @Get()
+  @Public()
   @ApiOperation({ summary: 'Health check' })
   check() {
     return {
@@ -18,6 +20,7 @@ export class HealthController {
   }
 
   @Get('ready')
+  @Public()
   @ApiOperation({ summary: 'Readiness check (includes database connectivity)' })
   async ready() {
     try {

@@ -35,22 +35,20 @@ test.describe('Guideline Workspace', () => {
   });
 
   test('displays all workspace tabs', async ({ page }) => {
-    // Target tab bar specifically to avoid strict mode violation with section buttons
-    const tabBar = page.locator('div.flex.border-b.px-4');
+    const tabBar = page.getByRole('tablist', { name: 'Workspace tabs' });
     const expectedTabs = [
       'Recommendations', 'Evidence', 'References', 'Settings',
       'Versions', 'Tasks', 'Polls', 'Milestones', 'COI', 'Activity',
     ];
     for (const tab of expectedTabs) {
-      await expect(tabBar.getByRole('button', { name: tab, exact: true })).toBeVisible();
+      await expect(tabBar.getByRole('tab', { name: tab, exact: true })).toBeVisible();
     }
   });
 
   test('Recommendations tab is active by default', async ({ page }) => {
-    // Target the tab bar specifically to avoid matching section tree buttons
-    const tabBar = page.locator('div.flex.border-b.px-4');
-    const recTab = tabBar.getByRole('button', { name: 'Recommendations', exact: true });
-    await expect(recTab).toHaveClass(/border-primary/);
+    const tabBar = page.getByRole('tablist', { name: 'Workspace tabs' });
+    const recTab = tabBar.getByRole('tab', { name: 'Recommendations', exact: true });
+    await expect(recTab).toHaveAttribute('aria-selected', 'true');
   });
 
   test('displays the section tree sidebar', async ({ page }) => {
@@ -60,52 +58,51 @@ test.describe('Guideline Workspace', () => {
   });
 
   test('can switch to Evidence tab', async ({ page }) => {
-    const tabBar = page.locator('div.flex.border-b.px-4');
-    await tabBar.getByRole('button', { name: 'Evidence', exact: true }).click();
+    const tabBar = page.getByRole('tablist', { name: 'Workspace tabs' });
+    await tabBar.getByRole('tab', { name: 'Evidence', exact: true }).click();
     // PicoBuilderPanel should be rendered
     await page.waitForLoadState('networkidle');
     await expect(page.locator('main[aria-label="Section detail panel"]')).toBeVisible();
   });
 
   test('can switch to References tab', async ({ page }) => {
-    // Target the tab bar to avoid clicking the sidebar References nav button
-    const tabBar = page.locator('div.flex.border-b.px-4');
-    await tabBar.getByRole('button', { name: 'References', exact: true }).click();
+    const tabBar = page.getByRole('tablist', { name: 'Workspace tabs' });
+    await tabBar.getByRole('tab', { name: 'References', exact: true }).click();
     await page.waitForLoadState('networkidle');
     await expect(page.locator('main[aria-label="Section detail panel"]')).toBeVisible();
   });
 
   test('can switch to Settings tab', async ({ page }) => {
-    const tabBar = page.locator('div.flex.border-b.px-4');
-    await tabBar.getByRole('button', { name: 'Settings', exact: true }).click();
+    const tabBar = page.getByRole('tablist', { name: 'Workspace tabs' });
+    await tabBar.getByRole('tab', { name: 'Settings', exact: true }).click();
     await page.waitForLoadState('networkidle');
     await expect(page.locator('main[aria-label="Section detail panel"]')).toBeVisible();
   });
 
   test('can switch to Versions tab', async ({ page }) => {
-    const tabBar = page.locator('div.flex.border-b.px-4');
-    await tabBar.getByRole('button', { name: 'Versions', exact: true }).click();
+    const tabBar = page.getByRole('tablist', { name: 'Workspace tabs' });
+    await tabBar.getByRole('tab', { name: 'Versions', exact: true }).click();
     await page.waitForLoadState('networkidle');
     await expect(page.locator('main[aria-label="Section detail panel"]')).toBeVisible();
   });
 
   test('can switch to Tasks tab', async ({ page }) => {
-    const tabBar = page.locator('div.flex.border-b.px-4');
-    await tabBar.getByRole('button', { name: 'Tasks', exact: true }).click();
+    const tabBar = page.getByRole('tablist', { name: 'Workspace tabs' });
+    await tabBar.getByRole('tab', { name: 'Tasks', exact: true }).click();
     await page.waitForLoadState('networkidle');
     await expect(page.locator('main[aria-label="Section detail panel"]')).toBeVisible();
   });
 
   test('can switch to Polls tab', async ({ page }) => {
-    const tabBar = page.locator('div.flex.border-b.px-4');
-    await tabBar.getByRole('button', { name: 'Polls', exact: true }).click();
+    const tabBar = page.getByRole('tablist', { name: 'Workspace tabs' });
+    await tabBar.getByRole('tab', { name: 'Polls', exact: true }).click();
     await page.waitForLoadState('networkidle');
     await expect(page.locator('main[aria-label="Section detail panel"]')).toBeVisible();
   });
 
   test('can switch to Activity tab', async ({ page }) => {
-    const tabBar = page.locator('div.flex.border-b.px-4');
-    await tabBar.getByRole('button', { name: 'Activity', exact: true }).click();
+    const tabBar = page.getByRole('tablist', { name: 'Workspace tabs' });
+    await tabBar.getByRole('tab', { name: 'Activity', exact: true }).click();
     // Activity log panel should render with its heading
     await expect(page.getByText('Activity Log')).toBeVisible();
   });

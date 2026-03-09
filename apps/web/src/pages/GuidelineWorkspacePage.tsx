@@ -176,10 +176,12 @@ export function GuidelineWorkspacePage({ guidelineId, onBack }: GuidelineWorkspa
       </div>
 
       {/* Tab bar */}
-      <div className="flex border-b px-4">
+      <div role="tablist" aria-label="Workspace tabs" className="flex border-b px-4">
         {tabs.map((tab) => (
           <button
             key={tab.id}
+            role="tab"
+            aria-selected={activeTab === tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={cn(
               'px-4 py-2.5 text-sm font-medium border-b-2 transition-colors',

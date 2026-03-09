@@ -6,6 +6,7 @@ import { LoggerModule } from 'nestjs-pino';
 import { HealthController } from './health/health.controller';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
+import { AuthGuard } from './auth/auth.guard';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { GuidelinesModule } from './guidelines/guidelines.module';
 import { SectionsModule } from './sections/sections.module';
@@ -74,6 +75,7 @@ import configuration from './config/configuration';
   ],
   controllers: [HealthController],
   providers: [
+    { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_INTERCEPTOR, useClass: ActivityLoggingInterceptor },
   ],
