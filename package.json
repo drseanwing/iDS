@@ -9,6 +9,7 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@nestjs/throttler": "^6.5.0"
+    "@nestjs/throttler": "^6.5.0",
+    "@testing-library/dom": "^10.4.1"
   }
 }

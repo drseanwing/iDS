@@ -5,6 +5,7 @@ import { RichTextEditor } from '../editor/RichTextEditor';
 import { EtdPanel } from './EtdPanel';
 import type { EtdMode } from './EtdPanel';
 import { CommentsPanel } from './CommentsPanel';
+import { DecisionAidPreview } from './DecisionAidPreview';
 import { useUpdateRecommendation } from '../../hooks/useUpdateRecommendation';
 import type { Recommendation } from '../../hooks/useRecommendations';
 
@@ -73,7 +74,7 @@ interface RecommendationEditorCardProps {
  */
 export function RecommendationEditorCard({ recommendation: rec, etdMode, onDelete }: RecommendationEditorCardProps) {
   const [expanded, setExpanded] = useState(false);
-  const [activeTab, setActiveTab] = useState<'narrative' | 'etd' | 'comments'>('narrative');
+  const [activeTab, setActiveTab] = useState<'narrative' | 'etd' | 'decision-aid' | 'comments'>('narrative');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const { mutate: updateRec, isPending } = useUpdateRecommendation();
 
@@ -202,6 +203,18 @@ export function RecommendationEditorCard({ recommendation: rec, etdMode, onDelet
             >
               Comments
             </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('decision-aid')}
+              className={cn(
+                'px-3 py-2 text-xs font-medium border-b-2 transition-colors',
+                activeTab === 'decision-aid'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground',
+              )}
+            >
+              Decision Aid
+            </button>
           </div>
 
           {activeTab === 'narrative' && (
@@ -264,6 +277,12 @@ export function RecommendationEditorCard({ recommendation: rec, etdMode, onDelet
           {activeTab === 'comments' && (
             <div className="px-3 pb-4 pt-3">
               <CommentsPanel recommendationId={rec.id} />
+            </div>
+          )}
+
+          {activeTab === 'decision-aid' && (
+            <div className="px-3 pb-4 pt-3">
+              <DecisionAidPreview recommendationId={rec.id} />
             </div>
           )}
         </div>
