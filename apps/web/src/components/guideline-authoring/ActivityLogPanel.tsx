@@ -108,24 +108,22 @@ export function ActivityLogPanel({ guidelineId }: ActivityLogPanelProps) {
   const { data, isLoading, isFetching } = useActivity(guidelineId, filters, page);
 
   // Append new page results to accumulated list
-  const currentPageEntries = useMemo(() => data?.entries ?? [], [data?.entries]);
+  useEffect(() => {
+    const entries = data?.entries ?? [];
+    if (page === 1) {
+      setAllEntries(entries);
+    } else if (entries.length > 0) {
+      setAllEntries((prev) => {
+        const existingIds = new Set(prev.map((e) => e.id));
+        const newOnes = entries.filter((e) => !existingIds.has(e.id));
+        return [...prev, ...newOnes];
+      });
+    }
+  }, [data?.entries, page]);
+
   const meta = data?.meta;
 
-  // Merge: on filter change we reset page to 1 and clear accumulated list
-  const displayedEntries = useMemo(() => {
-    if (page === 1) return currentPageEntries;
-    // Deduplicate by id in case of re-renders
-    const existingIds = new Set(allEntries.map((e) => e.id));
-    const newOnes = currentPageEntries.filter((e) => !existingIds.has(e.id));
-    return [...allEntries, ...newOnes];
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPageEntries]);
-
-  // Sync allEntries when displayedEntries updates
-  useEffect(() => {
-    setAllEntries(displayedEntries);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [displayedEntries]);
+  const displayedEntries = allEntries;
 
   const handleFilterChange = (setter: (v: string) => void) => (v: string) => {
     setter(v);
