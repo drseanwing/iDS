@@ -15,6 +15,7 @@ import {
 import { Response } from 'express';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery, ApiParam } from '@nestjs/swagger';
 import { GuidelinesService } from './guidelines.service';
+import { WordExportService } from './word-export.service';
 import { VersionsService } from '../versions/versions.service';
 import { CreateGuidelineDto } from './dto/create-guideline.dto';
 import { UpdateGuidelineDto } from './dto/update-guideline.dto';
@@ -30,6 +31,7 @@ import { Roles } from '../auth/roles.decorator';
 export class GuidelinesController {
   constructor(
     private readonly guidelinesService: GuidelinesService,
+    private readonly wordExportService: WordExportService,
     private readonly versionsService: VersionsService,
   ) {}
 
@@ -106,6 +108,21 @@ export class GuidelinesController {
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.setHeader('Content-Type', 'application/json');
     res.json(data);
+  }
+
+  @Get(':id/export/docx')
+  @ApiOperation({ summary: 'Export complete guideline as a DOCX (Word) document' })
+  async exportDocx(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res() res: Response,
+  ) {
+    const data = await this.guidelinesService.exportJson(id);
+    const buffer = await this.wordExportService.generateDocx(data);
+    const filename = `guideline-${data.guideline.shortName || id}.docx`;
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    res.setHeader('Content-Length', buffer.length);
+    res.end(buffer);
   }
 
   @Get(':id')
