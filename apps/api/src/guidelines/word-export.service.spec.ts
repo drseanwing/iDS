@@ -286,6 +286,40 @@ describe('WordExportService', () => {
       expect(paragraphs.length).toBe(2);
     });
 
+    it('should handle ordered list nodes with numbering', () => {
+      const content = {
+        type: 'doc',
+        content: [
+          {
+            type: 'orderedList',
+            content: [
+              {
+                type: 'listItem',
+                content: [
+                  {
+                    type: 'paragraph',
+                    content: [{ type: 'text', text: 'First' }],
+                  },
+                ],
+              },
+              {
+                type: 'listItem',
+                content: [
+                  {
+                    type: 'paragraph',
+                    content: [{ type: 'text', text: 'Second' }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      };
+
+      const paragraphs = service.convertTipTapContent(content);
+      expect(paragraphs.length).toBe(2);
+    });
+
     it('should handle null content', () => {
       const paragraphs = service.convertTipTapContent(null);
       expect(paragraphs).toEqual([]);

@@ -228,19 +228,15 @@ export class WordExportService {
 
       // Render children
       if (section.children) {
-        let childCounter = 0;
         for (const child of section.children) {
-          childCounter++;
           renderSection(child, depth + 1, `${numberPrefix}${sectionCounter}.`);
         }
       }
     };
 
-    let topCounter = 0;
     for (const section of sections) {
       sectionCounter = 0;
-      topCounter++;
-      renderSection(section, 0, `${showNumbers ? '' : ''}`);
+      renderSection(section, 0, '');
     }
 
     // ── PICOs as Annex (if picoDisplayMode === ANNEX) ─────────
@@ -360,8 +356,8 @@ export class WordExportService {
       case 'orderedList': {
         const items: Paragraph[] = [];
         const listItems = node.content ?? [];
-        for (const item of listItems) {
-          items.push(...this.convertListItem(item, node.type === 'orderedList'));
+        for (let i = 0; i < listItems.length; i++) {
+          items.push(...this.convertListItem(listItems[i], node.type === 'orderedList', i));
         }
         return items;
       }
@@ -458,16 +454,17 @@ export class WordExportService {
     return runs.length ? runs : [new TextRun({ text: '' })];
   }
 
-  private convertListItem(node: any, ordered: boolean): Paragraph[] {
+  private convertListItem(node: any, ordered: boolean, index: number): Paragraph[] {
     const paragraphs: Paragraph[] = [];
     const content = node.content ?? [];
     for (const child of content) {
       if (child.type === 'paragraph') {
+        const marker = ordered ? `${index + 1}. ` : '• ';
         paragraphs.push(
           new Paragraph({
             indent: { left: 360, hanging: 180 },
             children: [
-              new TextRun({ text: ordered ? '• ' : '• ' }),
+              new TextRun({ text: marker }),
               ...this.convertInlineContent(child.content),
             ],
             spacing: { after: 40 },
