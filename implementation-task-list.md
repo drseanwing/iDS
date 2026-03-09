@@ -144,7 +144,7 @@ Source docs:
 
 ## Phase 8 — Export, Distribution, and Decision Aids (Arch §5.3, §9, compass §9, §13)
 - [ ] Implement async PDF generation pipeline with template customization options. _(No Bull queue, no worker process, no PDF library.)_
-- [ ] Implement DOCX export with parity to PDF structure.
+- [x] Implement DOCX export with parity to PDF structure. — **fixed** (Created `WordExportService` using `docx` library with `GET /guidelines/:id/export/docx` endpoint. Generates Word document with: title page, auto-generated table of contents, section hierarchy with heading levels, TipTap JSON → DOCX rich text conversion preserving bold/italic/underline/lists/blockquotes, recommendation cards with strength badges, PICO questions with Summary of Findings tables, auto-numbered reference list. Supports `picoDisplayMode` INLINE vs ANNEX and section numbering toggle. Frontend: `useExportDocx` hook + "Export DOCX" button in GuidelineSettingsPanel.)
 - [x] Implement full JSON exports for guideline and key sub-resources. — **fixed** (added `GET /guidelines/:id/export` endpoint returning comprehensive JSON with guideline, organization, sections tree, recommendations with EtD, PICOs with outcomes, references, permissions, versions; sets Content-Disposition header).
 - [ ] Store export artifacts by version in object storage and expose download endpoints. _(MinIO provisioned in Docker Compose but no S3 client integration in the API.)_
 - [ ] Implement decision aid generation from linked PICOs/outcomes.
