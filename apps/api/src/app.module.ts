@@ -75,6 +75,7 @@ import configuration from './config/configuration';
   ],
   controllers: [HealthController],
   providers: [
+    // All endpoints require authentication by default; use @Public() to opt out
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_INTERCEPTOR, useClass: ActivityLoggingInterceptor },

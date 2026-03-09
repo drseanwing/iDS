@@ -110,10 +110,9 @@ export function ActivityLogPanel({ guidelineId }: ActivityLogPanelProps) {
   // Append new page results to accumulated list
   useEffect(() => {
     const entries = data?.entries ?? [];
-    if (entries.length === 0) return;
     if (page === 1) {
       setAllEntries(entries);
-    } else {
+    } else if (entries.length > 0) {
       setAllEntries((prev) => {
         const existingIds = new Set(prev.map((e) => e.id));
         const newOnes = entries.filter((e) => !existingIds.has(e.id));
