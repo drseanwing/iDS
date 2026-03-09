@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Download } from 'lucide-react';
 import type { Guideline } from '../../hooks/useGuideline';
 import { useUpdateGuideline } from '../../hooks/useUpdateGuideline';
+import { useExportDocx } from '../../hooks/useExportDocx';
 import { PermissionManagementPanel } from './PermissionManagementPanel';
 import { RecoverPanel } from './RecoverPanel';
 
@@ -14,6 +15,7 @@ type PicoDisplay = 'INLINE' | 'ANNEX';
 
 export function GuidelineSettingsPanel({ guideline }: GuidelineSettingsPanelProps) {
   const { mutate: updateGuideline, isPending } = useUpdateGuideline();
+  const { exportDocx, isPending: isExporting, error: exportError } = useExportDocx();
 
   const [form, setForm] = useState({
     title: guideline.title,
@@ -212,6 +214,33 @@ export function GuidelineSettingsPanel({ guideline }: GuidelineSettingsPanelProp
             className="mt-1 block w-full rounded-md border px-3 py-2 text-sm bg-background"
           />
         </label>
+
+        <div className="pt-2 space-y-2">
+          <span className="text-sm font-medium block">Export Guideline</span>
+          <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={() => exportDocx(guideline.id, `guideline-${guideline.shortName || guideline.id}.docx`)}
+              disabled={isExporting}
+              aria-label="Export as DOCX"
+              className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium hover:bg-accent transition-colors disabled:opacity-50"
+            >
+              {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              Export DOCX
+            </button>
+            <a
+              href={`/api/guidelines/${guideline.id}/export`}
+              download={`guideline-${guideline.shortName || guideline.id}.json`}
+              aria-label="Export as JSON"
+              className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium hover:bg-accent transition-colors"
+            >
+              <Download className="h-4 w-4" />
+              Export JSON
+            </a>
+          </div>
+          {exportError && (
+            <p className="text-xs text-destructive">{exportError}</p>
+          )}
+        </div>
       </section>
 
       {/* Save button */}
