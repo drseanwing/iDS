@@ -24,6 +24,7 @@ import { MilestonesModule } from './milestones/milestones.module';
 import { TasksModule } from './tasks/tasks.module';
 import { FhirModule } from './fhir/fhir.module';
 import { TerminologyModule } from './terminology/terminology.module';
+import { StorageModule } from './storage/storage.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -69,6 +70,7 @@ import configuration from './config/configuration';
     TasksModule,
     FhirModule,
     TerminologyModule,
+    StorageModule,
   ],
   controllers: [HealthController],
   providers: [

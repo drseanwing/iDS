@@ -1,5 +1,6 @@
-import { Controller, Get, Post, Body, Param, Query, ParseUUIDPipe, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, ParseUUIDPipe, UseGuards, Res } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import { Response } from 'express';
 import { VersionsService } from './versions.service';
 import { CreateVersionDto } from './dto/create-version.dto';
 import { PaginationQueryDto } from '../common/dto';
@@ -47,5 +48,19 @@ export class VersionsController {
   @ApiOperation({ summary: 'Get version by ID (includes snapshot bundle)' })
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.versionsService.findOne(id);
+  }
+
+  @Get(':id/export/json')
+  @ApiOperation({ summary: 'Download the immutable JSON snapshot for a published version' })
+  async downloadJson(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res() res: Response,
+  ) {
+    const { buffer, versionNumber, guidelineId } = await this.versionsService.getSnapshotBuffer(id);
+    const filename = `guideline-${guidelineId}-v${versionNumber}.json`;
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Length', buffer.length);
+    res.send(buffer);
   }
 }

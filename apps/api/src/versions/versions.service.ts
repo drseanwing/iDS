@@ -1,12 +1,16 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { VersionType, GuidelineStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { StorageService } from '../storage/storage.service';
 import { PaginatedResponseDto } from '../common/dto';
 import { CreateVersionDto } from './dto/create-version.dto';
 
 @Injectable()
 export class VersionsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storage: StorageService,
+  ) {}
 
   async publish(dto: CreateVersionDto, userId: string) {
     const guideline = await this.prisma.guideline.findUnique({
@@ -89,6 +93,16 @@ export class VersionsService {
     // Build comprehensive immutable snapshot
     const snapshotBundle = this.buildSnapshotBundle(guideline);
 
+    // Upload JSON snapshot to object storage (best-effort; publish succeeds even if storage is unavailable)
+    let jsonS3Key: string | null = null;
+    try {
+      const key = `versions/${dto.guidelineId}/${versionNumber}/snapshot.json`;
+      await this.storage.upload(key, JSON.stringify(snapshotBundle), 'application/json');
+      jsonS3Key = key;
+    } catch {
+      // Non-fatal: snapshot is still stored in the snapshotBundle DB column
+    }
+
     const version = await this.prisma.guidelineVersion.create({
       data: {
         guidelineId: dto.guidelineId,
@@ -98,6 +112,7 @@ export class VersionsService {
         isPublic: dto.isPublic ?? false,
         publishedBy: userId,
         snapshotBundle,
+        ...(jsonS3Key ? { jsonS3Key } : {}),
       },
     });
 
@@ -213,6 +228,30 @@ export class VersionsService {
     const publisherName = user?.displayName || user?.email || 'Unknown';
 
     return { ...version, publisherName };
+  }
+
+  /**
+   * Return the JSON snapshot for a version as a Buffer.
+   * Attempts to retrieve from object storage first (using jsonS3Key) and falls
+   * back to the snapshotBundle stored in the database.
+   */
+  async getSnapshotBuffer(id: string): Promise<{ buffer: Buffer; versionNumber: string; guidelineId: string }> {
+    const version = await this.prisma.guidelineVersion.findUnique({ where: { id } });
+    if (!version) throw new NotFoundException(`Version ${id} not found`);
+
+    let buffer: Buffer;
+    if (version.jsonS3Key) {
+      try {
+        buffer = await this.storage.download(version.jsonS3Key);
+      } catch {
+        // Fall back to DB snapshot if S3 retrieval fails
+        buffer = Buffer.from(JSON.stringify(version.snapshotBundle));
+      }
+    } else {
+      buffer = Buffer.from(JSON.stringify(version.snapshotBundle));
+    }
+
+    return { buffer, versionNumber: version.versionNumber, guidelineId: version.guidelineId };
   }
 
   private buildSnapshotBundle(guideline: any) {

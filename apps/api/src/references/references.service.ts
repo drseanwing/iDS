@@ -1,13 +1,17 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { Prisma, StudyType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { StorageService } from '../storage/storage.service';
 import { PaginatedResponseDto } from '../common/dto';
 import { CreateReferenceDto } from './dto/create-reference.dto';
 import { UpdateReferenceDto } from './dto/update-reference.dto';
 
 @Injectable()
 export class ReferencesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storage: StorageService,
+  ) {}
 
   async create(dto: CreateReferenceDto) {
     return this.prisma.reference.create({
@@ -175,5 +179,62 @@ export class ReferencesService {
     }
 
     return referenceNumbers;
+  }
+
+  // -----------------------------------------------------------------------
+  // Reference Attachments
+  // -----------------------------------------------------------------------
+
+  async uploadAttachment(
+    referenceId: string,
+    file: { buffer: Buffer; originalname: string; mimetype: string },
+    uploadedBy: string,
+  ) {
+    const ref = await this.prisma.reference.findUnique({ where: { id: referenceId } });
+    if (!ref || ref.isDeleted) throw new NotFoundException(`Reference ${referenceId} not found`);
+
+    const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const key = `references/${referenceId}/attachments/${crypto.randomUUID()}-${safeName}`;
+    await this.storage.upload(key, file.buffer, file.mimetype || 'application/octet-stream');
+
+    return this.prisma.referenceAttachment.create({
+      data: {
+        referenceId,
+        fileName: file.originalname,
+        mimeType: file.mimetype || 'application/octet-stream',
+        s3Key: key,
+        uploadedBy,
+      },
+    });
+  }
+
+  async listAttachments(referenceId: string) {
+    const ref = await this.prisma.reference.findUnique({ where: { id: referenceId } });
+    if (!ref || ref.isDeleted) throw new NotFoundException(`Reference ${referenceId} not found`);
+
+    return this.prisma.referenceAttachment.findMany({
+      where: { referenceId },
+      orderBy: { uploadedAt: 'asc' },
+    });
+  }
+
+  async getAttachmentDownloadBuffer(referenceId: string, attachmentId: string): Promise<{ buffer: Buffer; fileName: string; mimeType: string }> {
+    const attachment = await this.prisma.referenceAttachment.findFirst({
+      where: { id: attachmentId, referenceId },
+    });
+    if (!attachment) throw new NotFoundException(`Attachment ${attachmentId} not found`);
+
+    const buffer = await this.storage.download(attachment.s3Key);
+    return { buffer, fileName: attachment.fileName, mimeType: attachment.mimeType };
+  }
+
+  async deleteAttachment(referenceId: string, attachmentId: string): Promise<void> {
+    const attachment = await this.prisma.referenceAttachment.findFirst({
+      where: { id: attachmentId, referenceId },
+    });
+    if (!attachment) throw new NotFoundException(`Attachment ${attachmentId} not found`);
+
+    await this.storage.delete(attachment.s3Key);
+    await this.prisma.referenceAttachment.delete({ where: { id: attachmentId } });
   }
 }
