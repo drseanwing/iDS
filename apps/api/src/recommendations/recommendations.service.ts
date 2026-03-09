@@ -109,6 +109,52 @@ export class RecommendationsService {
     });
   }
 
+  /**
+   * Aggregate all PICO / outcome data linked to a recommendation so the
+   * frontend can render a patient-friendly decision aid (overview layer,
+   * benefits-and-harms table, pictograph, full-evidence layer).
+   */
+  async getDecisionAid(id: string) {
+    const rec = await this.prisma.recommendation.findUnique({
+      where: { id },
+      include: {
+        picoLinks: {
+          include: {
+            pico: {
+              include: {
+                outcomes: {
+                  where: { isDeleted: false, isShadow: false },
+                  orderBy: { ordering: 'asc' },
+                },
+                practicalIssues: { orderBy: { ordering: 'asc' } },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!rec || rec.isDeleted) {
+      throw new NotFoundException(`Recommendation ${id} not found`);
+    }
+
+    const picos = rec.picoLinks.map((link) => link.pico);
+
+    return {
+      recommendation: {
+        id: rec.id,
+        title: rec.title,
+        description: rec.description,
+        strength: rec.strength,
+        recommendationType: rec.recommendationType,
+        remark: rec.remark,
+        rationale: rec.rationale,
+        practicalInfo: rec.practicalInfo,
+        certaintyOfEvidence: rec.certaintyOfEvidence,
+      },
+      picos,
+    };
+  }
+
   // ── EMR Elements ──────────────────────────────────────────────────────────
 
   async addEmrElement(recommendationId: string, dto: CreateEmrElementDto) {

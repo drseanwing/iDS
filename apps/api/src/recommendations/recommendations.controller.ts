@@ -115,6 +115,14 @@ export class RecommendationsController {
     return this.recommendationsService.removeEmrElement(id, elementId);
   }
 
+  // ── Decision Aid endpoint ─────────────────────────────────────────────────
+
+  @Get(':id/decision-aid')
+  @ApiOperation({ summary: 'Get auto-generated decision aid data for a recommendation' })
+  getDecisionAid(@Param('id', ParseUUIDPipe) id: string) {
+    return this.recommendationsService.getDecisionAid(id);
+  }
+
   // ── EtD endpoints ────────────────────────────────────────────────────────
 
   @Get(':id/etd')
