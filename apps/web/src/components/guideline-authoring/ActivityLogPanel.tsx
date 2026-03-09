@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useActivity, type ActivityEntry } from '../../hooks/useActivity';
 
@@ -108,7 +108,7 @@ export function ActivityLogPanel({ guidelineId }: ActivityLogPanelProps) {
   const { data, isLoading, isFetching } = useActivity(guidelineId, filters, page);
 
   // Append new page results to accumulated list
-  const currentPageEntries = data?.entries ?? [];
+  const currentPageEntries = useMemo(() => data?.entries ?? [], [data?.entries]);
   const meta = data?.meta;
 
   // Merge: on filter change we reset page to 1 and clear accumulated list
@@ -122,7 +122,7 @@ export function ActivityLogPanel({ guidelineId }: ActivityLogPanelProps) {
   }, [currentPageEntries]);
 
   // Sync allEntries when displayedEntries updates
-  useMemo(() => {
+  useEffect(() => {
     setAllEntries(displayedEntries);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [displayedEntries]);

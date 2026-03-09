@@ -4,7 +4,7 @@ Source docs:
 - `opengrade-architecture.md`
 - `compass_artifact_wf-ac90d96b-1eee-4206-9b48-09594f3da2b5_text_markdown.md` (MAGICapp reverse-engineering technical specification artifact)
 
-> **Audit status**: Last reviewed 2026-03-07. All items verified against live codebase. Latest batch: FHIR projection layer, rate limiting, public visibility toggle, recover UI, onlyDeleted query params.
+> **Audit status**: Last reviewed 2026-03-09. All items verified against live codebase. Latest batch: E2E Playwright test suite added; ActivityLogPanel infinite-render crash fixed.
 > Legend: `[x]` = implemented & verified | `[~]` = partially implemented / known gap | `[ ]` = not yet started
 
 ---
@@ -225,4 +225,26 @@ The following items are confirmed bugs or incomplete wiring in the current codeb
 | O-02 | Security | No file upload endpoints exist yet; upload validation not specified |
 | ~~O-03~~ | ~~Auth~~ | **Fixed** — RbacGuard checks org-level ADMIN membership and guideline-level `GuidelinePermission` role against `@Roles()` requirements |
 | ~~O-04~~ | ~~Ops~~ | **Fixed** — Added `GET /health/ready` endpoint with database connectivity check (`$queryRaw SELECT 1`); returns 503 when DB unavailable |
-| O-05 | Testing | No integration tests against a real database; no E2E test suite |
+| ~~O-05~~ | ~~Testing~~ | **Fixed** — Added Playwright E2E test suite at `apps/e2e/` (65 tests, 100% pass rate). Covers: navigation, dashboard stats, guidelines CRUD, guideline workspace tabs, section tree, references page, error/empty states. Found and fixed ActivityLogPanel crash (see B-05 below). |
+
+---
+
+## E2E Test Findings (from Playwright test run 2026-03-09)
+
+The following issues were discovered during the first E2E test run:
+
+### Bugs Found and Fixed
+| # | Area | Issue | Resolution |
+|---|------|-------|------------|
+| B-05 | Frontend / Activity Log | `ActivityLogPanel` used `useMemo` (synchronous render) to call `setAllEntries` state setter — caused infinite re-render loop on mount, crashing the component and producing a blank page when the Activity tab was clicked | **Fixed**: Changed `useMemo` → `useEffect`; stabilised `currentPageEntries` with `useMemo([data?.entries])` to prevent new array reference on every render |
+
+### Issues Identified (not yet fixed)
+| # | Priority | Area | Issue | Notes |
+|---|----------|------|-------|-------|
+| E-01 | P2 | Frontend / Navigation | Sidebar brand name "OpenGRADE" also appears in the Dashboard welcome heading "Welcome to OpenGRADE", causing strict-mode violations in test locators targeting just the sidebar text | Not a functional bug; use `aside`-scoped locators as a workaround |
+| E-02 | P2 | Frontend / Workspace | Workspace tab bar buttons share CSS classes with the workspace header div, making it ambiguous to select the tab bar specifically via CSS class selectors | Not a functional bug; use content-based filtering for tab buttons |
+| E-03 | P1 | Frontend / ActivityLogPanel | `displayedEntries` useMemo has `allEntries` in its closure but NOT in its dependency array — paginated "load more" will not correctly accumulate entries across pages because stale closure is used | Requires dependency-array refactor; also affected by B-05 fix |
+| E-04 | P2 | Frontend / References | The `ReferencesPage` `useReferences` hook expects a paginated response `{data, total, page, limit}`, but the references mock in `setupApiMocks` returned a plain array — the paginated format must be used in production | Fixed in test setup; API must always return the paginated envelope |
+| E-05 | P2 | Backend / Auth | API endpoints have no auth guards applied globally (no `@UseGuards` on controllers, `AuthGuard` not registered globally in `AppModule`) — all endpoints are effectively public | See also existing O-03; `RbacGuard` only fires when `@Roles()` is present |
+| E-06 | P3 | Frontend / Error states | React Query default `retry: 1` with exponential backoff delays error states by ~1 second, which can cause flaky E2E tests if tests don't use sufficient timeouts when simulating API failures | E2E tests now use 15 s timeout for error-state assertions |
+| E-07 | P3 | Frontend / Workspace sections | The section tree mock data had sections named "Recommendations" which conflicted with the workspace tab label "Recommendations", causing strict-mode violations in button selectors | Fixed in test data — section renamed to "Clinical Recommendations" |
