@@ -107,6 +107,7 @@ model Guideline {
   tasks           Task[]
   subscribers     Subscriber[]
   internalDocs    InternalDocument[]
+  pdfExportJobs   PdfExportJob[]
 }
 
 model Section {
@@ -416,6 +417,23 @@ model InternalDocument {
   uploadedAt      DateTime    @default(now())
 
   guideline       Guideline   @relation(fields: [guidelineId], references: [id])
+}
+
+model PdfExportJob {
+  id              String          @id @default(uuid()) @db.Uuid
+  guidelineId     String          @db.Uuid
+  status          PdfJobStatus    @default(PENDING)
+  s3Key           String?
+  errorMessage    String?
+  options         Json?
+  requestedBy     String          @db.Uuid
+  createdAt       DateTime        @default(now())
+  startedAt       DateTime?
+  completedAt     DateTime?
+
+  guideline       Guideline       @relation(fields: [guidelineId], references: [id])
+
+  @@index([guidelineId, createdAt(sort: Desc)])
 }
 
 model Tag {
@@ -828,6 +846,13 @@ enum EmrElementType {
 enum PicoDisplay {
   INLINE
   ANNEX
+}
+
+enum PdfJobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
 }
 
 enum EtdFactorType {

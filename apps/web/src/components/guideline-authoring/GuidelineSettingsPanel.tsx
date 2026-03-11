@@ -3,6 +3,7 @@ import { Loader2, Download } from 'lucide-react';
 import type { Guideline } from '../../hooks/useGuideline';
 import { useUpdateGuideline } from '../../hooks/useUpdateGuideline';
 import { useExportDocx } from '../../hooks/useExportDocx';
+import { useExportPdf } from '../../hooks/useExportPdf';
 import { PermissionManagementPanel } from './PermissionManagementPanel';
 import { RecoverPanel } from './RecoverPanel';
 
@@ -16,6 +17,7 @@ type PicoDisplay = 'INLINE' | 'ANNEX';
 export function GuidelineSettingsPanel({ guideline }: GuidelineSettingsPanelProps) {
   const { mutate: updateGuideline, isPending } = useUpdateGuideline();
   const { exportDocx, isPending: isExporting, error: exportError } = useExportDocx();
+  const { exportPdf, isPending: isExportingPdf, status: pdfStatus, error: pdfError } = useExportPdf();
 
   const [form, setForm] = useState({
     title: guideline.title,
@@ -219,6 +221,20 @@ export function GuidelineSettingsPanel({ guideline }: GuidelineSettingsPanelProp
           <span className="text-sm font-medium block">Export Guideline</span>
           <div className="flex gap-2 flex-wrap">
             <button
+              onClick={() => exportPdf(guideline.id, {
+                pdfColumnLayout: form.pdfColumnLayout,
+                picoDisplayMode: form.picoDisplayMode,
+                showSectionNumbers: form.showSectionNumbers,
+                coverPageUrl: form.coverPageUrl || undefined,
+              })}
+              disabled={isExportingPdf}
+              aria-label="Export as PDF"
+              className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium hover:bg-accent transition-colors disabled:opacity-50"
+            >
+              {isExportingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              {isExportingPdf && pdfStatus ? `PDF ${pdfStatus === 'PROCESSING' ? 'Generating...' : 'Queued...'}` : 'Export PDF'}
+            </button>
+            <button
               onClick={() => exportDocx(guideline.id, `guideline-${guideline.shortName || guideline.id}.docx`)}
               disabled={isExporting}
               aria-label="Export as DOCX"
@@ -239,6 +255,9 @@ export function GuidelineSettingsPanel({ guideline }: GuidelineSettingsPanelProp
           </div>
           {exportError && (
             <p className="text-xs text-destructive">{exportError}</p>
+          )}
+          {pdfError && (
+            <p className="text-xs text-destructive">{pdfError}</p>
           )}
         </div>
       </section>
