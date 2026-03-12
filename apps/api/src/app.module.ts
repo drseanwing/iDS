@@ -26,6 +26,7 @@ import { TasksModule } from './tasks/tasks.module';
 import { FhirModule } from './fhir/fhir.module';
 import { TerminologyModule } from './terminology/terminology.module';
 import { StorageModule } from './storage/storage.module';
+import { PdfExportModule } from './pdf-export/pdf-export.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -72,6 +73,7 @@ import configuration from './config/configuration';
     FhirModule,
     TerminologyModule,
     StorageModule,
+    PdfExportModule,
   ],
   controllers: [HealthController],
   providers: [
