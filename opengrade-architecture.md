@@ -1590,82 +1590,208 @@ Background workers (PDF generation, RevMan import, email) log to the same struct
 |---------|------|---------|
 | 0.1.0 | 2026-02-10 | Initial architecture definition |
 | 0.1.1 | 2026-03-06 | Added §11 implementation status after full codebase audit |
+| 0.1.2 | 2026-03-18 | Updated §11 to reflect current implementation; added §12 Architectural Decision Record; documented deviations from original spec |
 
 ---
 
-## 11. Implementation Status (as of 2026-03-06)
+## 11. Implementation Status (as of 2026-03-18)
 
-This section documents what has been built, what is partially built, and what is still pending. Cross-reference with `implementation-task-list.md` for sprint-ready task breakdowns.
+This section documents what has been built, what is partially built, and what is still pending. Cross-reference with `implementation-task-list.md` for sprint-ready task breakdowns and the bug/gap registry.
 
 ### 11.1 What Is Fully Implemented
+
+**Infrastructure & Platform Foundation**
 
 | Layer | Component | Notes |
 |-------|-----------|-------|
 | Infra | Docker Compose (PostgreSQL, Keycloak, MinIO) | Dev stack fully functional |
-| Backend | NestJS 11 app skeleton + Pino logging + Helmet + CORS | Structured logging with correlation IDs |
-| Backend | Auth module (Keycloak JWT guard, `/auth/me`, `/auth/status`) | JwtStrategy validates Bearer tokens |
-| Backend | Organizations CRUD (`/organizations`) | Full CRUD with pagination |
-| Backend | Guidelines CRUD (`/guidelines`) | Full CRUD; settings fields (`etdMode`, `showSectionNumbers`, etc.) now fully wired |
-| Backend | Sections CRUD + reorder (`/sections`, `POST /sections/reorder`) | Tree structure; 1-level children embedded |
-| Backend | Recommendations CRUD (`/recommendations`) | Full CRUD including `remark`/`rationale`/`practicalInfo` JSON fields (wired in audit) |
-| Backend | PICOs CRUD + terminology codes (`/picos`, `/picos/:id/codes`) | Codes use CodeSystem + code + display |
-| Backend | Outcomes CRUD (`/outcomes`) | GRADE assessment fields (5 downgrade + 3 upgrade) |
-| Backend | References CRUD (`/references`) | Soft-delete blocks in-use references |
-| Backend | Link table APIs (`/links/section-*`, `pico-*`, `outcome-*`) | Upsert + delete + list for 5 join tables |
-| Backend | EtD framework (`GET /recommendations/:id/etd`, `/etd-factors/:id`, `/etd-judgments/:id`) | Get-or-init 13 factor types; per-intervention judgments |
-| Frontend | App shell (sidebar nav, top bar, version badge) | Hardcoded "User" — not wired to auth |
-| Frontend | Guidelines list page + guideline workspace routing | "New Guideline" button not wired |
-| Frontend | Guideline workspace: section tree + detail panel + 3 tabs | Drag-and-drop reorder; auto-numbering |
-| Frontend | TipTap rich text editor (save-on-blur) | StarterKit; track changes not yet added |
-| Frontend | Section detail panel (rich text + linked recommendations + sub-sections) | — |
-| Frontend | Recommendation editor card (description, remark, rationale, practicalInfo, EtD tab) | — |
-| Frontend | PICO builder panel (PICO CRUD, outcome management, code entry) | — |
-| Frontend | GRADE assessment panel (effect data, certainty, 5+3 GRADE factors, plain language) | — |
-| Frontend | EtD panel (4/7/12 factor modes, judgment grid, intervention management) | — |
-| Frontend | Reference list (within guideline workspace: create, edit, link/unlink, search) | — |
+| Infra | Prisma schema + 2 migrations | `20260306000000_init` + `20260311000000_add_pdf_export_job` |
+| Infra | Database seed script | Default roles, enums, sample organization |
+| Backend | NestJS 11 + Pino + Helmet + CORS + global ValidationPipe | Structured logging with correlation IDs |
+| Backend | Global AuthGuard (APP_GUARD) + @Public() decorator | All endpoints require auth by default |
+| Backend | Global ThrottlerGuard (100 req/min) | Rate limiting via @nestjs/throttler |
+| Backend | Global ActivityLoggingInterceptor (APP_INTERCEPTOR) | Logs POST/PUT/PATCH/DELETE best-effort |
+| Backend | OpenAPI/Swagger documentation | Available at `/api/docs` |
 
-### 11.2 Partially Implemented (Stubs / Unwired Components)
+**Core Domain Modules (API)**
 
-| Component | Status | Gap |
-|-----------|--------|-----|
-| `DashboardPage` | Renders with hardcoded `'--'` stat values | No API calls; counts not fetched |
-| `GuidelinesPage` "New Guideline" button | Renders; no action | No create form, modal, or mutation |
-| `ReferencesPage` (app nav → References) | "Coming soon" placeholder | `ReferenceList` inside workspace IS functional |
-| `AppShell` user section | Hardcoded "User" text | Not wired to `useAuth` or auth context |
-| `packages/fhir` | Stub `FhirMeta`/`FhirResource` interfaces only | No FHIR serializers |
-| `packages/ui` | Only `cn()` utility | No shared UI components |
-| Shadow outcomes | Schema fields (`isShadow`, `shadowOf`) exist | No service logic, no UI |
-| `GuidelineVersion` | Prisma model defined | No service, controller, or UI |
-| `ActivityLogEntry` | Prisma model defined | No interceptor writes to it |
-| `fhirMeta` / `fhirExtensions` columns | Defined in schema | Never read or written by any API |
+| Module | Endpoints | Notes |
+|--------|-----------|-------|
+| Auth | `GET /auth/me`, `GET /auth/status` | Keycloak JWT guard; @Public() on status |
+| Organizations | Full CRUD | Pagination, multi-tenant context |
+| Guidelines | Full CRUD + settings + status transitions + stats + slug resolution + validation + import + export | `PUT /guidelines/:id/status`, `PUT /guidelines/:id/public`, `GET /guidelines/stats`, `GET /guidelines/by-slug/:shortName`, `GET /guidelines/:id/validate`, `POST /guidelines/import`, `GET /guidelines/:id/export`, `POST /guidelines/:id/restore` |
+| Sections | Full CRUD + reorder + restore | Recursive tree built in memory; `POST /sections/reorder`, `POST /sections/:id/restore` |
+| Recommendations | Full CRUD + status transitions + decision aid + EMR elements | `PUT /recommendations/:id/status`, `GET /recommendations/:id/decision-aid`, CRUD for `/recommendations/:id/emr-elements` |
+| PICOs | Full CRUD + codes + practical issues (16 categories) | `POST/GET/DELETE /picos/:id/codes`, CRUD for `/picos/:picoId/practical-issues` |
+| Outcomes | Full CRUD + shadow outcomes | `POST /outcomes/:id/shadow`, `POST /outcomes/:id/promote`, `GET /outcomes/:id/shadows` |
+| References | Full CRUD + auto-numbering + file attachments | `GET /references/numbered?guidelineId=`, multipart upload/download/delete for `/references/:id/attachments` |
+| Links | Section↔Reference, Section↔Pico, Section↔Recommendation, Recommendation↔Pico, Outcome↔Reference | Upsert + delete + list for 5 join tables |
+| EtD Framework | `GET /recommendations/:id/etd`, factor CRUD, judgment CRUD | 13 factor types; per-intervention judgments; 4/7/12-factor modes |
+| Versions | Publish (major/minor) + list + compare + export | `POST /versions`, `GET /versions?guidelineId=`, `GET /versions/compare?v1=&v2=`, `GET /versions/:id/export/json`; snapshot stored in S3 |
+| Activity | Filtered audit log | `GET /activity?guidelineId=` with entity/action/text filters |
+| Comments | Threaded comments with status workflow | Full CRUD with threading; OPEN/RESOLVED/REJECTED status transitions |
+| COI | Conflict of interest declarations | Full CRUD with conflict types and voting exclusion flag |
+| Polls | Poll creation + voting + COI exclusion check | OPEN_TEXT, MULTIPLE_CHOICE, STRENGTH_VOTE, ETD_JUDGMENT types; vote tallying; poll close |
+| Milestones | Milestone tracking with checklist items | AGREE II / SNAP-IT / CUSTOM categories; checklist toggle |
+| Tasks | Kanban task management | TODO/IN_PROGRESS/DONE status; assignee + due date |
+| FHIR | Read-only facade + validation + ETag support | `GET /fhir/Composition/:id`, `/Citation/:id`, `/PlanDefinition/:id`, `/Evidence/:id`, `/Bundle/:guidelineId`; `POST /fhir/$validate`; conditional requests with ETag/If-None-Match |
+| Terminology | Code search (stub) | `GET /terminology/search?system=&query=&limit=`; hardcoded stub data (~20 codes/system) |
+| Storage | S3-compatible object storage | MinIO for dev; version snapshots + reference attachments |
+| PDF Export | Async pipeline with template options | `POST /guidelines/:id/export/pdf` (creates job), `GET /pdf-jobs/:jobId` (poll), `GET /pdf-jobs/:jobId/download` (stream); pdfmake-based; TipTap JSON → PDF conversion |
+| DOCX Export | Synchronous Word export | `GET /guidelines/:id/export/docx`; `docx` library; matches PDF structure |
+| Clinical Codes | Aggregation endpoint | `GET /guidelines/:id/clinical-codes` (PicoCodes + EmrElements) |
+| Health | Readiness probe | `GET /health/ready` with DB connectivity check |
+| Permissions | RBAC matrix enforcement | `RbacGuard` with `@Roles()` on all 9 mutation controllers; `PermissionManagementPanel` UI |
 
-### 11.3 Confirmed Bugs Fixed During Audit
+**Frontend (React + Vite)**
 
-| ID | Bug | Fix Applied |
-|----|-----|-------------|
-| B-01 | `remark`, `rationale`, `practicalInfo` silently dropped on recommendation save | Added to DTO; wired in `RecommendationsService.update()` |
-| B-02 | `useUpdateRecommendation` used HTTP `PATCH`; controller declares `@Put` | Changed hook to `PUT` |
-| B-03 | Guideline settings (`etdMode` + 11 others) absent from DTO and not persisted | Added to `CreateGuidelineDto`; wired in `GuidelinesService.update()` |
+| Component | Status | Notes |
+|-----------|--------|-------|
+| AppShell | Fully wired | Sidebar nav (Dashboard, Guidelines, References), user info from `useAuth`, logout button |
+| DashboardPage | Live stats | Fetches counts via `useDashboardStats` → `GET /guidelines/stats` |
+| GuidelinesPage | Full CRUD | Inline "New Guideline" form (title + shortName); status badges; click to open workspace |
+| ReferencesPage | Full cross-guideline view | Server-side search, pagination, grouped by guideline, places-used badges (sections + outcomes) |
+| GuidelineWorkspacePage | 10-tab workspace | Recommendations, Evidence (PICO), References, Settings, Versions, Tasks, Polls, Milestones, COI, Activity |
+| SectionTree | Fully interactive | Drag-and-drop (dnd-kit), expand/collapse, auto-numbering, add/delete with confirm |
+| SectionDetailPanel | Complete | Rich text editor, child section navigation, recommendation CRUD |
+| RecommendationEditorCard | 4 sub-tabs | Narrative (description/remark/rationale/practicalInfo), Key Info/EtD, Comments, Decision Aid |
+| PicoBuilderPanel | Complete | PICO CRUD, outcomes with GRADE, codes (4 systems), practical issues (16 categories), shadow outcomes |
+| GradeAssessmentPanel | Complete | Evidence, GRADE (5 downgrade + 3 upgrade), Summary tabs; certainty symbols |
+| EtdPanel | Complete | 4/7/12-factor modes; judgment grid; rich text editors |
+| DecisionAidPreview | Complete | Overview, Benefits & Harms with pictograph, Full Evidence layers |
+| PictographDisplay | Complete | Paired icon-array panels showing baseline vs intervention absolute risk per 100 |
+| ReferenceList | Complete | Add/edit/delete, link to sections/outcomes, expandable details, DOI/PubMed links |
+| CommentsPanel | Complete | Threaded display, reply forms, status badges, resolve/delete |
+| CoiDashboard | Complete | Conflict type badges, voting exclusion, inline create/edit |
+| PollsPanel | Complete | 4 poll types, voting, results, close/delete |
+| MilestonesPanel | Complete | Progress bar, timeline, checklist items with toggle |
+| TaskBoard | Complete | 3-column Kanban, task cards, assignee, due date color-coding |
+| VersionHistoryPanel | Complete | Version list, publish, compare, JSON export, read-only banner |
+| GuidelineSettingsPanel | Complete | All settings fields, permission management, recovery, PDF/DOCX export buttons |
+| ActivityLogPanel | Complete | Entity/action type filters, text search, pagination, relative timestamps |
+| RichTextEditor | Complete | TipTap + StarterKit, save-on-blur, JSON serialization |
 
-### 11.4 Known Schema / Data Integrity Gaps
+**Testing**
 
-| Gap | Risk | Recommended Fix |
-|-----|------|-----------------|
-| No `prisma/migrations/` directory | Schema drift undetectable; cannot roll back | Run `prisma migrate dev --name init` to baseline all tables |
-| `EtdFactor` lacks `@@unique([recommendationId, factorType])` | Concurrent `getOrInit()` can create duplicate factor rows | Add unique constraint + handle `createMany` with `skipDuplicates: true` |
-| `GET /sections` embeds only 1 level of `children` | Deep trees require multiple round trips | Add recursive CTE endpoint or depth param |
-| No restore endpoint for soft-deleted entities | Deleted content permanently inaccessible via API | Add `POST /:resource/:id/restore` admin endpoints |
+| Category | Count | Notes |
+|----------|-------|-------|
+| API unit tests | 64 | All services and most controllers |
+| Frontend unit tests | 68 | Components and hooks |
+| PDF export tests | 30 | 19 generator + 11 service |
+| E2E tests (Playwright) | 65 | Navigation, dashboard, guidelines, workspace, references |
 
-### 11.5 Not Yet Started (Phases 5–9)
+### 11.2 Partially Implemented
 
-The following entire capability areas have **no implementation** in the current codebase:
+| Component | Status | Remaining Gap |
+|-----------|--------|---------------|
+| Terminology lookup | Hardcoded stub data | Needs BioPortal API proxy + Redis cache |
+| Track changes (TipTap) | TipTap installed with StarterKit | Track changes extension not installed; no accept/reject workflow |
+| Collaborative cursors | Not started | Needs WebSocket/Y.js integration |
+| `packages/fhir` | Stub types only | No shared FHIR serializers (projection lives in `apps/api/src/fhir/`) |
+| `packages/ui` | Only `cn()` utility | No extracted shared components |
+| COI intervention matrix | Simple CRUD exists | Spec describes auto-populated intervention×member matrix from PICOs; not implemented |
+| Voting exclusion | Basic check exists | `PollsService.castVote` checks flag; no granular per-intervention exclusion |
+| Reference deduplication on import | Import creates new references | No DOI/PMID dedup during `POST /guidelines/import` |
 
-- **Versioning & Publishing** — state machine, publish actions, version snapshots, permalink routing
-- **Collaboration & Governance** — RBAC enforcement, activity log, track changes, comments, COI, voting, milestones, tasks
-- **FHIR Facade** — projection layer, FHIR endpoints, FHIR Bundle snapshots
-- **Terminology Integration** — SNOMED CT / ICD-10 / ATC / RxNorm code search (BioPortal proxy)
-- **Export** — PDF generation, DOCX, JSON exports, S3 upload integration
-- **Decision Aids** — generation, layered UI, embeddable widget
-- **Background Workers** — Bull queue, worker process, async job infrastructure
-- **Rate Limiting** — no middleware; Helmet + CORS are the only transport-level controls
-- **E2E / Integration Tests** — only unit tests exist (64 API + 68 web)
+### 11.3 Not Yet Started
+
+| Capability | Architecture Section | Notes |
+|------------|---------------------|-------|
+| RevMan (.rm5) import | §9 | No parser, import wizard, or background job |
+| Embeddable decision-aid widget | §9 | `packages/widget` Preact micro-bundle does not exist |
+| Multilingual UI (i18n) | §8 | Language field on Guideline exists; no i18n framework for UI |
+| PWA / offline | §1 | No service worker, no IndexedDB cache, no Capacitor |
+| Capacitor mobile wrapper | §1 | Phase 2 — no implementation |
+| Performance tests | §10 | No load/stress testing |
+| Backup/restore jobs | §10 | No scheduled DB/S3 backup |
+| Runtime dashboards | §10 | No APM/metrics (Prometheus, Grafana) |
+| Deployment runbooks | §10 | No K8s Helm chart or deployment documentation |
+| Guideline clone (deep copy) | §4 | Service method not implemented |
+| Guideline ZIP import | §4 | Only JSON import exists |
+| COI document upload to S3 | §6 | COI module has no file upload |
+| COI FHIR Provenance projection | §6 | No FHIR mapping for COI records |
+| Subscriber/notification management | §6 | Schema fields exist; no notification service |
+| Event-driven cross-module communication | §1.3 | Direct service injection used; no EventEmitter2 |
+
+---
+
+## 12. Architectural Decision Record
+
+This section documents architectural decisions made during implementation that deviate from or clarify the original specification. Each decision is recorded with context and rationale.
+
+### ADR-001: npm Workspaces Instead of Turborepo
+
+**Context**: Task 0.1.1 specified Turborepo for monorepo orchestration.
+**Decision**: npm workspaces used instead.
+**Rationale**: npm workspaces provide sufficient workspace resolution for the current project scale without adding a build orchestrator dependency. Turborepo can be adopted later if build performance becomes a bottleneck.
+**Impact**: No `turbo.json` exists. Build/test/lint are run per-package via npm scripts.
+
+### ADR-002: Flat NestJS Module Structure
+
+**Context**: Spec §1.3 and task files describe a nested module structure (`src/core/`, `src/guideline-authoring/`, `src/grade-evidence/`, `src/recommendation-etd/`, `src/collaboration/`, etc.).
+**Decision**: Flat module structure at `src/` root level — each domain concept is a top-level directory (e.g., `src/guidelines/`, `src/recommendations/`, `src/picos/`, `src/coi/`).
+**Rationale**: Simplicity. Each module is small enough that grouping into meta-directories adds navigational overhead without clarity benefit. NestJS module imports provide the dependency graph.
+**Impact**: 22 top-level directories under `src/` instead of ~9 grouped directories.
+
+### ADR-003: Direct Service Injection Instead of EventEmitter2
+
+**Context**: Spec §1.3 mandates cross-module communication via NestJS EventEmitter2 async events "enabling future extraction to microservices."
+**Decision**: Modules import and inject each other's services directly.
+**Rationale**: EventEmitter2 adds indirection and makes debugging harder for the current monolith. The project is not planning microservice extraction in the near term. Direct injection is type-safe and traceable.
+**Impact**: No `@nestjs/event-emitter` installed. No event listeners. Module coupling is explicit via NestJS imports.
+
+### ADR-004: Database-Backed PDF Job Queue Instead of Bull/Redis
+
+**Context**: Spec and task files reference Bull queue with Redis for background jobs (PDF generation, RevMan import).
+**Decision**: PDF generation uses a database-backed job model (`PdfExportJob` Prisma model) with PENDING→PROCESSING→COMPLETED→FAILED status tracking. No Bull, no Redis.
+**Rationale**: Avoids introducing Redis as an additional infrastructure dependency for MVP. The job volume is low (PDF exports are infrequent). Database-backed polling is simple and sufficient.
+**Impact**: No `@nestjs/bull` installed. PDF jobs are processed in-process (not a separate worker). Job polling via `GET /pdf-jobs/:jobId`. `PdfExportJob` model added in migration `20260311000000_add_pdf_export_job`.
+
+### ADR-005: pdfmake (Pure JS) for PDF Generation
+
+**Context**: Architecture does not specify a PDF generation library.
+**Decision**: Using `pdfmake` v0.3 — a pure JavaScript PDF generation library.
+**Rationale**: No browser/Puppeteer dependency required. Works in any Node.js environment without Chrome/Chromium. Supports programmatic document construction with rich formatting (bold, italic, lists, tables, page headers/footers).
+**Impact**: PDF generation is synchronous and CPU-bound. TipTap JSON is converted to pdfmake document definition via custom converter in `PdfGeneratorService`.
+
+### ADR-006: `packages/fhir` + `packages/ui` Instead of `packages/shared`
+
+**Context**: Task 0.1.2 specifies a single `packages/shared` library containing DTOs, FHIR types, enums, and GRADE models.
+**Decision**: Split into two packages: `packages/fhir` (FHIR type definitions) and `packages/ui` (shared UI utilities).
+**Rationale**: Separation of concerns — FHIR types are backend-oriented while UI utilities are frontend-oriented. Prevents backend dependencies leaking into the frontend bundle.
+**Impact**: Both packages are currently stubs. FHIR projection logic lives in `apps/api/src/fhir/`. Shared enums are defined inline in each package rather than centralized.
+
+### ADR-007: Zustand for Client-Side Auth State
+
+**Context**: Architecture spec does not prescribe a state management solution.
+**Decision**: Zustand store for auth state (user, token, logout). React Query (TanStack Query) for all server state.
+**Rationale**: Zustand is lightweight (< 1KB) and simpler than React Context for global singleton state like auth. React Query handles all API caching, refetching, and optimistic updates.
+**Impact**: `useAuth` hook wraps a Zustand store. Token stored in `localStorage`. Axios interceptor attaches Bearer token to requests.
+
+### ADR-008: Custom Routing via App.tsx
+
+**Context**: Standard React applications use React Router for client-side routing.
+**Decision**: Custom path-based routing implemented directly in `App.tsx`.
+**Rationale**: The application has only 4 top-level pages with simple path matching. A full router library was deemed unnecessary overhead.
+**Impact**: No `react-router-dom` dependency. Route changes use `window.location` or browser navigation. No nested route support.
+
+### ADR-009: Global Activity Interceptor Instead of Per-Module Events
+
+**Context**: Spec §6 describes activity logging as an interceptor-based approach; task files describe per-module event-driven logging.
+**Decision**: Single global `ActivityLoggingInterceptor` registered as `APP_INTERCEPTOR` that intercepts all POST/PUT/PATCH/DELETE requests.
+**Rationale**: A global interceptor provides consistent audit coverage without requiring each module to emit events. Best-effort — failures do not block the original request.
+**Impact**: All mutations are logged automatically. Entity type and ID are inferred from the request path. User ID comes from the JWT context. No module-specific event emitters needed.
+
+### ADR-010: FHIR Projection in API App Instead of Shared Package
+
+**Context**: Spec §1.3 describes each module owning its FHIR projection service. Task 0.1.2 places FHIR serializers in `packages/shared`.
+**Decision**: FHIR projection services live in `apps/api/src/fhir/` as a single module with 4 projection services: `guideline-to-composition.ts`, `recommendation-to-plan-definition.ts`, `pico-to-evidence.ts`, `reference-to-citation.ts`.
+**Rationale**: FHIR projection is server-only logic that depends on Prisma models. Placing it in a shared package would require abstracting away the ORM layer. Centralizing projections in one module makes it easier to maintain FHIR compliance across resource types.
+**Impact**: The `FhirModule` depends on multiple domain modules' services via direct injection.
+
+### ADR-011: Comprehensive Version Snapshots as Structured JSON
+
+**Context**: Spec §9.4 describes version snapshots as FHIR Bundle documents.
+**Decision**: Version snapshots are stored as structured JSON containing all domain data (guideline metadata, sections tree, recommendations with EtD factors, PICOs with outcomes/codes/practical issues, references). FHIR Bundle transformation is deferred.
+**Rationale**: Structured JSON preserves all domain-specific fields that may not have FHIR equivalents (e.g., practical issues, EtD judgments, UI settings). FHIR Bundle export is available separately via `GET /fhir/Bundle/:guidelineId`.
+**Impact**: `VersionsService.publish()` creates a comprehensive JSON snapshot uploaded to S3. FHIR transformation is a separate read-time operation.

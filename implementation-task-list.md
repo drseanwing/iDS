@@ -4,7 +4,7 @@ Source docs:
 - `opengrade-architecture.md`
 - `compass_artifact_wf-ac90d96b-1eee-4206-9b48-09594f3da2b5_text_markdown.md` (MAGICapp reverse-engineering technical specification artifact)
 
-> **Audit status**: Last reviewed 2026-03-11. All items verified against live codebase. Latest batch: Async PDF generation pipeline with template customization options.
+> **Audit status**: Last reviewed 2026-03-18. All items verified against live codebase. Latest batch: Full audit and architectural decision documentation.
 > Legend: `[x]` = implemented & verified | `[~]` = partially implemented / known gap | `[ ]` = not yet started
 
 ---
@@ -156,7 +156,7 @@ Source docs:
 ---
 
 ## Phase 9 — Quality, Security, and Operations (Arch §7, §10)
-- [~] Create unit/integration/E2E test suites for critical authoring and publish flows. _(Unit tests exist for all API services and most web components — 64 API + 68 web tests. No integration tests against a real database; no E2E tests.)_
+- [~] Create unit/integration/E2E test suites for critical authoring and publish flows. _(Unit tests: 64 API + 68 web + 30 PDF export. E2E: 65 Playwright tests covering navigation, dashboard, guidelines, workspace, references. No integration tests against a real database.)_
 - [x] Add schema/data validation checks for orphan links and missing evidence metadata. — **fixed** (Added `GET /guidelines/:id/validate` checking orphan section-reference links, orphan recommendation-pico links, PICOs with no outcomes, outcomes without certainty assessment, recommendations without section placement. Returns structured issues list with severity/entity/message.)
 - [ ] Add performance tests for large guideline trees and export jobs.
 - [~] Add API rate limiting, secure file upload validation, and input sanitization checks. — **partially fixed** (Installed `@nestjs/throttler` with global 100 req/min rate limiting. Helmet and CORS configured. File upload endpoints added to references with multer v2. No further input sanitization beyond class-validator.)
@@ -222,7 +222,7 @@ The following items are confirmed bugs or incomplete wiring in the current codeb
 | # | Area | Issue |
 |---|------|-------|
 | ~~O-01~~ | ~~Security~~ | **Fixed** — Installed `@nestjs/throttler` with global `ThrottlerGuard` at 100 req/min |
-| O-02 | Security | No file upload endpoints exist yet; upload validation not specified |
+| ~~O-02~~ | ~~Security~~ | **Fixed** — Reference file attachments added: `POST /references/:id/attachments` (multipart/form-data upload via multer v2), `GET /references/:id/attachments` (list), `GET /references/:id/attachments/:attachmentId` (download), `DELETE /references/:id/attachments/:attachmentId`. Files stored in S3 via `StorageService`. |
 | ~~O-03~~ | ~~Auth~~ | **Fixed** — RbacGuard checks org-level ADMIN membership and guideline-level `GuidelinePermission` role against `@Roles()` requirements |
 | ~~O-04~~ | ~~Ops~~ | **Fixed** — Added `GET /health/ready` endpoint with database connectivity check (`$queryRaw SELECT 1`); returns 503 when DB unavailable |
 | ~~O-05~~ | ~~Testing~~ | **Fixed** — Added Playwright E2E test suite at `apps/e2e/` (65 tests, 100% pass rate). Covers: navigation, dashboard stats, guidelines CRUD, guideline workspace tabs, section tree, references page, error/empty states. Found and fixed ActivityLogPanel crash (see B-05 below). |
@@ -238,7 +238,7 @@ The following issues were discovered during the first E2E test run:
 |---|------|-------|------------|
 | B-05 | Frontend / Activity Log | `ActivityLogPanel` used `useMemo` (synchronous render) to call `setAllEntries` state setter — caused infinite re-render loop on mount, crashing the component and producing a blank page when the Activity tab was clicked | **Fixed**: Changed `useMemo` → `useEffect`; stabilised `currentPageEntries` with `useMemo([data?.entries])` to prevent new array reference on every render |
 
-### Issues Identified (not yet fixed)
+### Issues Identified and Subsequently Fixed
 | # | Priority | Area | Issue | Notes |
 |---|----------|------|-------|-------|
 | E-01 | P2 | Frontend / Navigation | Sidebar brand name "OpenGRADE" also appears in the Dashboard welcome heading "Welcome to OpenGRADE", causing strict-mode violations in test locators targeting just the sidebar text | **Fixed**: Added `aria-label="Application brand"` to sidebar brand div for unambiguous targeting |
@@ -248,3 +248,59 @@ The following issues were discovered during the first E2E test run:
 | E-05 | P2 | Backend / Auth | API endpoints have no auth guards applied globally (no `@UseGuards` on controllers, `AuthGuard` not registered globally in `AppModule`) — all endpoints are effectively public | **Fixed**: Registered `AuthGuard` as `APP_GUARD` in `AppModule`; added `@Public()` to health endpoints |
 | E-06 | P3 | Frontend / Error states | React Query default `retry: 1` with exponential backoff delays error states by ~1 second, which can cause flaky E2E tests if tests don't use sufficient timeouts when simulating API failures | **Fixed**: Set `retry: false` in `QueryClient` default options to surface errors immediately |
 | E-07 | P3 | Frontend / Workspace sections | The section tree mock data had sections named "Recommendations" which conflicted with the workspace tab label "Recommendations", causing strict-mode violations in button selectors | Fixed in test data — section renamed to "Clinical Recommendations" |
+
+---
+
+## Audit Findings (2026-03-18)
+
+### Unspecified Functionality Now Built
+
+The following features were built during implementation but were not explicitly specified in the architecture document. They have now been documented in `opengrade-architecture.md` §11 and §12.
+
+| # | Area | Feature | Notes |
+|---|------|---------|-------|
+| F-01 | API / Guidelines | `GET /guidelines/:id/validate` — structural validation | Checks orphan links, missing evidence, unplaced recommendations |
+| F-02 | API / Guidelines | `GET /guidelines/stats` — aggregate counts | Dashboard statistics endpoint |
+| F-03 | API / Guidelines | `GET /guidelines/by-slug/:shortName` — slug resolution | Permalink support for published guidelines |
+| F-04 | API / Guidelines | `POST /guidelines/import` — JSON import | Creates new guideline from export payload with atomicity |
+| F-05 | API / References | `GET /references/numbered?guidelineId=` — auto-numbering | Depth-first section tree traversal for reference ordering |
+| F-06 | API / References | File attachments CRUD on references | Multipart upload/download/delete to S3 |
+| F-07 | API / FHIR | `POST /fhir/$validate` — resource validation | Per-resource-type structural validation |
+| F-08 | API / FHIR | ETag/If-None-Match conditional requests | `FhirEtagInterceptor` with MD5 ETag, Last-Modified, 304 support |
+| F-09 | API / Clinical | `GET /guidelines/:id/clinical-codes` — code aggregation | Collects PicoCodes + EmrElements across all PICOs |
+| F-10 | API / Export | DOCX export via `docx` library | `GET /guidelines/:id/export/docx` with full content |
+| F-11 | Frontend | Pictograph visualization | Paired icon-array risk comparison (baseline vs intervention per 100) |
+| F-12 | Frontend | Decision aid preview with 3 layers | Overview, Benefits & Harms, Full Evidence |
+
+### Architectural Decisions Documented
+
+11 architectural decisions (ADR-001 through ADR-011) have been documented in `opengrade-architecture.md` §12. Key deviations from original specification:
+
+| ADR | Decision | Deviation From Spec |
+|-----|----------|-------------------|
+| ADR-001 | npm workspaces | Spec said Turborepo |
+| ADR-002 | Flat module structure | Spec said nested (`src/core/`, `src/guideline-authoring/`) |
+| ADR-003 | Direct service injection | Spec said EventEmitter2 for cross-module |
+| ADR-004 | DB-backed PDF job queue | Spec said Bull/Redis |
+| ADR-005 | pdfmake (pure JS) | Spec did not specify PDF library |
+| ADR-006 | `packages/fhir` + `packages/ui` | Spec said single `packages/shared` |
+| ADR-008 | Custom routing | Standard would be React Router |
+| ADR-011 | JSON snapshots | Spec said FHIR Bundle snapshots |
+
+### Remaining Open Gaps (prioritized)
+
+| Priority | # | Area | Gap | Recommendation |
+|----------|---|------|-----|----------------|
+| P1 | G-01 | API / Terminology | Hardcoded stub data instead of BioPortal proxy | Implement BioPortal proxy + Redis cache; current stubs are ~20 codes/system |
+| P1 | G-02 | Frontend / TipTap | Track changes extension not installed | Install `@tiptap/extension-collaboration` + `y-prosemirror`; implement accept/reject workflow |
+| P1 | G-03 | API / Guidelines | No `clone()` / deep-copy operation | Task 1.1.1 specifies this; needed for adaptation workflow |
+| P2 | G-04 | API / COI | No intervention×member matrix auto-population | Spec describes matrix auto-refreshed from PICO interventions; current impl is flat CRUD |
+| P2 | G-05 | API / Import | No reference deduplication on import | `POST /guidelines/import` creates all references fresh; should dedup by DOI/PMID |
+| P2 | G-06 | Packages | `packages/fhir` and `packages/ui` are stubs | No shared FHIR serializers or UI components extracted |
+| P2 | G-07 | API / RevMan | No `.rm5` parser or import wizard | Spec describes full RevMan import pipeline |
+| P2 | G-08 | Frontend / Routing | Custom routing limits SPA capabilities | No deep linking, back/forward navigation may break |
+| P3 | G-09 | Frontend / i18n | No internationalization framework | Language field on Guideline exists but UI is English-only |
+| P3 | G-10 | Infra / PWA | No service worker or offline support | Phase 5 — entire capability not started |
+| P3 | G-11 | Infra / Ops | No runtime dashboards, backup jobs, or deployment docs | Phase 9 items |
+| P3 | G-12 | API / Notifications | No subscriber/notification management | Schema fields exist but no notification service |
+| P3 | G-13 | Testing | No integration tests against real database | Unit tests mock Prisma; no DB-backed tests |

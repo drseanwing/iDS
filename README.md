@@ -21,14 +21,31 @@ OpenGRADE is a living guideline platform for creating, managing, and publishing 
 
 ```
 ├── apps/
-│   ├── api/          # NestJS backend
-│   └── web/          # React frontend
+│   ├── api/          # NestJS backend (22 modules)
+│   ├── web/          # React frontend (4 pages, 23 authoring components, 53 hooks)
+│   └── e2e/          # Playwright E2E tests (65 tests)
 ├── packages/
-│   ├── fhir/         # Shared FHIR types
-│   └── ui/           # Shared UI components
+│   ├── fhir/         # Shared FHIR type definitions
+│   └── ui/           # Shared UI utilities
 ├── infra/            # Docker Compose & infrastructure
-└── docs/             # Architecture & specifications
+└── tasks/            # Detailed phase task specifications (6 phases)
 ```
+
+## Current Status
+
+The platform is in active development. Major features implemented:
+
+- Full guideline authoring workflow (sections, recommendations, references, PICOs)
+- GRADE evidence assessment (5 downgrade + 3 upgrade factors, certainty levels)
+- Evidence-to-Decision framework (4/7/12-factor modes)
+- Versioning and publishing (major/minor, immutable snapshots, version comparison)
+- Collaboration tools (comments, COI declarations, polls/voting, tasks, milestones)
+- FHIR R5 facade (Composition, PlanDefinition, Evidence, Citation, Bundle)
+- Export (PDF, DOCX, JSON)
+- RBAC with Keycloak OIDC integration
+- Decision aid generation with pictograph visualization
+
+See [implementation-task-list.md](./implementation-task-list.md) for detailed status of every feature.
 
 ## Quick Start
 
