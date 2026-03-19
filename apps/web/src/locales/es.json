@@ -1,0 +1,23 @@
+{
+  "nav.dashboard": "Panel",
+  "nav.guidelines": "Guías",
+  "nav.references": "Referencias",
+  "dashboard.welcome": "Bienvenido a OpenGRADE",
+  "dashboard.title": "Panel",
+  "dashboard.guidelines": "Guías",
+  "dashboard.sections": "Secciones",
+  "dashboard.recommendations": "Recomendaciones",
+  "guidelines.title": "Guías",
+  "guidelines.new": "Nueva Guía",
+  "guidelines.create": "Crear Guía",
+  "common.save": "Guardar",
+  "common.cancel": "Cancelar",
+  "common.delete": "Eliminar",
+  "common.edit": "Editar",
+  "common.create": "Crear",
+  "common.search": "Buscar...",
+  "common.loading": "Cargando...",
+  "common.error": "Ocurrió un error",
+  "auth.login": "Iniciar sesión",
+  "auth.logout": "Cerrar sesión"
+}

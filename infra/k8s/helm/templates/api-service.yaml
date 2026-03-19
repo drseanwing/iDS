@@ -1,0 +1,33 @@
+{{- if .Values.api.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "opengrade.fullname" . }}-api
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "opengrade.labels" . | nindent 4 }}
+    app: api
+    component: backend
+  {{- with .Values.api.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.api.service.type }}
+  selector:
+    {{- include "opengrade.selectorLabels" . | nindent 4 }}
+    app: api
+  ports:
+    - port: {{ .Values.api.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+    - port: {{ .Values.api.metricsPort }}
+      targetPort: metrics
+      protocol: TCP
+      name: metrics
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 3600
+{{- end }}

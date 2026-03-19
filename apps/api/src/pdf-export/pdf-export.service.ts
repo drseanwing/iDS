@@ -18,6 +18,10 @@ export class PdfExportService {
   /**
    * Queue (start) an async PDF export job.
    * Returns the job record immediately; actual generation runs in background.
+   *
+   * Idempotency: if a PENDING or PROCESSING job already exists for the same
+   * guideline with the same options within the last 5 minutes, the existing
+   * job is returned instead of creating a duplicate.
    */
   async requestExport(
     guidelineId: string,
@@ -26,6 +30,42 @@ export class PdfExportService {
   ) {
     // Verify guideline exists
     await this.guidelinesService.findOne(guidelineId);
+
+    // Idempotency check: look for an active job with matching options in the last 5 minutes
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    const optionsJson = options ? JSON.stringify(options) : null;
+
+    const existingJob = await this.prisma.pdfExportJob.findFirst({
+      where: {
+        guidelineId,
+        status: { in: ['PENDING', 'PROCESSING'] },
+        createdAt: { gte: fiveMinutesAgo },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (existingJob) {
+      // Check options match (null/undefined treated as equivalent to empty object)
+      const existingOptionsJson = existingJob.options
+        ? JSON.stringify(existingJob.options)
+        : null;
+      const optionsMatch = optionsJson === existingOptionsJson ||
+        (optionsJson === null && existingOptionsJson === null) ||
+        (optionsJson === '{}' && existingOptionsJson === null) ||
+        (optionsJson === null && existingOptionsJson === '{}');
+
+      if (optionsMatch) {
+        this.logger.log(
+          `Idempotency: returning existing job ${existingJob.id} for guideline ${guidelineId}`,
+        );
+        return {
+          jobId: existingJob.id,
+          status: existingJob.status,
+          createdAt: existingJob.createdAt,
+          deduplicated: true,
+        };
+      }
+    }
 
     const job = await this.prisma.pdfExportJob.create({
       data: {

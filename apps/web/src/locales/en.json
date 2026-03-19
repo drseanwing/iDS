@@ -1,0 +1,23 @@
+{
+  "nav.dashboard": "Dashboard",
+  "nav.guidelines": "Guidelines",
+  "nav.references": "References",
+  "dashboard.welcome": "Welcome to OpenGRADE",
+  "dashboard.title": "Dashboard",
+  "dashboard.guidelines": "Guidelines",
+  "dashboard.sections": "Sections",
+  "dashboard.recommendations": "Recommendations",
+  "guidelines.title": "Guidelines",
+  "guidelines.new": "New Guideline",
+  "guidelines.create": "Create Guideline",
+  "common.save": "Save",
+  "common.cancel": "Cancel",
+  "common.delete": "Delete",
+  "common.edit": "Edit",
+  "common.create": "Create",
+  "common.search": "Search...",
+  "common.loading": "Loading...",
+  "common.error": "An error occurred",
+  "auth.login": "Login",
+  "auth.logout": "Logout"
+}

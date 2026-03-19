@@ -1,0 +1,680 @@
+# OpenGRADE Helm Chart - Default Values
+# This is a YAML-formatted file with default values for the OpenGRADE Helm chart.
+# Override these values with environment-specific files (values-dev.yaml, values-prod.yaml, etc.)
+
+# Global configuration
+global:
+  environment: production
+  domain: opengrade.local
+  imagePullPolicy: IfNotPresent
+
+  # Image registry (use your own registry in production)
+  imageRegistry: docker.io
+
+  # Secrets
+  existingSecret: opengrade-secrets
+  existingSecretPassword: db-password
+
+# Namespace
+namespace: opengrade
+
+# --- API Service Configuration ---
+api:
+  enabled: true
+
+  # Image configuration
+  image:
+    registry: docker.io
+    repository: node
+    tag: '20-alpine'
+    pullPolicy: IfNotPresent
+
+  # Replica configuration
+  replicaCount: 3
+
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 3000
+    targetPort: 3000
+    annotations: {}
+
+  # Container ports
+  containerPort: 3000
+  metricsPort: 9090
+
+  # Health checks
+  healthCheck:
+    enabled: true
+    path: /health
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+  # Environment variables
+  env:
+    NODE_ENV: production
+    LOG_LEVEL: info
+    CORS_ORIGIN: "https://opengrade.local"
+    S3_REGION: us-east-1
+
+  # Resource requests and limits
+  resources:
+    requests:
+      memory: '256Mi'
+      cpu: '250m'
+    limits:
+      memory: '512Mi'
+      cpu: '500m'
+
+  # Pod security context
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+    capabilities:
+      drop:
+        - ALL
+
+  # Pod anti-affinity
+  affinity:
+    podAntiAffinity: preferred
+
+  # Node selector (optional)
+  nodeSelector: {}
+
+  # Tolerations (for taints)
+  tolerations: []
+
+  # Autoscaling
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+  # Pod Disruption Budget
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 2
+
+  # Probes
+  livenessProbe:
+    enabled: true
+    httpGet:
+      path: /health
+      port: 3000
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+  readinessProbe:
+    enabled: true
+    httpGet:
+      path: /health/ready
+      port: 3000
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 2
+
+# --- Web Frontend Configuration ---
+web:
+  enabled: true
+
+  # Image configuration
+  image:
+    registry: docker.io
+    repository: node
+    tag: '20-alpine'
+    pullPolicy: IfNotPresent
+
+  # Replica configuration
+  replicaCount: 3
+
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 5173
+    annotations: {}
+
+  # Container ports
+  containerPort: 5173
+
+  # Health checks
+  healthCheck:
+    enabled: true
+    path: /
+    initialDelaySeconds: 15
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+  # Build and serve configuration
+  buildCommand: npm run build
+  serveCommand: npm run preview
+
+  # Resource requests and limits
+  resources:
+    requests:
+      memory: '128Mi'
+      cpu: '100m'
+    limits:
+      memory: '256Mi'
+      cpu: '250m'
+
+  # Pod security context
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+    capabilities:
+      drop:
+        - ALL
+
+  # Pod anti-affinity
+  affinity:
+    podAntiAffinity: preferred
+
+  # Node selector
+  nodeSelector: {}
+
+  # Tolerations
+  tolerations: []
+
+  # Autoscaling
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 75
+    targetMemoryUtilizationPercentage: 80
+
+  # Pod Disruption Budget
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 2
+
+# --- PostgreSQL Configuration ---
+postgresql:
+  enabled: true
+
+  # Image configuration
+  image:
+    registry: docker.io
+    repository: postgres
+    tag: '16-alpine'
+    pullPolicy: IfNotPresent
+
+  # Database credentials
+  auth:
+    username: opengrade
+    database: opengrade
+    # password: set via secret
+
+  # StatefulSet configuration
+  replicas: 1
+
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 5432
+    targetPort: 5432
+    headless: true  # Use headless service
+    annotations: {}
+
+  # Persistent volume
+  persistence:
+    enabled: true
+    size: 50Gi
+    storageClass: default
+    accessMode: ReadWriteOnce
+    mountPath: /var/lib/postgresql/data
+    subPath: postgres
+
+  # Resource requests and limits
+  resources:
+    requests:
+      memory: '256Mi'
+      cpu: '250m'
+    limits:
+      memory: '1Gi'
+      cpu: '1000m'
+
+  # Pod security context
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 999
+    fsGroup: 999
+    capabilities:
+      drop:
+        - ALL
+
+  # Environment variables
+  env:
+    PGDATA: /var/lib/postgresql/data/pgdata
+
+  # Health checks
+  healthCheck:
+    enabled: true
+    command: ['pg_isready', '-U', 'opengrade']
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+  # Backup configuration
+  backup:
+    enabled: true
+    schedule: '0 2 * * *'  # Daily at 2 AM
+    retention: 30  # days
+    storageClass: default
+    pvcSize: 100Gi
+
+# --- Keycloak (Identity Provider) Configuration ---
+keycloak:
+  enabled: true
+
+  # Image configuration
+  image:
+    registry: quay.io
+    repository: keycloak/keycloak
+    tag: '24.0'
+    pullPolicy: IfNotPresent
+
+  # Replicas
+  replicas: 2
+
+  # Admin credentials
+  auth:
+    username: admin
+    # password: set via secret
+
+  # Realm configuration
+  realm:
+    name: opengrade
+    displayName: OpenGRADE
+    enabled: true
+    sslRequired: external
+
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 8080
+    targetPort: 8080
+    annotations: {}
+
+  # Resource requests and limits
+  resources:
+    requests:
+      memory: '256Mi'
+      cpu: '250m'
+    limits:
+      memory: '1Gi'
+      cpu: '500m'
+
+  # Pod security context
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+    capabilities:
+      drop:
+        - ALL
+
+  # Health checks
+  healthCheck:
+    enabled: true
+    path: /health/ready
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+  # Pod anti-affinity
+  affinity:
+    podAntiAffinity: preferred
+
+  # Tolerations
+  tolerations: []
+
+  # Pod Disruption Budget
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+# --- MinIO (Object Storage) Configuration ---
+minio:
+  enabled: true
+
+  # Image configuration
+  image:
+    registry: docker.io
+    repository: minio/minio
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  # Replicas
+  replicas: 1
+
+  # Object storage credentials
+  auth:
+    rootUser: minioadmin
+    # rootPassword: set via secret
+
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 9000
+    targetPort: 9000
+    consolePort: 9001
+    annotations: {}
+
+  # Persistent volume
+  persistence:
+    enabled: true
+    size: 100Gi
+    storageClass: default
+    accessMode: ReadWriteOnce
+    mountPath: /data
+
+  # Resource requests and limits
+  resources:
+    requests:
+      memory: '256Mi'
+      cpu: '250m'
+    limits:
+      memory: '1Gi'
+      cpu: '500m'
+
+  # Pod security context
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+    capabilities:
+      drop:
+        - ALL
+
+  # Bucket configuration
+  buckets:
+    - name: opengrade
+      policy: private
+
+  # Health checks
+  healthCheck:
+    enabled: true
+    path: /minio/health/live
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+# --- Redis (Cache) Configuration ---
+redis:
+  enabled: true
+
+  # Image configuration
+  image:
+    registry: docker.io
+    repository: redis
+    tag: '7-alpine'
+    pullPolicy: IfNotPresent
+
+  # Replicas
+  replicas: 1
+
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 6379
+    targetPort: 6379
+    annotations: {}
+
+  # Persistent volume
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClass: default
+    accessMode: ReadWriteOnce
+    mountPath: /data
+
+  # Resource requests and limits
+  resources:
+    requests:
+      memory: '128Mi'
+      cpu: '100m'
+    limits:
+      memory: '512Mi'
+      cpu: '250m'
+
+  # Pod security context
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 999
+    fsGroup: 999
+    capabilities:
+      drop:
+        - ALL
+
+  # Health checks
+  healthCheck:
+    enabled: true
+    command: ['redis-cli', 'ping']
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+  # Configuration
+  config:
+    appendonly: 'yes'
+    appendfsync: everysec
+    maxmemory-policy: allkeys-lru
+
+# --- Ingress Configuration ---
+ingress:
+  enabled: true
+  className: nginx
+
+  # TLS configuration
+  tls:
+    enabled: true
+    issuer: letsencrypt-prod  # cert-manager issuer
+    certSecretName: opengrade-tls
+
+  # Hosts configuration
+  hosts:
+    - host: opengrade.local
+      paths:
+        - path: /
+          pathType: Prefix
+          backend: web
+    - host: api.opengrade.local
+      paths:
+        - path: /
+          pathType: Prefix
+          backend: api
+    - host: auth.opengrade.local
+      paths:
+        - path: /
+          pathType: Prefix
+          backend: keycloak
+    - host: s3.opengrade.local
+      paths:
+        - path: /
+          pathType: Prefix
+          backend: minio
+
+  # Annotations
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: 'true'
+    nginx.ingress.kubernetes.io/force-ssl-redirect: 'true'
+    cert-manager.io/issuer: letsencrypt-prod
+
+  # CORS configuration
+  cors:
+    enabled: true
+    allowOrigin: '*'
+    allowMethods: 'GET, POST, PUT, DELETE, OPTIONS'
+    allowHeaders: 'Content-Type, Authorization'
+
+# --- Storage Configuration ---
+storage:
+  # Default storage class
+  defaultClass: default
+
+  # Storage classes
+  classes:
+    - name: fast
+      type: ssd
+    - name: standard
+      type: hdd
+
+# --- ConfigMap Data ---
+configMap:
+  enabled: true
+  name: opengrade-config
+
+  # Application configuration
+  data:
+    LOG_LEVEL: info
+    NODE_ENV: production
+    ENVIRONMENT: production
+    S3_REGION: us-east-1
+    KEYCLOAK_REALM: opengrade
+
+# --- Secrets Configuration ---
+secrets:
+  enabled: true
+  name: opengrade-secrets
+  # Secrets are created separately via kubectl or sealed-secrets
+
+# --- Network Policies ---
+networkPolicy:
+  enabled: false  # Set to true for production
+  policyTypes:
+    - Ingress
+    - Egress
+
+# --- RBAC Configuration ---
+rbac:
+  enabled: true
+  serviceAccountName: opengrade
+
+  # Create service account
+  create: true
+
+  # Create role and rolebinding
+  createRole: true
+  createRoleBinding: true
+
+# --- Pod Security Policy ---
+podSecurityPolicy:
+  enabled: false  # Use Pod Security Standards instead
+  name: opengrade-psp
+
+# --- Monitoring Configuration ---
+monitoring:
+  enabled: false
+
+  # Prometheus
+  prometheus:
+    enabled: false
+    interval: 30s
+    path: /metrics
+
+  # Service Monitor (if using Prometheus Operator)
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+
+# --- Logging Configuration ---
+logging:
+  enabled: true
+
+  # Log level
+  level: info
+
+  # Log format
+  format: json
+
+  # Log output
+  output: stdout
+
+# --- Backup Configuration ---
+backup:
+  enabled: true
+
+  # Schedule
+  schedule: '0 2 * * *'  # Daily at 2 AM
+
+  # Retention
+  retention: 30  # days
+
+  # Storage
+  storage:
+    type: local  # local, s3, gcs, azure
+    path: /backups
+    pvcSize: 100Gi
+
+# --- High Availability Configuration ---
+highAvailability:
+  enabled: true
+
+  # Pod Disruption Budgets
+  podDisruptionBudgets: true
+
+  # Pod anti-affinity
+  podAntiAffinity: preferred
+
+  # Topology spread constraints
+  topologySpreadConstraints: true
+
+# --- Security Configuration ---
+security:
+  enabled: true
+
+  # Network policies
+  networkPolicies: false  # Set to true for production
+
+  # Pod security standards
+  podSecurityStandards: restricted
+
+  # RBAC
+  rbac: true
+
+  # Service account
+  serviceAccount: true
+
+# --- Feature Flags ---
+features:
+  apiV2: false
+  experimentalUI: false
+  advancedAnalytics: false
+  integrationsEnabled: true
+
+# --- Default Node Selector ---
+nodeSelector: {}
+
+# --- Default Tolerations ---
+tolerations: []
+
+# --- Default Affinity ---
+affinity: {}
+
+# --- Image Pull Secrets ---
+imagePullSecrets: []
+
+# --- Priority Class ---
+priorityClassName: ""
+
+# --- Service Account ---
+serviceAccount:
+  create: true
+  name: opengrade
+  annotations: {}

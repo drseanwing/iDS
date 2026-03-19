@@ -1,17 +1,19 @@
 import { LayoutDashboard, BookOpen, FileText, User, LogOut } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useAuth } from '../../hooks/useAuth';
+import { useI18n } from '../../lib/i18n';
+import { LanguageSelector } from './LanguageSelector';
 
 interface NavItem {
   id: string;
-  label: string;
+  labelKey: string;
   icon: React.ReactNode;
 }
 
 const navItems: NavItem[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="h-5 w-5" /> },
-  { id: 'guidelines', label: 'Guidelines', icon: <BookOpen className="h-5 w-5" /> },
-  { id: 'references', label: 'References', icon: <FileText className="h-5 w-5" /> },
+  { id: 'dashboard', labelKey: 'nav.dashboard', icon: <LayoutDashboard className="h-5 w-5" /> },
+  { id: 'guidelines', labelKey: 'nav.guidelines', icon: <BookOpen className="h-5 w-5" /> },
+  { id: 'references', labelKey: 'nav.references', icon: <FileText className="h-5 w-5" /> },
 ];
 
 interface AppShellProps {
@@ -23,6 +25,7 @@ interface AppShellProps {
 
 export function AppShell({ activePath, onNavigate, children, fullHeight = false }: AppShellProps) {
   const { user, logout } = useAuth();
+  const { t } = useI18n();
 
   return (
     <div className="flex h-screen bg-background text-foreground">
@@ -44,7 +47,7 @@ export function AppShell({ activePath, onNavigate, children, fullHeight = false 
               )}
             >
               {item.icon}
-              {item.label}
+              {t(item.labelKey)}
             </button>
           ))}
         </nav>
@@ -70,9 +73,12 @@ export function AppShell({ activePath, onNavigate, children, fullHeight = false 
         {/* Top bar */}
         <header className="flex h-14 items-center justify-between border-b px-6">
           <span className="text-sm text-muted-foreground capitalize">{activePath}</span>
-          <span className="rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-secondary-foreground">
-            v0.1.0-dev
-          </span>
+          <div className="flex items-center gap-3">
+            <LanguageSelector />
+            <span className="rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-secondary-foreground">
+              v0.1.0-dev
+            </span>
+          </div>
         </header>
 
         {/* Content */}

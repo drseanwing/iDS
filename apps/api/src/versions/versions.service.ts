@@ -83,6 +83,21 @@ export class VersionsService {
     if (!guideline) throw new NotFoundException(`Guideline ${dto.guidelineId} not found`);
     if (guideline.isDeleted) throw new BadRequestException('Cannot publish a deleted guideline');
 
+    // Duplicate-publish prevention: reject if same versionType was published in the last minute
+    const oneMinuteAgo = new Date(Date.now() - 60 * 1000);
+    const recentDuplicate = await this.prisma.guidelineVersion.findFirst({
+      where: {
+        guidelineId: dto.guidelineId,
+        versionType: dto.versionType as VersionType,
+        publishedAt: { gte: oneMinuteAgo },
+      },
+      orderBy: { publishedAt: 'desc' },
+    });
+    if (recentDuplicate) {
+      // Idempotent: return the already-published version rather than creating a duplicate
+      return { ...recentDuplicate, deduplicated: true };
+    }
+
     // Compute next version number
     const lastVersion = await this.prisma.guidelineVersion.findFirst({
       where: { guidelineId: dto.guidelineId },
@@ -93,46 +108,57 @@ export class VersionsService {
     // Build comprehensive immutable snapshot
     const snapshotBundle = this.buildSnapshotBundle(guideline);
 
-    // Upload JSON snapshot to object storage (best-effort; publish succeeds even if storage is unavailable)
+    // Upload JSON snapshot to object storage with one retry on transient errors
     let jsonS3Key: string | null = null;
+    const s3Key = `versions/${dto.guidelineId}/${versionNumber}/snapshot.json`;
     try {
-      const key = `versions/${dto.guidelineId}/${versionNumber}/snapshot.json`;
-      await this.storage.upload(key, JSON.stringify(snapshotBundle), 'application/json');
-      jsonS3Key = key;
+      await this.storage.upload(s3Key, JSON.stringify(snapshotBundle), 'application/json');
+      jsonS3Key = s3Key;
     } catch {
-      // Non-fatal: snapshot is still stored in the snapshotBundle DB column
+      // Retry once on transient S3 error
+      try {
+        await this.storage.upload(s3Key, JSON.stringify(snapshotBundle), 'application/json');
+        jsonS3Key = s3Key;
+      } catch {
+        // Non-fatal: snapshot is still stored in the snapshotBundle DB column
+      }
     }
 
-    const version = await this.prisma.guidelineVersion.create({
-      data: {
-        guidelineId: dto.guidelineId,
-        versionNumber,
-        versionType: dto.versionType as VersionType,
-        comment: dto.comment,
-        isPublic: dto.isPublic ?? false,
-        publishedBy: userId,
-        snapshotBundle,
-        ...(jsonS3Key ? { jsonS3Key } : {}),
-      },
-    });
-
-    // Mark all prior public versions as no longer the latest (superseded)
-    if (dto.versionType === 'MAJOR') {
-      await this.prisma.guidelineVersion.updateMany({
-        where: {
+    // Wrap DB writes in a transaction for atomicity
+    const version = await this.prisma.$transaction(async (tx) => {
+      const newVersion = await tx.guidelineVersion.create({
+        data: {
           guidelineId: dto.guidelineId,
-          id: { not: version.id },
-          isPublic: true,
+          versionNumber,
+          versionType: dto.versionType as VersionType,
+          comment: dto.comment,
+          isPublic: dto.isPublic ?? false,
+          publishedBy: userId,
+          snapshotBundle,
+          ...(jsonS3Key ? { jsonS3Key } : {}),
         },
-        data: { isPublic: false },
       });
-    }
 
-    // Auto-create next draft: reset guideline to DRAFT so editing can continue.
-    // The published content is preserved in the immutable snapshotBundle.
-    await this.prisma.guideline.update({
-      where: { id: dto.guidelineId },
-      data: { status: GuidelineStatus.DRAFT },
+      // Mark all prior public versions as no longer the latest (superseded)
+      if (dto.versionType === 'MAJOR') {
+        await tx.guidelineVersion.updateMany({
+          where: {
+            guidelineId: dto.guidelineId,
+            id: { not: newVersion.id },
+            isPublic: true,
+          },
+          data: { isPublic: false },
+        });
+      }
+
+      // Auto-create next draft: reset guideline to DRAFT so editing can continue.
+      // The published content is preserved in the immutable snapshotBundle.
+      await tx.guideline.update({
+        where: { id: dto.guidelineId },
+        data: { status: GuidelineStatus.DRAFT },
+      });
+
+      return newVersion;
     });
 
     return version;

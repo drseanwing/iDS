@@ -16,6 +16,7 @@ describe('PdfExportService', () => {
   const mockPrisma = {
     pdfExportJob: {
       create: jest.fn(),
+      findFirst: jest.fn().mockResolvedValue(null),
       findUnique: jest.fn(),
       findMany: jest.fn(),
       update: jest.fn(),

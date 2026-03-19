@@ -1,0 +1,23 @@
+{
+  "nav.dashboard": "Tableau de bord",
+  "nav.guidelines": "Directives",
+  "nav.references": "Références",
+  "dashboard.welcome": "Bienvenue sur OpenGRADE",
+  "dashboard.title": "Tableau de bord",
+  "dashboard.guidelines": "Directives",
+  "dashboard.sections": "Sections",
+  "dashboard.recommendations": "Recommandations",
+  "guidelines.title": "Directives",
+  "guidelines.new": "Nouvelle directive",
+  "guidelines.create": "Créer une directive",
+  "common.save": "Enregistrer",
+  "common.cancel": "Annuler",
+  "common.delete": "Supprimer",
+  "common.edit": "Modifier",
+  "common.create": "Créer",
+  "common.search": "Rechercher...",
+  "common.loading": "Chargement...",
+  "common.error": "Une erreur est survenue",
+  "auth.login": "Connexion",
+  "auth.logout": "Déconnexion"
+}

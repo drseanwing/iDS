@@ -1,7 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { cn } from '../../lib/utils';
+import { InsertionMark, DeletionMark } from './track-changes';
+import { TrackChangesToolbar } from './track-changes/TrackChangesToolbar';
+import { useTrackChanges } from './track-changes/useTrackChanges';
 
 /** Empty TipTap document (JSON). Used as default content when no content is set. */
 export const EMPTY_DOC = { type: 'doc', content: [{ type: 'paragraph' }] };
@@ -30,11 +33,16 @@ interface RichTextEditorProps {
   /** Placeholder text shown when the editor is empty. */
   placeholder?: string;
   className?: string;
+  /** Whether track changes mode is active. */
+  trackChanges?: boolean;
+  /** Whether the current user can accept/reject tracked changes. */
+  canManageChanges?: boolean;
 }
 
 /**
  * A TipTap-based rich text editor using StarterKit.
  * Persists changes via `onBlurSave` on blur.
+ * Supports optional track changes via `trackChanges` prop.
  */
 export function RichTextEditor({
   content,
@@ -42,9 +50,25 @@ export function RichTextEditor({
   editable = true,
   placeholder,
   className,
+  trackChanges: trackChangesProp = false,
+  canManageChanges = false,
 }: RichTextEditorProps) {
+  const {
+    isEnabled,
+    toggleTracking,
+    getChanges,
+    acceptChange,
+    rejectChange,
+    acceptAll,
+    rejectAll,
+  } = useTrackChanges();
+
+  const extensions = trackChangesProp
+    ? [StarterKit, InsertionMark, DeletionMark]
+    : [StarterKit];
+
   const editor = useEditor({
-    extensions: [StarterKit],
+    extensions,
     content: (content as object | null | undefined) ?? EMPTY_DOC,
     editable,
     onBlur: ({ editor: e }) => {
@@ -71,6 +95,33 @@ export function RichTextEditor({
     editor.setEditable(editable);
   }, [editable, editor]);
 
+  const changes = getChanges(editor ?? null);
+
+  const handleAcceptChange = useCallback(() => {
+    if (!editor) return;
+    // Accept the first change (or the one at cursor position)
+    const allChanges = getChanges(editor);
+    if (allChanges.length > 0) {
+      acceptChange(editor, allChanges[0].changeId);
+    }
+  }, [editor, getChanges, acceptChange]);
+
+  const handleRejectChange = useCallback(() => {
+    if (!editor) return;
+    const allChanges = getChanges(editor);
+    if (allChanges.length > 0) {
+      rejectChange(editor, allChanges[0].changeId);
+    }
+  }, [editor, getChanges, rejectChange]);
+
+  const handleAcceptAll = useCallback(() => {
+    acceptAll(editor ?? null);
+  }, [editor, acceptAll]);
+
+  const handleRejectAll = useCallback(() => {
+    rejectAll(editor ?? null);
+  }, [editor, rejectAll]);
+
   return (
     <div
       className={cn(
@@ -79,6 +130,18 @@ export function RichTextEditor({
         className,
       )}
     >
+      {trackChangesProp && (
+        <TrackChangesToolbar
+          isEnabled={isEnabled}
+          onToggle={toggleTracking}
+          onAcceptChange={handleAcceptChange}
+          onRejectChange={handleRejectChange}
+          onAcceptAll={handleAcceptAll}
+          onRejectAll={handleRejectAll}
+          changeCount={changes.length}
+          canManageChanges={canManageChanges}
+        />
+      )}
       {editor && isDocEmpty(editor.getJSON()) && placeholder && !editor.isFocused && (
         <p
           aria-hidden

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { I18nProvider } from './lib/i18n';
 import { AppShell } from './components/layout/AppShell';
 import { DashboardPage } from './pages/DashboardPage';
 import { GuidelinesPage } from './pages/GuidelinesPage';
@@ -30,12 +31,14 @@ function App() {
 
   if (path === 'workspace' && activeGuidelineId) {
     return (
-      <AppShell activePath="guidelines" onNavigate={handleNavigate} fullHeight>
-        <GuidelineWorkspacePage
-          guidelineId={activeGuidelineId}
-          onBack={handleBackFromWorkspace}
-        />
-      </AppShell>
+      <I18nProvider>
+        <AppShell activePath="guidelines" onNavigate={handleNavigate} fullHeight>
+          <GuidelineWorkspacePage
+            guidelineId={activeGuidelineId}
+            onBack={handleBackFromWorkspace}
+          />
+        </AppShell>
+      </I18nProvider>
     );
   }
 
@@ -52,9 +55,11 @@ function App() {
   }
 
   return (
-    <AppShell activePath={path} onNavigate={handleNavigate}>
-      {page}
-    </AppShell>
+    <I18nProvider>
+      <AppShell activePath={path} onNavigate={handleNavigate}>
+        {page}
+      </AppShell>
+    </I18nProvider>
   );
 }
 

@@ -27,6 +27,11 @@ import { FhirModule } from './fhir/fhir.module';
 import { TerminologyModule } from './terminology/terminology.module';
 import { StorageModule } from './storage/storage.module';
 import { PdfExportModule } from './pdf-export/pdf-export.module';
+import { PresenceModule } from './presence/presence.module';
+import { BackupModule } from './backup/backup.module';
+import { RevmanModule } from './revman/revman.module';
+import { MetricsModule } from './metrics/metrics.module';
+import { MetricsInterceptor } from './metrics/metrics.interceptor';
 import configuration from './config/configuration';
 
 @Module({
@@ -74,6 +79,10 @@ import configuration from './config/configuration';
     TerminologyModule,
     StorageModule,
     PdfExportModule,
+    PresenceModule,
+    BackupModule,
+    RevmanModule,
+    MetricsModule,
   ],
   controllers: [HealthController],
   providers: [
@@ -81,6 +90,7 @@ import configuration from './config/configuration';
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_INTERCEPTOR, useClass: ActivityLoggingInterceptor },
+    { provide: APP_INTERCEPTOR, useClass: MetricsInterceptor },
   ],
 })
 export class AppModule {}

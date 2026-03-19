@@ -1,0 +1,19 @@
+{
+  "name": "@opengrade/widget",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/opengrade-widget.js",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch"
+  },
+  "dependencies": {
+    "preact": "^10.19.0"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.8.0",
+    "vite": "^6.0.0",
+    "typescript": "~5.7.0"
+  }
+}

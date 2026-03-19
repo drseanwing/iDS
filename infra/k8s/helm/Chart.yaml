@@ -1,0 +1,41 @@
+apiVersion: v2
+name: opengrade
+description: OpenGRADE - Open-source, FHIR-native clinical guideline authoring platform implementing the GRADE methodology
+type: application
+
+# Chart version (increment on each release)
+version: 0.1.0
+
+# Application version
+appVersion: 0.1.0
+
+# Maintainers
+maintainers:
+  - name: OpenGRADE Team
+    email: team@opengrade.org
+
+# Keywords for searching
+keywords:
+  - clinical-guidelines
+  - GRADE
+  - FHIR
+  - healthcare
+  - guideline-authoring
+
+# Home page URL
+home: https://github.com/drseanwing/ids
+
+# Source repository
+sources:
+  - https://github.com/drseanwing/ids
+
+# Icon URL (optional)
+icon: https://example.com/opengrade-icon.png
+
+# Chart dependencies (optional)
+dependencies: []
+
+# Annotations for the Helm Hub
+annotations:
+  category: Healthcare
+  licenses: TBD

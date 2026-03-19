@@ -24,6 +24,7 @@ import { UpdateReferenceDto } from './dto/update-reference.dto';
 import { PaginationQueryDto } from '../common/dto';
 import { RbacGuard } from '../auth/rbac.guard';
 import { Roles } from '../auth/roles.decorator';
+import { FileValidationPipe, MAX_FILE_SIZE } from '../common/file-validation';
 
 @ApiTags('References')
 @ApiBearerAuth()
@@ -96,16 +97,15 @@ export class ReferencesController {
 
   @Post(':id/attachments')
   @Roles('ADMIN', 'AUTHOR')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_FILE_SIZE } }))
   @ApiConsumes('multipart/form-data')
   @ApiBody({ schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } } })
   @ApiOperation({ summary: 'Upload a file attachment for a reference (stored in object storage)' })
   uploadAttachment(
     @Param('id', ParseUUIDPipe) id: string,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile(new FileValidationPipe()) file: Express.Multer.File,
     @Req() req: any,
   ) {
-    if (!file) throw new BadRequestException('No file provided');
     const uploadedBy: string = req.user?.sub ?? '00000000-0000-0000-0000-000000000001';
     return this.referencesService.uploadAttachment(id, file, uploadedBy);
   }
