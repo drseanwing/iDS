@@ -22,7 +22,7 @@ export function useReferences(guidelineId: string | null) {
     queryKey: ['references', guidelineId],
     queryFn: async () => {
       const { data } = await apiClient.get('/references', {
-        params: { guidelineId, limit: 200 },
+        params: { guidelineId, limit: 100 },
       });
       return (data?.data ?? data ?? []) as Reference[];
     },
