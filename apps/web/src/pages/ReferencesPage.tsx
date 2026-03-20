@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Search, FileText, Loader2, ExternalLink, BookOpen, MapPin } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { apiClient } from '../lib/api-client';
+import { useI18n } from '../lib/i18n';
 
 interface ReferencePlacement {
   sectionId: string;
@@ -40,7 +41,7 @@ function useAllReferences(search: string, page: number) {
       const params: Record<string, unknown> = { page, limit: 50 };
       if (search) params.search = search;
       const { data } = await apiClient.get('/references', { params });
-      return data as { data: ReferenceWithDetails[]; total: number; page: number; limit: number };
+      return data as { data: ReferenceWithDetails[]; meta: { total: number; page: number; limit: number; totalPages: number } };
     },
   });
 }
@@ -92,6 +93,7 @@ function PlacesUsed({ placements, outcomeLinks }: { placements: ReferencePlaceme
 }
 
 export function ReferencesPage() {
+  const { t } = useI18n();
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -99,8 +101,8 @@ export function ReferencesPage() {
 
   const { data, isLoading, isError, error } = useAllReferences(debouncedSearch, page);
   const references = data?.data ?? [];
-  const total = data?.total ?? 0;
-  const totalPages = Math.ceil(total / 50);
+  const total = data?.meta?.total ?? 0;
+  const totalPages = data?.meta?.totalPages ?? 1;
 
   function handleSearchChange(value: string) {
     setSearch(value);
@@ -115,7 +117,7 @@ export function ReferencesPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">References</h1>
+        <h1 className="text-2xl font-bold tracking-tight">{t('references.title')}</h1>
         <span className="text-sm text-muted-foreground">
           {total} reference{total !== 1 ? 's' : ''} across all guidelines
         </span>

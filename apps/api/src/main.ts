@@ -22,14 +22,14 @@ async function bootstrap() {
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
-      forbidNonWhitelisted: true,
+      forbidNonWhitelisted: false,
       transform: true,
     }),
   );
 
   // API prefix
   app.setGlobalPrefix('api', {
-    exclude: ['health'],
+    exclude: ['health', 'health/(.*)'],
   });
 
   // OpenAPI / Swagger

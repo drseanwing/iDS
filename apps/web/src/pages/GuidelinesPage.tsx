@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { cn } from '../lib/utils';
 import { useGuidelines } from '../hooks/useGuidelines';
 import { useCreateGuideline } from '../hooks/useCreateGuideline';
+import { useI18n } from '../lib/i18n';
 
 interface Guideline {
   id: string;
@@ -44,6 +45,7 @@ function LoadingSkeleton() {
 export function GuidelinesPage({ onOpenGuideline }: GuidelinesPageProps) {
   const { data, isLoading, isError, error } = useGuidelines();
   const { mutate: createGuideline, isPending: isCreating } = useCreateGuideline();
+  const { t } = useI18n();
 
   const [showForm, setShowForm] = useState(false);
   const [newTitle, setNewTitle] = useState('');
@@ -70,12 +72,12 @@ export function GuidelinesPage({ onOpenGuideline }: GuidelinesPageProps) {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Guidelines</h1>
+        <h1 className="text-2xl font-bold tracking-tight">{t('guidelines.title')}</h1>
         <button
           onClick={() => { setShowForm(true); setNewTitle(''); setNewShortName(''); }}
           className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity"
         >
-          New Guideline
+          {t('guidelines.new')}
         </button>
       </div>
 
@@ -85,7 +87,7 @@ export function GuidelinesPage({ onOpenGuideline }: GuidelinesPageProps) {
           className="rounded-lg border bg-card p-5 space-y-4"
           aria-label="New guideline form"
         >
-          <h2 className="text-sm font-semibold">New guideline</h2>
+          <h2 className="text-sm font-semibold">{t('guidelines.new')}</h2>
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">
               Title <span className="text-destructive">*</span>

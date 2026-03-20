@@ -4,7 +4,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 export class JoinDto {
   @ApiProperty({ description: 'Display name of the user joining' })
   @IsString()
-  userName: string;
+  userName!: string;
 }
 
 export class HeartbeatDto {
