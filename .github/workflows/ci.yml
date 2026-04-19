@@ -1,0 +1,200 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  lint:
+    name: Lint (${{ matrix.workspace }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Only apps/api and apps/web define a `lint` script today.
+        workspace:
+          - '@opengrade/api'
+          - '@opengrade/web'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+      - name: Lint
+        run: npm -w ${{ matrix.workspace }} run lint
+
+  typecheck:
+    name: Typecheck (${{ matrix.project }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - project: apps/api
+            needs_prisma: true
+          - project: apps/web
+            needs_prisma: false
+          - project: packages/fhir
+            needs_prisma: false
+          - project: packages/ui
+            needs_prisma: false
+          - project: packages/widget
+            needs_prisma: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+      - name: Generate Prisma client
+        if: matrix.needs_prisma
+        run: npm -w @opengrade/api run prisma:generate
+      - name: tsc --noEmit
+        working-directory: ${{ matrix.project }}
+        run: npx tsc --noEmit -p tsconfig.json
+
+  test-api:
+    name: Test API
+    runs-on: ubuntu-latest
+    # API unit specs mock PrismaService (verified in apps/api/src/**/*.spec.ts),
+    # so no postgres service is required here. If integration tests are added
+    # that hit a real DB, attach a `postgres:16` service and set DATABASE_URL.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+      - run: npm -w @opengrade/api run prisma:generate
+      - run: npm -w @opengrade/api test
+
+  test-web:
+    name: Test Web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+      # `test` is already `vitest run` in apps/web/package.json.
+      - run: npm -w @opengrade/web test
+
+  test-packages:
+    name: Test Packages
+    runs-on: ubuntu-latest
+    # None of packages/{fhir,ui,widget} currently declare a `test` script.
+    # This job is a no-op today but reserved for when tests are added.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+      - name: Run tests in packages that define a `test` script
+        run: |
+          set -e
+          for pkg in packages/*/package.json; do
+            name=$(node -p "require('./$pkg').name")
+            has_test=$(node -p "!!(require('./$pkg').scripts && require('./$pkg').scripts.test)")
+            if [ "$has_test" = "true" ]; then
+              echo "Running tests for $name"
+              npm -w "$name" test
+            else
+              echo "Skipping $name (no test script)"
+            fi
+          done
+
+  build:
+    name: Build (${{ matrix.workspace }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - workspace: '@opengrade/fhir'
+            artifact: ''
+            path: ''
+          - workspace: '@opengrade/ui'
+            artifact: ''
+            path: ''
+          - workspace: '@opengrade/widget'
+            artifact: widget-dist
+            path: packages/widget/dist
+          - workspace: '@opengrade/api'
+            artifact: api-dist
+            path: apps/api/dist
+          - workspace: '@opengrade/web'
+            artifact: web-dist
+            path: apps/web/dist
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+      - name: Generate Prisma client
+        if: matrix.workspace == '@opengrade/api'
+        run: npm -w @opengrade/api run prisma:generate
+      - name: Build workspace dependencies (fhir, ui) first
+        if: matrix.workspace == '@opengrade/api' || matrix.workspace == '@opengrade/web'
+        run: |
+          npm -w @opengrade/fhir run build
+          npm -w @opengrade/ui run build
+      - name: Build
+        run: npm -w ${{ matrix.workspace }} run build
+      - name: Upload dist artifact
+        if: matrix.artifact != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.path }}
+          if-no-files-found: error
+          retention-days: 7
+
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+    needs: build
+    # TODO: Enable E2E in CI once the API + web boot story is stabilised here.
+    # Requires: real Postgres, Prisma migrate + seed, a Keycloak mock (OIDC),
+    # S3-compatible storage (minio), and a runner for `npm -w @opengrade/web run dev`
+    # plus `npm -w @opengrade/api run start`. Skipping for now to unblock P0 CI.
+    if: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+      - name: Install Playwright browsers
+        working-directory: apps/e2e
+        run: npx playwright install --with-deps
+      - name: Download API dist
+        uses: actions/download-artifact@v4
+        with:
+          name: api-dist
+          path: apps/api/dist
+      - name: Download Web dist
+        uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: apps/web/dist
+      - name: Run Playwright tests
+        run: npm -w @opengrade/e2e test

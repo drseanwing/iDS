@@ -17,6 +17,7 @@ import {
   CreateChecklistItemDto,
   ToggleChecklistItemDto,
 } from './dto/create-milestone.dto';
+import { CurrentUserId } from '../auth/current-user.decorator';
 
 @ApiTags('Milestones')
 @ApiBearerAuth()
@@ -28,9 +29,7 @@ export class MilestonesController {
 
   @Post()
   @ApiOperation({ summary: 'Create a milestone' })
-  create(@Body() dto: CreateMilestoneDto) {
-    // TODO: extract userId from JWT when auth is wired
-    const userId = '00000000-0000-0000-0000-000000000001';
+  create(@Body() dto: CreateMilestoneDto, @CurrentUserId() userId: string) {
     return this.milestonesService.create(dto, userId);
   }
 
@@ -74,9 +73,8 @@ export class MilestonesController {
   toggleChecklistItem(
     @Param('itemId', ParseUUIDPipe) itemId: string,
     @Body() dto: ToggleChecklistItemDto,
+    @CurrentUserId() userId: string,
   ) {
-    // TODO: extract userId from JWT when auth is wired
-    const userId = '00000000-0000-0000-0000-000000000001';
     return this.milestonesService.toggleChecklistItem(
       itemId,
       dto.isChecked,

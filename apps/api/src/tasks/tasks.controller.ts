@@ -21,6 +21,7 @@ import { CreateTaskDto, UpdateTaskDto } from './dto/create-task.dto';
 import { PaginationQueryDto } from '../common/dto';
 import { RbacGuard } from '../auth/rbac.guard';
 import { Roles } from '../auth/roles.decorator';
+import { CurrentUserId } from '../auth/current-user.decorator';
 
 @ApiTags('Tasks')
 @ApiBearerAuth()
@@ -32,9 +33,7 @@ export class TasksController {
   @Post()
   @Roles('ADMIN', 'AUTHOR')
   @ApiOperation({ summary: 'Create a task' })
-  create(@Body() dto: CreateTaskDto) {
-    // TODO: extract userId from JWT when auth is wired
-    const userId = '00000000-0000-0000-0000-000000000001';
+  create(@Body() dto: CreateTaskDto, @CurrentUserId() userId: string) {
     return this.tasksService.create(dto, userId);
   }
 
@@ -69,9 +68,8 @@ export class TasksController {
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateTaskDto,
+    @CurrentUserId() userId: string,
   ) {
-    // TODO: extract userId from JWT when auth is wired
-    const userId = '00000000-0000-0000-0000-000000000001';
     return this.tasksService.update(id, dto, userId);
   }
 

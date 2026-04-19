@@ -42,9 +42,8 @@ export class ActivityLoggingInterceptor implements NestInterceptor {
           const entityType = this.deriveEntityType(path);
           const actionType = this.deriveActionType(method, path);
 
-          // TODO: extract userId from JWT when auth is wired
-          const userId =
-            request.user?.sub ?? '00000000-0000-0000-0000-000000000001';
+          const userId = request.user?.sub;
+          if (!userId) return;
 
           // Capture rich change details for special workflows
           const changeDetails = this.buildChangeDetails(method, path, request, response);

@@ -29,7 +29,9 @@ Before deploying to production, ensure the following are in place:
   - `NODE_ENV=production`
   - `LOG_LEVEL=info` (not debug)
   - `PORT=3000`
-  - `DATABASE_URL=postgresql://[user]:[password]@postgres:5432/opengrade`
+  - `DATABASE_URL=postgresql://[user]:[password]@postgres:5432/opengrade?connection_limit=10&pool_timeout=30&connect_timeout=5`
+    - Tune `connection_limit` so `connection_limit * api_replicas` stays below Postgres `max_connections` (default 100). For 3 API replicas: `connection_limit=20` leaves headroom for migrations and admin sessions.
+    - Raise `pool_timeout` for high-contention workloads; keep `connect_timeout` low so startup fails fast when Postgres is unreachable.
   - `KEYCLOAK_URL=https://auth.yourdomain.com` (HTTPS)
   - `KEYCLOAK_REALM=opengrade`
   - `KEYCLOAK_CLIENT_ID=opengrade-api`
