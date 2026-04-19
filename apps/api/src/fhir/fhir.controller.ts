@@ -4,12 +4,13 @@ import {
   Post,
   Body,
   Param,
+  Query,
   ParseUUIDPipe,
   NotFoundException,
   Header,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiParam, ApiBody } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiParam, ApiQuery, ApiBody } from '@nestjs/swagger';
 import { FhirEtagInterceptor } from './fhir-etag.interceptor';
 import { PrismaService } from '../prisma/prisma.service';
 import { GuidelineCompositionProjection } from './projections/guideline-to-composition';
@@ -17,6 +18,8 @@ import { ReferenceCitationProjection } from './projections/reference-to-citation
 import { RecommendationPlanDefinitionProjection } from './projections/recommendation-to-plan-definition';
 import { PicoEvidenceProjection } from './projections/pico-to-evidence';
 import { FhirValidationService } from './fhir-validation.service';
+import { coiToProvenance } from './projections/coi-to-provenance';
+import { activityToAuditEvent } from './projections/activity-to-audit-event';
 
 /**
  * Read-only FHIR R5 facade.
@@ -196,6 +199,61 @@ export class FhirController {
       type: 'document',
       timestamp: guideline.updatedAt?.toISOString?.() ?? guideline.updatedAt,
       entry: entries,
+    };
+  }
+
+  // ── Provenance (COI Record) ─────────────────────────────────
+
+  @Get('Provenance/:id')
+  @Header('Content-Type', 'application/fhir+json')
+  @ApiOperation({ summary: 'Get COI record as FHIR R5 Provenance' })
+  @ApiParam({ name: 'id', description: 'COI Record UUID' })
+  async getProvenance(@Param('id', ParseUUIDPipe) id: string) {
+    const record = await this.prisma.coiRecord.findUnique({
+      where: { id },
+      include: {
+        user: { select: { id: true, displayName: true, email: true } },
+        interventionConflicts: true,
+      },
+    });
+
+    if (!record) {
+      throw new NotFoundException(`COI record ${id} not found`);
+    }
+
+    return coiToProvenance(record);
+  }
+
+  // ── AuditEvent (Activity Log) ───────────────────────────────
+
+  @Get('AuditEvent')
+  @Header('Content-Type', 'application/fhir+json')
+  @ApiOperation({ summary: 'List activity log entries as FHIR R5 AuditEvent Bundle' })
+  @ApiQuery({ name: 'guidelineId', required: false, description: 'Filter by Guideline UUID' })
+  @ApiQuery({ name: 'userId', required: false, description: 'Filter by User UUID' })
+  @ApiQuery({ name: 'limit', required: false, description: 'Maximum number of results (default 50, max 200)' })
+  async listAuditEvents(
+    @Query('guidelineId') guidelineId?: string,
+    @Query('userId') userId?: string,
+    @Query('limit') limit = '50',
+  ) {
+    const entries = await this.prisma.activityLogEntry.findMany({
+      where: {
+        ...(guidelineId ? { guidelineId } : {}),
+        ...(userId ? { userId } : {}),
+      },
+      include: {
+        user: { select: { id: true, displayName: true, email: true } },
+      },
+      orderBy: { timestamp: 'desc' },
+      take: Math.min(parseInt(limit, 10), 200),
+    });
+
+    return {
+      resourceType: 'Bundle',
+      type: 'searchset',
+      total: entries.length,
+      entry: entries.map((e) => ({ resource: activityToAuditEvent(e) })),
     };
   }
 }
