@@ -228,6 +228,37 @@ describe('AuthGuard', () => {
     );
   });
 
+  it('honours AUTH_ISSUER and AUTH_JWKS_URL overrides for non-Keycloak OIDC', async () => {
+    const guard = buildGuard(
+      makeConfig({
+        KEYCLOAK_URL: 'http://kc.example.com',
+        KEYCLOAK_REALM: 'opengrade',
+        AUTH_ISSUER: 'http://oidc-mock:8080',
+        AUTH_JWKS_URL: 'http://oidc-mock:8080/.well-known/openid-configuration/jwks',
+        NODE_ENV: 'production',
+      }),
+    );
+    mockedJwtVerify.mockResolvedValueOnce({
+      payload: { sub: 'u', realm_access: { roles: [] } },
+      protectedHeader: { alg: 'RS256' },
+    } as any);
+    const req: any = { headers: { authorization: 'Bearer t' } };
+    const ctx = {
+      switchToHttp: () => ({ getRequest: () => req }),
+      getHandler: () => undefined,
+      getClass: () => undefined,
+    } as unknown as ExecutionContext;
+    await guard.canActivate(ctx);
+    expect(mockedCreateRemoteJWKSet).toHaveBeenCalledWith(
+      new URL('http://oidc-mock:8080/.well-known/openid-configuration/jwks'),
+    );
+    expect(mockedJwtVerify).toHaveBeenCalledWith(
+      't',
+      expect.any(Function),
+      expect.objectContaining({ issuer: 'http://oidc-mock:8080' }),
+    );
+  });
+
   it('throws at startup in production when Keycloak config missing', () => {
     const config = makeConfig({ NODE_ENV: 'production' });
     const guard = new AuthGuard(reflector, config);

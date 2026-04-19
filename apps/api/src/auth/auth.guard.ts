@@ -44,10 +44,17 @@ export class AuthGuard implements CanActivate, OnModuleInit {
       return;
     }
 
-    this.issuer = `${keycloakUrl.replace(/\/$/, '')}/realms/${realm}`;
+    // Default issuer/JWKS path follow Keycloak's conventions, but allow
+    // explicit overrides for non-Keycloak OIDC providers (e.g. test mocks).
+    const constructedIssuer = `${keycloakUrl.replace(/\/$/, '')}/realms/${realm}`;
+    this.issuer =
+      this.config.get<string>('AUTH_ISSUER') || constructedIssuer;
     this.audience =
       this.config.get<string>('AUTH_EXPECTED_AUDIENCE') || undefined;
-    const jwksUrl = new URL(`${this.issuer}/protocol/openid-connect/certs`);
+    const jwksOverride = this.config.get<string>('AUTH_JWKS_URL');
+    const jwksUrl = new URL(
+      jwksOverride || `${constructedIssuer}/protocol/openid-connect/certs`,
+    );
     this.jwks = createRemoteJWKSet(jwksUrl);
   }
 
