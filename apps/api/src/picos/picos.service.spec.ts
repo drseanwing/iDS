@@ -1,7 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PicosService } from './picos.service';
 import { PrismaService } from '../prisma/prisma.service';
+
+const mockEventEmitter = {
+  emit: jest.fn(),
+};
 
 const mockPrismaService = {
   pico: {
@@ -26,6 +31,7 @@ describe('PicosService', () => {
       providers: [
         PicosService,
         { provide: PrismaService, useValue: mockPrismaService },
+        { provide: EventEmitter2, useValue: mockEventEmitter },
       ],
     }).compile();
 

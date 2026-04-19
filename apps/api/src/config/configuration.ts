@@ -18,8 +18,11 @@ export default () => ({
     secretKey: process.env.S3_SECRET_KEY || 'minioadmin',
     bucket: process.env.S3_BUCKET || 'opengrade',
   },
+  redis: {
+    url: process.env.REDIS_URL || 'redis://localhost:6379',
+  },
   terminology: {
-    bioportalApiKey: process.env.BIOPORTAL_API_KEY || '',
+    bioportalApiKey: process.env.TERMINOLOGY_BIOPORTAL_API_KEY || process.env.BIOPORTAL_API_KEY || '',
     bioportalBaseUrl: process.env.BIOPORTAL_BASE_URL || 'https://data.bioontology.org',
     cacheTtlMs: parseInt(process.env.TERMINOLOGY_CACHE_TTL_MS || '86400000', 10),
     cacheMaxEntries: parseInt(process.env.TERMINOLOGY_CACHE_MAX_ENTRIES || '1000', 10),

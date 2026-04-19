@@ -1,10 +1,7 @@
-import { Injectable, Logger, OnModuleInit, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { ConfigService } from '@nestjs/config';
-
-// TODO: For multi-replica deployments, swap the in-process LRU below for a
-// shared Redis cache so all replicas benefit from the same warm entries and
-// avoid duplicating BioPortal calls. The public API surface (search method,
-// TerminologyResult / TerminologySearchResult shapes) should not need to change.
+import type { Cache } from 'cache-manager';
 
 export interface TerminologyResult {
   code: string;
@@ -110,7 +107,7 @@ const STUB_CODES: Record<string, TerminologyResult[]> = {
 // Map our internal system identifiers to BioPortal ontology acronyms.
 const BIOPORTAL_ACRONYMS: Record<string, string> = {
   SNOMED_CT: 'SNOMEDCT',
-  ICD10: 'ICD10',
+  ICD10: 'ICD10CM',
   ATC: 'ATC',
   RXNORM: 'RXNORM',
 };
@@ -119,44 +116,38 @@ interface BioPortalCollectionItem {
   '@id'?: string;
   prefLabel?: string;
   notation?: string;
-  cui?: string | string[];
+  definition?: string[];
 }
 
 interface BioPortalSearchResponse {
   collection?: BioPortalCollectionItem[];
 }
 
-interface CacheEntry {
-  value: TerminologySearchResult;
-  expiresAt: number;
-}
-
 const REQUEST_TIMEOUT_MS = 5000;
+const CACHE_TTL_MS = 86400 * 1000; // 24 hours in milliseconds (cache-manager v7 uses ms)
 
 @Injectable()
 export class TerminologyService implements OnModuleInit {
   private readonly logger = new Logger(TerminologyService.name);
   private readonly apiKey: string;
   private readonly baseUrl: string;
-  private readonly cacheTtlMs: number;
-  private readonly cacheMaxEntries: number;
-  // NOTE: This is a single-process LRU cache; swap to Redis for multi-replica deployments.
-  private readonly cache = new Map<string, CacheEntry>();
 
-  constructor(private readonly configService: ConfigService) {
-    this.apiKey = this.configService.get<string>('terminology.bioportalApiKey') ?? '';
+  constructor(
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    private readonly configService: ConfigService,
+  ) {
+    this.apiKey =
+      this.configService.get<string>('terminology.bioportalApiKey') ?? '';
     this.baseUrl =
       this.configService.get<string>('terminology.bioportalBaseUrl') ??
       'https://data.bioontology.org';
-    this.cacheTtlMs = this.configService.get<number>('terminology.cacheTtlMs') ?? 86_400_000;
-    this.cacheMaxEntries =
-      this.configService.get<number>('terminology.cacheMaxEntries') ?? 1000;
   }
 
   onModuleInit(): void {
     if (!this.apiKey) {
       this.logger.warn(
-        'BIOPORTAL_API_KEY is not set; TerminologyService will fall back to the in-memory stub dataset. Set BIOPORTAL_API_KEY in production.',
+        'TERMINOLOGY_BIOPORTAL_API_KEY is not set; TerminologyService will fall back to the ' +
+          'in-memory stub dataset. Set TERMINOLOGY_BIOPORTAL_API_KEY in production.',
       );
     }
   }
@@ -164,16 +155,20 @@ export class TerminologyService implements OnModuleInit {
   /**
    * Search terminology codes by system + query. Returns up to `limit` results.
    *
-   * - When BIOPORTAL_API_KEY is set, proxies to BioPortal and caches the
-   *   mapped result in an in-process LRU.
+   * - When TERMINOLOGY_BIOPORTAL_API_KEY is set, proxies to BioPortal and caches the
+   *   result in Redis (24 h TTL). Falls back to stub if BioPortal is unreachable.
    * - When the key is unset, falls back to the bundled STUB_CODES dataset
    *   (preserves the dev-offline experience).
-   * - Non-2xx responses from BioPortal are surfaced as
-   *   ServiceUnavailableException so the controller can return a 503.
+   * - Throws BadRequestException for unknown system identifiers.
    */
   async search(system: string, query: string, limit = 20): Promise<TerminologySearchResult> {
     const normalizedQuery = (query ?? '').trim();
     const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : 20;
+
+    const acronym = BIOPORTAL_ACRONYMS[system];
+    if (!acronym) {
+      throw new BadRequestException(`Unknown terminology system: ${system}`);
+    }
 
     // No API key → preserve dev-offline behaviour by serving the stub dataset.
     if (!this.apiKey) {
@@ -184,21 +179,37 @@ export class TerminologyService implements OnModuleInit {
       return { results: [] };
     }
 
-    const cacheKey = this.buildCacheKey(system, normalizedQuery, safeLimit);
-    const cached = this.readCache(cacheKey);
-    if (cached) {
-      return cached;
+    const cacheKey = `terminology:${system}:${normalizedQuery.toLowerCase()}:${safeLimit}`;
+
+    // Try Redis cache first (gracefully degrade if Redis is unavailable).
+    try {
+      const cached = await this.cacheManager.get<TerminologySearchResult>(cacheKey);
+      if (cached !== undefined && cached !== null) {
+        return cached;
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`Redis cache read failed, proceeding without cache: ${message}`);
     }
 
-    const acronym = BIOPORTAL_ACRONYMS[system];
-    if (!acronym) {
-      // Unknown system → empty result (keeps controller responses consistent).
-      return { results: [] };
-    }
+    // Fetch from BioPortal (gracefully fallback to stub if API is unreachable).
+    try {
+      const result = await this.fetchFromBioPortal(system, acronym, normalizedQuery, safeLimit);
 
-    const result = await this.fetchFromBioPortal(system, acronym, normalizedQuery, safeLimit);
-    this.writeCache(cacheKey, result);
-    return result;
+      // Store in Redis cache; if Redis is unavailable, log and continue.
+      try {
+        await this.cacheManager.set(cacheKey, result, CACHE_TTL_MS);
+      } catch (cacheErr) {
+        const message = cacheErr instanceof Error ? cacheErr.message : String(cacheErr);
+        this.logger.warn(`Redis cache write failed: ${message}`);
+      }
+
+      return result;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`BioPortal lookup failed, falling back to stubs: ${message}`);
+      return this.searchStub(system, normalizedQuery, safeLimit);
+    }
   }
 
   // ---- BioPortal client -----------------------------------------------------
@@ -215,30 +226,14 @@ export class TerminologyService implements OnModuleInit {
     url.searchParams.set('pagesize', String(limit));
     url.searchParams.set('apikey', this.apiKey);
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-
-    let response: Response;
-    try {
-      response = await fetch(url.toString(), {
-        method: 'GET',
-        headers: { Accept: 'application/json' },
-        signal: controller.signal,
-      });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      this.logger.error(`BioPortal request failed for ${system}/${query}: ${message}`);
-      // Throw 503 so callers get a clear retryable signal rather than a silent empty list.
-      throw new ServiceUnavailableException('Terminology service is unavailable');
-    } finally {
-      clearTimeout(timer);
-    }
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
 
     if (!response.ok) {
-      this.logger.error(
-        `BioPortal responded with HTTP ${response.status} for ${system}/${query}`,
-      );
-      throw new ServiceUnavailableException('Terminology service is unavailable');
+      throw new Error(`BioPortal returned ${response.status}`);
     }
 
     const body = (await response.json()) as BioPortalSearchResponse;
@@ -280,6 +275,10 @@ export class TerminologyService implements OnModuleInit {
 
   // ---- Stub fallback --------------------------------------------------------
 
+  getStubResults(system: string, query: string, limit: number): TerminologySearchResult {
+    return this.searchStub(system, query, limit);
+  }
+
   private searchStub(
     system: string,
     query: string,
@@ -291,36 +290,5 @@ export class TerminologyService implements OnModuleInit {
       .filter((entry) => entry.display.toLowerCase().includes(q) || entry.code.includes(q))
       .slice(0, limit);
     return { results };
-  }
-
-  // ---- LRU cache ------------------------------------------------------------
-
-  private buildCacheKey(system: string, query: string, limit: number): string {
-    return `${system}|${query.toLowerCase()}|${limit}`;
-  }
-
-  private readCache(key: string): TerminologySearchResult | null {
-    const entry = this.cache.get(key);
-    if (!entry) return null;
-    if (entry.expiresAt <= Date.now()) {
-      this.cache.delete(key);
-      return null;
-    }
-    // Refresh recency: re-insert so this key becomes the most-recently-used.
-    this.cache.delete(key);
-    this.cache.set(key, entry);
-    return entry.value;
-  }
-
-  private writeCache(key: string, value: TerminologySearchResult): void {
-    if (this.cache.has(key)) {
-      this.cache.delete(key);
-    }
-    this.cache.set(key, { value, expiresAt: Date.now() + this.cacheTtlMs });
-    while (this.cache.size > this.cacheMaxEntries) {
-      const oldestKey = this.cache.keys().next().value;
-      if (oldestKey === undefined) break;
-      this.cache.delete(oldestKey);
-    }
   }
 }
