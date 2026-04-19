@@ -9,6 +9,7 @@
     "node": ">=20"
   },
   "dependencies": {
+    "@nestjs/event-emitter": "^3.0.1",
     "@nestjs/throttler": "^6.5.0",
     "@testing-library/dom": "^10.4.1"
   }
