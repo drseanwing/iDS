@@ -1,0 +1,54 @@
+# Dependencies / build artifacts
+node_modules
+**/node_modules
+**/dist
+**/build
+**/.next
+**/.turbo
+**/.cache
+**/tsconfig.tsbuildinfo
+
+# VCS and CI metadata
+.git
+.gitignore
+.github
+
+# Environment files (secrets)
+.env
+.env.*
+**/.env
+**/.env.*
+
+# Test artifacts
+**/coverage
+**/test-results
+**/playwright-report
+**/.nyc_output
+**/junit.xml
+
+# Logs / OS / editor noise
+**/*.log
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+**/.DS_Store
+**/Thumbs.db
+.vscode
+.idea
+*.swp
+
+# Docs and one-off scratch files at repo root that aren't needed in the image
+README.md
+compass_artifact*
+opengrade-architecture.md
+implementation-task-list.md
+example_spa.html
+docs
+tasks
+
+# E2E suite is not built into runtime images
+apps/e2e
+
+# Don't leak the docker context's own ignore/dockerfiles
+**/Dockerfile
+**/.dockerignore

@@ -8,6 +8,7 @@ import { UpdateOutcomeDto } from './dto/update-outcome.dto';
 import { PaginationQueryDto } from '../common/dto';
 import { RbacGuard } from '../auth/rbac.guard';
 import { Roles } from '../auth/roles.decorator';
+import { CurrentUserId } from '../auth/current-user.decorator';
 
 @ApiTags('Outcomes')
 @ApiBearerAuth()
@@ -61,9 +62,10 @@ export class OutcomesController {
   @Roles('ADMIN', 'AUTHOR')
   @ApiOperation({ summary: 'Create a shadow (draft copy) of an outcome' })
   @ApiParam({ name: 'id', description: 'ID of the outcome to shadow' })
-  createShadow(@Param('id', ParseUUIDPipe) id: string) {
-    // TODO: extract userId from JWT when auth is wired
-    const userId = '00000000-0000-0000-0000-000000000001';
+  createShadow(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUserId() userId: string,
+  ) {
     return this.outcomesService.createShadow(id, userId);
   }
 
@@ -71,9 +73,10 @@ export class OutcomesController {
   @Roles('ADMIN', 'AUTHOR')
   @ApiOperation({ summary: 'Promote a shadow outcome to replace the original' })
   @ApiParam({ name: 'id', description: 'ID of the shadow outcome to promote' })
-  promoteShadow(@Param('id', ParseUUIDPipe) id: string) {
-    // TODO: extract userId from JWT when auth is wired
-    const userId = '00000000-0000-0000-0000-000000000001';
+  promoteShadow(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUserId() userId: string,
+  ) {
     return this.outcomesService.promoteShadow(id, userId);
   }
 

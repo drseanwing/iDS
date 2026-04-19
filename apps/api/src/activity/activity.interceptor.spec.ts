@@ -61,6 +61,7 @@ describe('ActivityLoggingInterceptor', () => {
       method: 'POST',
       path: '/sections',
       body: { guidelineId: GUIDELINE_ID },
+      user: { sub: USER_ID },
     });
     const handler = buildHandler({ id: ENTITY_ID, guidelineId: GUIDELINE_ID });
     await lastValueFrom(interceptor.intercept(ctx, handler));
@@ -82,6 +83,7 @@ describe('ActivityLoggingInterceptor', () => {
       path: '/sections/:id',
       params: { id: ENTITY_ID },
       body: { guidelineId: GUIDELINE_ID },
+      user: { sub: USER_ID },
     });
     const handler = buildHandler({ id: ENTITY_ID, guidelineId: GUIDELINE_ID });
     await lastValueFrom(interceptor.intercept(ctx, handler));
@@ -98,6 +100,7 @@ describe('ActivityLoggingInterceptor', () => {
       path: '/recommendations/:id',
       params: { id: ENTITY_ID },
       body: { guidelineId: GUIDELINE_ID },
+      user: { sub: USER_ID },
     });
     const handler = buildHandler({ id: ENTITY_ID, guidelineId: GUIDELINE_ID });
     await lastValueFrom(interceptor.intercept(ctx, handler));
@@ -114,6 +117,7 @@ describe('ActivityLoggingInterceptor', () => {
       path: '/sections/:id',
       params: { id: ENTITY_ID },
       body: { guidelineId: GUIDELINE_ID },
+      user: { sub: USER_ID },
     });
     const handler = buildHandler({ id: ENTITY_ID, guidelineId: GUIDELINE_ID });
     await lastValueFrom(interceptor.intercept(ctx, handler));
@@ -138,7 +142,7 @@ describe('ActivityLoggingInterceptor', () => {
     );
   });
 
-  it('falls back to placeholder userId when no auth context', async () => {
+  it('skips logging when no auth context is attached', async () => {
     const ctx = buildContext({
       method: 'POST',
       path: '/sections',
@@ -146,9 +150,7 @@ describe('ActivityLoggingInterceptor', () => {
     });
     const handler = buildHandler({ id: ENTITY_ID, guidelineId: GUIDELINE_ID });
     await lastValueFrom(interceptor.intercept(ctx, handler));
-    expect(mockActivityService.log).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: '00000000-0000-0000-0000-000000000001' }),
-    );
+    expect(mockActivityService.log).not.toHaveBeenCalled();
   });
 
   // ── Special action types ──────────────────────────────────────────────────
@@ -159,6 +161,7 @@ describe('ActivityLoggingInterceptor', () => {
       path: '/sections/:id/restore',
       params: { id: ENTITY_ID },
       body: { guidelineId: GUIDELINE_ID },
+      user: { sub: USER_ID },
     });
     const handler = buildHandler({ id: ENTITY_ID, guidelineId: GUIDELINE_ID });
     await lastValueFrom(interceptor.intercept(ctx, handler));
@@ -173,6 +176,7 @@ describe('ActivityLoggingInterceptor', () => {
       path: '/guidelines/:id/status',
       params: { id: ENTITY_ID },
       body: { status: 'PUBLISHED' },
+      user: { sub: USER_ID },
     });
     // guideline route: :id IS the guidelineId
     const handler = buildHandler({ id: ENTITY_ID, status: 'PUBLISHED' });
@@ -192,6 +196,7 @@ describe('ActivityLoggingInterceptor', () => {
       path: '/guidelines/:id/permissions',
       params: { id: ENTITY_ID },
       body: { userId: USER_ID, role: 'AUTHOR' },
+      user: { sub: USER_ID },
     });
     const handler = buildHandler({ id: USER_ID, guidelineId: ENTITY_ID });
     await lastValueFrom(interceptor.intercept(ctx, handler));
@@ -209,6 +214,7 @@ describe('ActivityLoggingInterceptor', () => {
       method: 'POST',
       path: '/versions',
       body: { guidelineId: GUIDELINE_ID, versionType: 'MAJOR' },
+      user: { sub: USER_ID },
     });
     const handler = buildHandler({
       id: ENTITY_ID,
@@ -234,7 +240,7 @@ describe('ActivityLoggingInterceptor', () => {
       params: { id: ENTITY_ID },
       body: { guidelineId: GUIDELINE_ID },
       file: { originalname: 'paper.pdf', size: 12345, mimetype: 'application/pdf' },
-      user: undefined,
+      user: { sub: USER_ID },
     };
     const ctx = {
       switchToHttp: () => ({ getRequest: () => request }),
@@ -260,6 +266,7 @@ describe('ActivityLoggingInterceptor', () => {
       path: '/polls/:id/vote',
       params: { id: ENTITY_ID },
       body: { guidelineId: GUIDELINE_ID, value: 7, comment: 'Agree' },
+      user: { sub: USER_ID },
     });
     const handler = buildHandler({ id: ENTITY_ID, guidelineId: GUIDELINE_ID });
     await lastValueFrom(interceptor.intercept(ctx, handler));
@@ -280,6 +287,7 @@ describe('ActivityLoggingInterceptor', () => {
       path: '/some-unknown-route',
       params: { id: ENTITY_ID },
       body: {},
+      user: { sub: USER_ID },
     });
     const handler = buildHandler({ id: ENTITY_ID });
     await lastValueFrom(interceptor.intercept(ctx, handler));
@@ -294,6 +302,7 @@ describe('ActivityLoggingInterceptor', () => {
       method: 'POST',
       path: '/sections',
       body: { guidelineId: GUIDELINE_ID },
+      user: { sub: USER_ID },
     });
     const handler = buildHandler({ id: ENTITY_ID, guidelineId: GUIDELINE_ID });
     await expect(lastValueFrom(interceptor.intercept(ctx, handler))).resolves.not.toThrow();

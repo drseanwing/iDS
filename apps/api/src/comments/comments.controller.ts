@@ -5,6 +5,7 @@ import { CreateCommentDto, UpdateCommentStatusDto } from './dto/create-comment.d
 import { PaginationQueryDto } from '../common/dto';
 import { RbacGuard } from '../auth/rbac.guard';
 import { Roles } from '../auth/roles.decorator';
+import { CurrentUserId } from '../auth/current-user.decorator';
 
 @ApiTags('Comments')
 @ApiBearerAuth()
@@ -16,9 +17,7 @@ export class CommentsController {
   @Post()
   @Roles('ADMIN', 'AUTHOR', 'REVIEWER')
   @ApiOperation({ summary: 'Create a feedback comment' })
-  create(@Body() dto: CreateCommentDto) {
-    // TODO: extract userId from JWT when auth is wired
-    const userId = '00000000-0000-0000-0000-000000000001';
+  create(@Body() dto: CreateCommentDto, @CurrentUserId() userId: string) {
     return this.commentsService.create(dto, userId);
   }
 

@@ -24,7 +24,7 @@ export class HealthController {
   @ApiOperation({ summary: 'Readiness check (includes database connectivity)' })
   async ready() {
     try {
-      await this.prisma.$queryRaw`SELECT 1`;
+      await this.prisma.healthCheck();
       return {
         status: 'ok',
         timestamp: new Date().toISOString(),

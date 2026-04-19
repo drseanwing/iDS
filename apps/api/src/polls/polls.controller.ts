@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger'
 import { PollsService } from './polls.service';
 import { CreatePollDto, CastVoteDto } from './dto/create-poll.dto';
 import { PaginationQueryDto } from '../common/dto';
+import { CurrentUserId } from '../auth/current-user.decorator';
 
 @ApiTags('Polls')
 @ApiBearerAuth()
@@ -12,9 +13,7 @@ export class PollsController {
 
   @Post()
   @ApiOperation({ summary: 'Create a new poll / Delphi vote' })
-  create(@Body() dto: CreatePollDto) {
-    // TODO: extract userId from JWT when auth is wired
-    const userId = '00000000-0000-0000-0000-000000000001';
+  create(@Body() dto: CreatePollDto, @CurrentUserId() userId: string) {
     return this.pollsService.create(dto, userId);
   }
 
@@ -39,9 +38,8 @@ export class PollsController {
   castVote(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CastVoteDto,
+    @CurrentUserId() userId: string,
   ) {
-    // TODO: extract userId from JWT when auth is wired
-    const userId = '00000000-0000-0000-0000-000000000001';
     return this.pollsService.castVote(id, dto, userId);
   }
 

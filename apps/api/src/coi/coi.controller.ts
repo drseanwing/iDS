@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger'
 import { CoiService } from './coi.service';
 import { CreateCoiDto, UpdateCoiDto } from './dto/create-coi.dto';
 import { PaginationQueryDto } from '../common/dto';
+import { CurrentUserId } from '../auth/current-user.decorator';
 
 @ApiTags('COI')
 @ApiBearerAuth()
@@ -12,9 +13,7 @@ export class CoiController {
 
   @Post()
   @ApiOperation({ summary: 'Create a COI record for the current user' })
-  create(@Body() dto: CreateCoiDto) {
-    // TODO: extract userId from JWT when auth is wired
-    const userId = '00000000-0000-0000-0000-000000000001';
+  create(@Body() dto: CreateCoiDto, @CurrentUserId() userId: string) {
     return this.coiService.create(dto, userId);
   }
 
@@ -43,9 +42,8 @@ export class CoiController {
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateCoiDto,
+    @CurrentUserId() userId: string,
   ) {
-    // TODO: extract userId from JWT when auth is wired
-    const userId = '00000000-0000-0000-0000-000000000001';
     return this.coiService.update(id, dto, userId);
   }
 

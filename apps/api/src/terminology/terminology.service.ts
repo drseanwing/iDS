@@ -1,8 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, ServiceUnavailableException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
-// TODO: Replace stub with BioPortal API proxy + Redis cache for real terminology lookups.
-// BioPortal endpoint: https://data.bioontology.org/search?q={query}&ontologies={ontology}&pagesize={limit}
-// Cache results in Redis with TTL of ~24h to avoid hammering the API.
+// TODO: For multi-replica deployments, swap the in-process LRU below for a
+// shared Redis cache so all replicas benefit from the same warm entries and
+// avoid duplicating BioPortal calls. The public API surface (search method,
+// TerminologyResult / TerminologySearchResult shapes) should not need to change.
 
 export interface TerminologyResult {
   code: string;
@@ -105,16 +107,220 @@ const STUB_CODES: Record<string, TerminologyResult[]> = {
   ],
 };
 
-@Injectable()
-export class TerminologyService {
-  search(system: string, query: string, limit = 20): TerminologySearchResult {
-    const candidates = STUB_CODES[system] ?? [];
-    const q = query.toLowerCase();
+// Map our internal system identifiers to BioPortal ontology acronyms.
+const BIOPORTAL_ACRONYMS: Record<string, string> = {
+  SNOMED_CT: 'SNOMEDCT',
+  ICD10: 'ICD10',
+  ATC: 'ATC',
+  RXNORM: 'RXNORM',
+};
 
-    const results = candidates
-      .filter((entry) => entry.display.toLowerCase().includes(q) || entry.code.includes(q))
+interface BioPortalCollectionItem {
+  '@id'?: string;
+  prefLabel?: string;
+  notation?: string;
+  cui?: string | string[];
+}
+
+interface BioPortalSearchResponse {
+  collection?: BioPortalCollectionItem[];
+}
+
+interface CacheEntry {
+  value: TerminologySearchResult;
+  expiresAt: number;
+}
+
+const REQUEST_TIMEOUT_MS = 5000;
+
+@Injectable()
+export class TerminologyService implements OnModuleInit {
+  private readonly logger = new Logger(TerminologyService.name);
+  private readonly apiKey: string;
+  private readonly baseUrl: string;
+  private readonly cacheTtlMs: number;
+  private readonly cacheMaxEntries: number;
+  // NOTE: This is a single-process LRU cache; swap to Redis for multi-replica deployments.
+  private readonly cache = new Map<string, CacheEntry>();
+
+  constructor(private readonly configService: ConfigService) {
+    this.apiKey = this.configService.get<string>('terminology.bioportalApiKey') ?? '';
+    this.baseUrl =
+      this.configService.get<string>('terminology.bioportalBaseUrl') ??
+      'https://data.bioontology.org';
+    this.cacheTtlMs = this.configService.get<number>('terminology.cacheTtlMs') ?? 86_400_000;
+    this.cacheMaxEntries =
+      this.configService.get<number>('terminology.cacheMaxEntries') ?? 1000;
+  }
+
+  onModuleInit(): void {
+    if (!this.apiKey) {
+      this.logger.warn(
+        'BIOPORTAL_API_KEY is not set; TerminologyService will fall back to the in-memory stub dataset. Set BIOPORTAL_API_KEY in production.',
+      );
+    }
+  }
+
+  /**
+   * Search terminology codes by system + query. Returns up to `limit` results.
+   *
+   * - When BIOPORTAL_API_KEY is set, proxies to BioPortal and caches the
+   *   mapped result in an in-process LRU.
+   * - When the key is unset, falls back to the bundled STUB_CODES dataset
+   *   (preserves the dev-offline experience).
+   * - Non-2xx responses from BioPortal are surfaced as
+   *   ServiceUnavailableException so the controller can return a 503.
+   */
+  async search(system: string, query: string, limit = 20): Promise<TerminologySearchResult> {
+    const normalizedQuery = (query ?? '').trim();
+    const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : 20;
+
+    // No API key → preserve dev-offline behaviour by serving the stub dataset.
+    if (!this.apiKey) {
+      return this.searchStub(system, normalizedQuery, safeLimit);
+    }
+
+    if (!normalizedQuery) {
+      return { results: [] };
+    }
+
+    const cacheKey = this.buildCacheKey(system, normalizedQuery, safeLimit);
+    const cached = this.readCache(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const acronym = BIOPORTAL_ACRONYMS[system];
+    if (!acronym) {
+      // Unknown system → empty result (keeps controller responses consistent).
+      return { results: [] };
+    }
+
+    const result = await this.fetchFromBioPortal(system, acronym, normalizedQuery, safeLimit);
+    this.writeCache(cacheKey, result);
+    return result;
+  }
+
+  // ---- BioPortal client -----------------------------------------------------
+
+  private async fetchFromBioPortal(
+    system: string,
+    acronym: string,
+    query: string,
+    limit: number,
+  ): Promise<TerminologySearchResult> {
+    const url = new URL('/search', this.baseUrl);
+    url.searchParams.set('q', query);
+    url.searchParams.set('ontologies', acronym);
+    url.searchParams.set('pagesize', String(limit));
+    url.searchParams.set('apikey', this.apiKey);
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+    let response: Response;
+    try {
+      response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+        signal: controller.signal,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.error(`BioPortal request failed for ${system}/${query}: ${message}`);
+      // Throw 503 so callers get a clear retryable signal rather than a silent empty list.
+      throw new ServiceUnavailableException('Terminology service is unavailable');
+    } finally {
+      clearTimeout(timer);
+    }
+
+    if (!response.ok) {
+      this.logger.error(
+        `BioPortal responded with HTTP ${response.status} for ${system}/${query}`,
+      );
+      throw new ServiceUnavailableException('Terminology service is unavailable');
+    }
+
+    const body = (await response.json()) as BioPortalSearchResponse;
+    const collection = Array.isArray(body?.collection) ? body.collection : [];
+
+    const results: TerminologyResult[] = collection
+      .map((item) => this.mapBioPortalItem(item, system))
+      .filter((entry): entry is TerminologyResult => entry !== null)
       .slice(0, limit);
 
     return { results };
+  }
+
+  private mapBioPortalItem(
+    item: BioPortalCollectionItem,
+    system: string,
+  ): TerminologyResult | null {
+    const display = item?.prefLabel?.trim();
+    const code = item?.notation?.trim() || this.extractCodeFromIri(item?.['@id']);
+    if (!display || !code) {
+      return null;
+    }
+    return { code, display, system };
+  }
+
+  private extractCodeFromIri(iri?: string): string {
+    if (!iri) return '';
+    // BioPortal IRIs end with the local code, separated by '/' or '#'.
+    const hashIndex = iri.lastIndexOf('#');
+    if (hashIndex >= 0 && hashIndex < iri.length - 1) {
+      return iri.slice(hashIndex + 1);
+    }
+    const slashIndex = iri.lastIndexOf('/');
+    if (slashIndex >= 0 && slashIndex < iri.length - 1) {
+      return iri.slice(slashIndex + 1);
+    }
+    return iri;
+  }
+
+  // ---- Stub fallback --------------------------------------------------------
+
+  private searchStub(
+    system: string,
+    query: string,
+    limit: number,
+  ): TerminologySearchResult {
+    const candidates = STUB_CODES[system] ?? [];
+    const q = query.toLowerCase();
+    const results = candidates
+      .filter((entry) => entry.display.toLowerCase().includes(q) || entry.code.includes(q))
+      .slice(0, limit);
+    return { results };
+  }
+
+  // ---- LRU cache ------------------------------------------------------------
+
+  private buildCacheKey(system: string, query: string, limit: number): string {
+    return `${system}|${query.toLowerCase()}|${limit}`;
+  }
+
+  private readCache(key: string): TerminologySearchResult | null {
+    const entry = this.cache.get(key);
+    if (!entry) return null;
+    if (entry.expiresAt <= Date.now()) {
+      this.cache.delete(key);
+      return null;
+    }
+    // Refresh recency: re-insert so this key becomes the most-recently-used.
+    this.cache.delete(key);
+    this.cache.set(key, entry);
+    return entry.value;
+  }
+
+  private writeCache(key: string, value: TerminologySearchResult): void {
+    if (this.cache.has(key)) {
+      this.cache.delete(key);
+    }
+    this.cache.set(key, { value, expiresAt: Date.now() + this.cacheTtlMs });
+    while (this.cache.size > this.cacheMaxEntries) {
+      const oldestKey = this.cache.keys().next().value;
+      if (oldestKey === undefined) break;
+      this.cache.delete(oldestKey);
+    }
   }
 }

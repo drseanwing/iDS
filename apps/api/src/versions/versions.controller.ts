@@ -6,6 +6,7 @@ import { CreateVersionDto } from './dto/create-version.dto';
 import { PaginationQueryDto } from '../common/dto';
 import { RbacGuard } from '../auth/rbac.guard';
 import { Roles } from '../auth/roles.decorator';
+import { CurrentUserId } from '../auth/current-user.decorator';
 
 @ApiTags('Versions')
 @ApiBearerAuth()
@@ -17,9 +18,7 @@ export class VersionsController {
   @Post()
   @Roles('ADMIN')
   @ApiOperation({ summary: 'Publish a new guideline version' })
-  publish(@Body() dto: CreateVersionDto) {
-    // TODO: extract userId from JWT when auth is wired
-    const userId = '00000000-0000-0000-0000-000000000001';
+  publish(@Body() dto: CreateVersionDto, @CurrentUserId() userId: string) {
     return this.versionsService.publish(dto, userId);
   }
 

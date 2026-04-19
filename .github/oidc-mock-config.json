@@ -1,0 +1,66 @@
+{
+  "ServerOptions": {
+    "AccessTokenJwtType": "JWT",
+    "Discovery": {
+      "ShowKeySet": true
+    },
+    "IssuerUri": "http://localhost:8080"
+  },
+  "Clients": [
+    {
+      "ClientId": "opengrade-api",
+      "Description": "OpenGRADE API (E2E)",
+      "AllowedGrantTypes": ["password", "client_credentials"],
+      "ClientSecrets": ["e2e-secret"],
+      "AllowedScopes": ["openid", "profile", "email", "roles"],
+      "RequireClientSecret": false,
+      "AccessTokenLifetime": 3600
+    }
+  ],
+  "Users": [
+    {
+      "SubjectId": "00000000-0000-0000-0000-000000000001",
+      "Username": "e2e@example.com",
+      "Password": "e2e-password",
+      "Claims": [
+        { "Type": "email", "Value": "e2e@example.com" },
+        { "Type": "preferred_username", "Value": "e2e" },
+        { "Type": "name", "Value": "E2E Test User" },
+        {
+          "Type": "realm_access",
+          "Value": "{\"roles\":[\"admin\"]}",
+          "ValueType": "json"
+        }
+      ]
+    }
+  ],
+  "IdentityResources": [
+    {
+      "Name": "openid",
+      "DisplayName": "Your user identifier",
+      "Required": true,
+      "UserClaims": ["sub"]
+    },
+    {
+      "Name": "profile",
+      "DisplayName": "User profile",
+      "UserClaims": ["name", "preferred_username"]
+    },
+    {
+      "Name": "email",
+      "DisplayName": "Email",
+      "UserClaims": ["email"]
+    },
+    {
+      "Name": "roles",
+      "DisplayName": "Roles",
+      "UserClaims": ["realm_access"]
+    }
+  ],
+  "ApiScopes": [
+    { "Name": "openid" },
+    { "Name": "profile" },
+    { "Name": "email" },
+    { "Name": "roles" }
+  ]
+}

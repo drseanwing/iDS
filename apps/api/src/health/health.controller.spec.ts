@@ -6,7 +6,7 @@ describe('HealthController', () => {
   let controller: HealthController;
 
   const mockPrisma = {
-    $queryRaw: jest.fn().mockResolvedValue([{ '?column?': 1 }]),
+    healthCheck: jest.fn().mockResolvedValue(undefined),
   };
 
   beforeEach(async () => {
@@ -36,7 +36,7 @@ describe('HealthController', () => {
   });
 
   it('should throw when database is unavailable', async () => {
-    mockPrisma.$queryRaw.mockRejectedValueOnce(new Error('Connection refused'));
+    mockPrisma.healthCheck.mockRejectedValueOnce(new Error('Connection refused'));
     await expect(controller.ready()).rejects.toThrow();
   });
 });

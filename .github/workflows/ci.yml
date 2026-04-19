@@ -1,0 +1,353 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  lint:
+    name: Lint (${{ matrix.workspace }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Only apps/api and apps/web define a `lint` script today.
+        workspace:
+          - '@opengrade/api'
+          - '@opengrade/web'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+      - name: Lint
+        run: npm -w ${{ matrix.workspace }} run lint
+
+  typecheck:
+    name: Typecheck (${{ matrix.project }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - project: apps/api
+            needs_prisma: true
+          - project: apps/web
+            needs_prisma: false
+          - project: packages/fhir
+            needs_prisma: false
+          - project: packages/ui
+            needs_prisma: false
+          - project: packages/widget
+            needs_prisma: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+      - name: Generate Prisma client
+        if: matrix.needs_prisma
+        run: npm -w @opengrade/api run prisma:generate
+      - name: tsc --noEmit
+        working-directory: ${{ matrix.project }}
+        run: npx tsc --noEmit -p tsconfig.json
+
+  test-api:
+    name: Test API
+    runs-on: ubuntu-latest
+    # API unit specs mock PrismaService (verified in apps/api/src/**/*.spec.ts),
+    # so no postgres service is required here. If integration tests are added
+    # that hit a real DB, attach a `postgres:16` service and set DATABASE_URL.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+      - run: npm -w @opengrade/api run prisma:generate
+      - run: npm -w @opengrade/api test
+
+  test-web:
+    name: Test Web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+      # `test` is already `vitest run` in apps/web/package.json.
+      - run: npm -w @opengrade/web test
+
+  test-packages:
+    name: Test Packages
+    runs-on: ubuntu-latest
+    # None of packages/{fhir,ui,widget} currently declare a `test` script.
+    # This job is a no-op today but reserved for when tests are added.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+      - name: Run tests in packages that define a `test` script
+        run: |
+          set -e
+          for pkg in packages/*/package.json; do
+            name=$(node -p "require('./$pkg').name")
+            has_test=$(node -p "!!(require('./$pkg').scripts && require('./$pkg').scripts.test)")
+            if [ "$has_test" = "true" ]; then
+              echo "Running tests for $name"
+              npm -w "$name" test
+            else
+              echo "Skipping $name (no test script)"
+            fi
+          done
+
+  build:
+    name: Build (${{ matrix.workspace }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - workspace: '@opengrade/fhir'
+            artifact: ''
+            path: ''
+          - workspace: '@opengrade/ui'
+            artifact: ''
+            path: ''
+          - workspace: '@opengrade/widget'
+            artifact: widget-dist
+            path: packages/widget/dist
+          - workspace: '@opengrade/api'
+            artifact: api-dist
+            path: apps/api/dist
+          - workspace: '@opengrade/web'
+            artifact: web-dist
+            path: apps/web/dist
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+      - name: Generate Prisma client
+        if: matrix.workspace == '@opengrade/api'
+        run: npm -w @opengrade/api run prisma:generate
+      - name: Build workspace dependencies (fhir, ui) first
+        if: matrix.workspace == '@opengrade/api' || matrix.workspace == '@opengrade/web'
+        run: |
+          npm -w @opengrade/fhir run build
+          npm -w @opengrade/ui run build
+      - name: Build
+        run: npm -w ${{ matrix.workspace }} run build
+      - name: Upload dist artifact
+        if: matrix.artifact != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.path }}
+          if-no-files-found: error
+          retention-days: 7
+
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+    needs: build
+
+    # Postgres runs as a GitHub-managed service (it accepts the standard CMD
+    # and exposes a health check). Minio and the OIDC mock both need custom
+    # start arguments / mounted config files, so they are launched as
+    # `docker run` steps below instead of being declared here.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: opengrade
+          POSTGRES_PASSWORD: opengrade
+          POSTGRES_DB: opengrade_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U opengrade -d opengrade_e2e"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      # Database
+      DATABASE_URL: postgres://opengrade:opengrade@localhost:5432/opengrade_e2e?schema=public
+      # API runtime
+      NODE_ENV: production
+      PORT: '3000'
+      CORS_ORIGIN: http://localhost:4173
+      # OIDC mock — issuer URI matches the value baked into oidc-mock-config.json
+      KEYCLOAK_URL: http://localhost:8080
+      KEYCLOAK_REALM: opengrade-mock
+      KEYCLOAK_CLIENT_ID: opengrade-api
+      AUTH_ISSUER: http://localhost:8080
+      AUTH_JWKS_URL: http://localhost:8080/.well-known/openid-configuration/jwks
+      # S3 / MinIO
+      S3_ENDPOINT: http://localhost:9000
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+      S3_BUCKET: opengrade-e2e
+      S3_REGION: us-east-1
+      S3_FORCE_PATH_STYLE: 'true'
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - run: npm ci
+
+      # ----- Auxiliary services that need custom start args -----
+      - name: Start MinIO (S3-compatible storage)
+        run: |
+          docker run -d --name minio \
+            -p 9000:9000 -p 9001:9001 \
+            -e MINIO_ROOT_USER=${S3_ACCESS_KEY} \
+            -e MINIO_ROOT_PASSWORD=${S3_SECRET_KEY} \
+            --health-cmd "curl -fsS http://localhost:9000/minio/health/ready || exit 1" \
+            --health-interval=5s --health-timeout=5s --health-retries=20 \
+            minio/minio:latest server /data --console-address ":9001"
+
+      - name: Start OIDC mock (Keycloak stand-in)
+        run: |
+          docker run -d --name oidc-mock \
+            -p 8080:8080 \
+            -e ASPNETCORE_ENVIRONMENT=Development \
+            -e SERVER_OPTIONS_INLINE='{"IssuerUri":"http://localhost:8080","AccessTokenJwtType":"JWT"}' \
+            -v "${GITHUB_WORKSPACE}/.github/oidc-mock-config.json:/tmp/config/oidc-config.json:ro" \
+            -e ASPNETCORE_URLS=http://+:8080 \
+            -e CLIENTS_CONFIGURATION_PATH=/tmp/config/oidc-config.json \
+            -e USERS_CONFIGURATION_PATH=/tmp/config/oidc-config.json \
+            -e IDENTITY_RESOURCES_PATH=/tmp/config/oidc-config.json \
+            -e API_SCOPES_PATH=/tmp/config/oidc-config.json \
+            ghcr.io/soluto/oidc-server-mock:latest
+
+      - name: Wait for services (postgres, minio, oidc-mock)
+        run: |
+          set -e
+          # Postgres (the service container's healthcheck already gates the job
+          # but pg_isready here gives us a clear failure message if anything
+          # changes upstream).
+          for i in $(seq 1 30); do
+            if pg_isready -h localhost -p 5432 -U opengrade -d opengrade_e2e; then
+              echo "postgres ready"; break
+            fi
+            echo "waiting for postgres ($i)"; sleep 2
+          done
+
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:9000/minio/health/ready >/dev/null; then
+              echo "minio ready"; break
+            fi
+            echo "waiting for minio ($i)"; sleep 2
+          done
+
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8080/.well-known/openid-configuration >/dev/null; then
+              echo "oidc-mock ready"; break
+            fi
+            echo "waiting for oidc-mock ($i)"; sleep 2
+          done
+
+      - name: Create MinIO bucket
+        run: |
+          docker run --rm --network host \
+            -e AWS_ACCESS_KEY_ID=${S3_ACCESS_KEY} \
+            -e AWS_SECRET_ACCESS_KEY=${S3_SECRET_KEY} \
+            -e AWS_DEFAULT_REGION=${S3_REGION} \
+            amazon/aws-cli:latest \
+            --endpoint-url ${S3_ENDPOINT} s3 mb s3://${S3_BUCKET} || true
+
+      # ----- Database setup -----
+      - name: Apply Prisma migrations
+        working-directory: apps/api
+        run: npx prisma migrate deploy
+
+      - name: Seed database
+        working-directory: apps/api
+        run: npx prisma db seed
+
+      # ----- Pull built artifacts (uploaded by the `build` job) -----
+      - name: Download API dist
+        uses: actions/download-artifact@v4
+        with:
+          name: api-dist
+          path: apps/api/dist
+
+      - name: Download Web dist
+        uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: apps/web/dist
+
+      - name: Generate Prisma client (needed at runtime by the built API)
+        run: npm -w @opengrade/api run prisma:generate
+
+      # ----- Start the API in the background -----
+      - name: Start API
+        run: |
+          node apps/api/dist/main &
+          echo $! > /tmp/api.pid
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:3000/health >/dev/null; then
+              echo "api ready"; exit 0
+            fi
+            echo "waiting for api ($i)"; sleep 1
+          done
+          echo "API never came up"; exit 1
+
+      # ----- Playwright -----
+      # The web tier is started by Playwright's `webServer` config
+      # (`npx vite preview --port 4173`), which spawns from apps/web.
+      - name: Install Playwright browsers
+        working-directory: apps/e2e
+        run: npx playwright install --with-deps
+
+      - name: Run Playwright tests
+        run: npm -w @opengrade/e2e test
+
+      - name: Stop API
+        if: always()
+        run: |
+          if [ -f /tmp/api.pid ]; then kill "$(cat /tmp/api.pid)" || true; fi
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/e2e/playwright-report
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload Playwright test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results
+          path: apps/e2e/test-results
+          if-no-files-found: ignore
+          retention-days: 7

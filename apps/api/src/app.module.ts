@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { LoggerModule } from 'nestjs-pino';
 import { HealthController } from './health/health.controller';
@@ -32,6 +32,7 @@ import { BackupModule } from './backup/backup.module';
 import { RevmanModule } from './revman/revman.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { MetricsInterceptor } from './metrics/metrics.interceptor';
+import { AllExceptionsFilter } from './common/all-exceptions.filter';
 import configuration from './config/configuration';
 
 @Module({
@@ -91,6 +92,7 @@ import configuration from './config/configuration';
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_INTERCEPTOR, useClass: ActivityLoggingInterceptor },
     { provide: APP_INTERCEPTOR, useClass: MetricsInterceptor },
+    { provide: APP_FILTER, useClass: AllExceptionsFilter },
   ],
 })
 export class AppModule {}
