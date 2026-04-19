@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaginatedResponseDto } from '../common/dto';
 import { CreatePicoDto } from './dto/create-pico.dto';
@@ -9,10 +10,13 @@ import { CreatePracticalIssueDto } from './dto/create-practical-issue.dto';
 
 @Injectable()
 export class PicosService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly eventEmitter: EventEmitter2,
+  ) {}
 
   async create(dto: CreatePicoDto) {
-    return this.prisma.pico.create({
+    const pico = await this.prisma.pico.create({
       data: {
         guidelineId: dto.guidelineId,
         population: dto.population,
@@ -22,6 +26,8 @@ export class PicosService {
         fhirMeta: (dto.fhirMeta ?? {}) as Prisma.InputJsonValue,
       },
     });
+    this.eventEmitter.emit('pico.changed', { guidelineId: pico.guidelineId });
+    return pico;
   }
 
   async findByGuideline(guidelineId: string, page = 1, limit = 20) {
@@ -64,25 +70,29 @@ export class PicosService {
   }
 
   async update(id: string, dto: UpdatePicoDto) {
-    await this.findOne(id);
+    const existing = await this.findOne(id);
     const data: Prisma.PicoUpdateInput = {};
     if (dto.population !== undefined) data.population = dto.population;
     if (dto.intervention !== undefined) data.intervention = dto.intervention;
     if (dto.comparator !== undefined) data.comparator = dto.comparator;
     if (dto.narrativeSummary !== undefined) data.narrativeSummary = dto.narrativeSummary;
     if (dto.fhirMeta !== undefined) data.fhirMeta = dto.fhirMeta as Prisma.InputJsonValue;
-    return this.prisma.pico.update({
+    const pico = await this.prisma.pico.update({
       where: { id },
       data,
     });
+    this.eventEmitter.emit('pico.changed', { guidelineId: existing.guidelineId });
+    return pico;
   }
 
   async softDelete(id: string) {
-    await this.findOne(id);
-    return this.prisma.pico.update({
+    const existing = await this.findOne(id);
+    const pico = await this.prisma.pico.update({
       where: { id },
       data: { isDeleted: true },
     });
+    this.eventEmitter.emit('pico.changed', { guidelineId: existing.guidelineId });
+    return pico;
   }
 
   async addCode(picoId: string, dto: CreatePicoCodeDto) {
