@@ -5,6 +5,8 @@ import { DashboardPage } from './pages/DashboardPage';
 import { GuidelinesPage } from './pages/GuidelinesPage';
 import { ReferencesPage } from './pages/ReferencesPage';
 import { GuidelineWorkspacePage } from './pages/GuidelineWorkspacePage';
+import { UpdatePrompt } from './components/pwa/UpdatePrompt';
+import { InstallPrompt } from './components/pwa/InstallPrompt';
 
 type AppPath = 'dashboard' | 'guidelines' | 'references' | 'workspace';
 
@@ -38,6 +40,8 @@ function App() {
             onBack={handleBackFromWorkspace}
           />
         </AppShell>
+        <UpdatePrompt />
+        <InstallPrompt />
       </I18nProvider>
     );
   }
@@ -59,6 +63,8 @@ function App() {
       <AppShell activePath={path} onNavigate={handleNavigate}>
         {page}
       </AppShell>
+      <UpdatePrompt />
+      <InstallPrompt />
     </I18nProvider>
   );
 }
