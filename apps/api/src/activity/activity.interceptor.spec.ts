@@ -287,6 +287,7 @@ describe('ActivityLoggingInterceptor', () => {
       path: '/some-unknown-route',
       params: { id: ENTITY_ID },
       body: {},
+      user: { sub: USER_ID },
     });
     const handler = buildHandler({ id: ENTITY_ID });
     await lastValueFrom(interceptor.intercept(ctx, handler));
@@ -301,6 +302,7 @@ describe('ActivityLoggingInterceptor', () => {
       method: 'POST',
       path: '/sections',
       body: { guidelineId: GUIDELINE_ID },
+      user: { sub: USER_ID },
     });
     const handler = buildHandler({ id: ENTITY_ID, guidelineId: GUIDELINE_ID });
     await expect(lastValueFrom(interceptor.intercept(ctx, handler))).resolves.not.toThrow();
