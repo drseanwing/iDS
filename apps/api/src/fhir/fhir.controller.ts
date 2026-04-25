@@ -9,8 +9,10 @@ import {
   NotFoundException,
   Header,
   UseInterceptors,
+  Req,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiParam, ApiQuery, ApiBody } from '@nestjs/swagger';
+import { Request } from 'express';
 import { FhirEtagInterceptor } from './fhir-etag.interceptor';
 import { PrismaService } from '../prisma/prisma.service';
 import { GuidelineCompositionProjection } from './projections/guideline-to-composition';
@@ -20,6 +22,7 @@ import { PicoEvidenceProjection } from './projections/pico-to-evidence';
 import { FhirValidationService } from './fhir-validation.service';
 import { coiToProvenance } from './projections/coi-to-provenance';
 import { activityToAuditEvent } from './projections/activity-to-audit-event';
+import { Public } from '../auth/public.decorator';
 
 /**
  * Read-only FHIR R5 facade.
@@ -39,6 +42,80 @@ export class FhirController {
     private readonly evidenceProjection: PicoEvidenceProjection,
     private readonly fhirValidation: FhirValidationService,
   ) {}
+
+  // ── CapabilityStatement ─────────────────────────────────────
+
+  @Get('metadata')
+  @Public()
+  @Header('Content-Type', 'application/fhir+json')
+  @ApiOperation({ summary: 'FHIR R5 CapabilityStatement (server metadata)' })
+  getMetadata() {
+    return {
+      resourceType: 'CapabilityStatement',
+      name: 'OpenGRADECapabilityStatement',
+      title: 'OpenGRADE FHIR Facade',
+      status: 'active',
+      date: new Date().toISOString(),
+      kind: 'instance',
+      software: { name: 'OpenGRADE', version: '1.0.0' },
+      fhirVersion: '5.0.0',
+      format: ['application/fhir+json'],
+      rest: [
+        {
+          mode: 'server',
+          resource: [
+            {
+              type: 'Composition',
+              interaction: [{ code: 'read' }],
+              searchParam: [{ name: '_id', type: 'token' }],
+            },
+            {
+              type: 'Citation',
+              interaction: [{ code: 'read' }, { code: 'search-type' }],
+              searchParam: [
+                { name: '_id', type: 'token' },
+                { name: 'title:contains', type: 'string' },
+              ],
+            },
+            {
+              type: 'PlanDefinition',
+              interaction: [{ code: 'read' }, { code: 'search-type' }],
+              searchParam: [
+                { name: '_id', type: 'token' },
+                { name: 'status', type: 'token' },
+                { name: 'title:contains', type: 'string' },
+              ],
+            },
+            {
+              type: 'Evidence',
+              interaction: [{ code: 'read' }, { code: 'search-type' }],
+              searchParam: [{ name: '_id', type: 'token' }],
+            },
+            {
+              type: 'Bundle',
+              interaction: [{ code: 'read' }],
+            },
+            {
+              type: 'Provenance',
+              interaction: [{ code: 'read' }],
+            },
+            {
+              type: 'AuditEvent',
+              interaction: [{ code: 'search-type' }],
+              searchParam: [
+                { name: 'entity', type: 'reference' },
+                { name: 'date', type: 'date' },
+              ],
+            },
+            {
+              type: 'OperationDefinition',
+              interaction: [{ code: 'read' }],
+            },
+          ],
+        },
+      ],
+    };
+  }
 
   // ── Validation ──────────────────────────────────────────────
 
@@ -68,7 +145,49 @@ export class FhirController {
     return this.compositionProjection.toComposition(guideline);
   }
 
-  // ── Citation (Reference) ────────────────────────────────────
+  // ── Citation (Reference) search-type ───────────────────────
+
+  @Get('Citation')
+  @Header('Content-Type', 'application/fhir+json')
+  @ApiOperation({ summary: 'Search references as FHIR R5 Citation resources (searchset Bundle)' })
+  @ApiQuery({ name: '_id', required: false, description: 'Filter by Reference UUID' })
+  @ApiQuery({ name: 'title', required: false, description: 'Filter by title (case-insensitive contains)' })
+  @ApiQuery({ name: '_count', required: false, description: 'Page size (default 20)' })
+  @ApiQuery({ name: '_offset', required: false, description: 'Page offset (default 0)' })
+  async searchCitation(
+    @Req() req: Request,
+    @Query('_id') id?: string,
+    @Query('title') title?: string,
+    @Query('_count') count = '20',
+    @Query('_offset') offset = '0',
+  ) {
+    const take = Math.max(1, parseInt(count, 10) || 20);
+    const skip = Math.max(0, parseInt(offset, 10) || 0);
+
+    const where: any = { isDeleted: false };
+    if (id) where.id = id;
+    if (title) where.title = { contains: title, mode: 'insensitive' };
+
+    const [references, total] = await Promise.all([
+      this.prisma.reference.findMany({ where, take, skip }),
+      this.prisma.reference.count({ where }),
+    ]);
+
+    const selfUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+
+    return {
+      resourceType: 'Bundle',
+      type: 'searchset',
+      total,
+      link: [{ relation: 'self', url: selfUrl }],
+      entry: references.map((ref) => ({
+        fullUrl: `urn:uuid:${ref.id}`,
+        resource: this.citationProjection.toCitation(ref),
+      })),
+    };
+  }
+
+  // ── Citation (Reference) read ───────────────────────────────
 
   @Get('Citation/:id')
   @Header('Content-Type', 'application/fhir+json')
@@ -86,7 +205,52 @@ export class FhirController {
     return this.citationProjection.toCitation(reference);
   }
 
-  // ── PlanDefinition (Recommendation) ─────────────────────────
+  // ── PlanDefinition (Recommendation) search-type ─────────────
+
+  @Get('PlanDefinition')
+  @Header('Content-Type', 'application/fhir+json')
+  @ApiOperation({ summary: 'Search recommendations as FHIR R5 PlanDefinition resources (searchset Bundle)' })
+  @ApiQuery({ name: '_id', required: false, description: 'Filter by Recommendation UUID' })
+  @ApiQuery({ name: 'status', required: false, description: 'Filter by status' })
+  @ApiQuery({ name: 'title', required: false, description: 'Filter by title (case-insensitive contains)' })
+  @ApiQuery({ name: '_count', required: false, description: 'Page size (default 20)' })
+  @ApiQuery({ name: '_offset', required: false, description: 'Page offset (default 0)' })
+  async searchPlanDefinition(
+    @Req() req: Request,
+    @Query('_id') id?: string,
+    @Query('status') status?: string,
+    @Query('title') title?: string,
+    @Query('_count') count = '20',
+    @Query('_offset') offset = '0',
+  ) {
+    const take = Math.max(1, parseInt(count, 10) || 20);
+    const skip = Math.max(0, parseInt(offset, 10) || 0);
+
+    const where: any = { isDeleted: false };
+    if (id) where.id = id;
+    if (status) where.recStatus = status;
+    if (title) where.title = { contains: title, mode: 'insensitive' };
+
+    const [recommendations, total] = await Promise.all([
+      this.prisma.recommendation.findMany({ where, take, skip }),
+      this.prisma.recommendation.count({ where }),
+    ]);
+
+    const selfUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+
+    return {
+      resourceType: 'Bundle',
+      type: 'searchset',
+      total,
+      link: [{ relation: 'self', url: selfUrl }],
+      entry: recommendations.map((rec) => ({
+        fullUrl: `urn:uuid:${rec.id}`,
+        resource: this.planDefinitionProjection.toPlanDefinition(rec),
+      })),
+    };
+  }
+
+  // ── PlanDefinition (Recommendation) read ────────────────────
 
   @Get('PlanDefinition/:id')
   @Header('Content-Type', 'application/fhir+json')
@@ -104,7 +268,51 @@ export class FhirController {
     return this.planDefinitionProjection.toPlanDefinition(recommendation);
   }
 
-  // ── Evidence (PICO) ─────────────────────────────────────────
+  // ── Evidence (PICO) search-type ─────────────────────────────
+
+  @Get('Evidence')
+  @Header('Content-Type', 'application/fhir+json')
+  @ApiOperation({ summary: 'Search PICOs as FHIR R5 Evidence resources (searchset Bundle)' })
+  @ApiQuery({ name: '_id', required: false, description: 'Filter by PICO UUID' })
+  @ApiQuery({ name: '_count', required: false, description: 'Page size (default 20)' })
+  @ApiQuery({ name: '_offset', required: false, description: 'Page offset (default 0)' })
+  async searchEvidence(
+    @Req() req: Request,
+    @Query('_id') id?: string,
+    @Query('_count') count = '20',
+    @Query('_offset') offset = '0',
+  ) {
+    const take = Math.max(1, parseInt(count, 10) || 20);
+    const skip = Math.max(0, parseInt(offset, 10) || 0);
+
+    const where: any = { isDeleted: false };
+    if (id) where.id = id;
+
+    const [picos, total] = await Promise.all([
+      this.prisma.pico.findMany({
+        where,
+        take,
+        skip,
+        include: { outcomes: true, codes: true },
+      }),
+      this.prisma.pico.count({ where }),
+    ]);
+
+    const selfUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+
+    return {
+      resourceType: 'Bundle',
+      type: 'searchset',
+      total,
+      link: [{ relation: 'self', url: selfUrl }],
+      entry: picos.map((pico) => ({
+        fullUrl: `urn:uuid:${pico.id}`,
+        resource: this.evidenceProjection.toEvidence(pico),
+      })),
+    };
+  }
+
+  // ── Evidence (PICO) read ─────────────────────────────────────
 
   @Get('Evidence/:id')
   @Header('Content-Type', 'application/fhir+json')
