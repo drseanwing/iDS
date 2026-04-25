@@ -77,13 +77,14 @@ describe('SectionsService', () => {
     it('should throw UnprocessableEntityException when creating a level-4 section (parentId with depth 3)', async () => {
       // parent has grandparent, grandparent has great-grandparent, great-grandparent has no parent → parent depth 3
       mockPrismaService.section.findUnique
-        .mockResolvedValueOnce({ parentId: 'grandparent-1' })      // parent lookup
+        .mockResolvedValueOnce({ parentId: 'grandparent-1' })       // parent lookup
         .mockResolvedValueOnce({ parentId: 'great-grandparent-1' }) // grandparent lookup
         .mockResolvedValueOnce({ parentId: null });                  // great-grandparent lookup
       const dto = { guidelineId: 'g-1', title: 'Too deep', parentId: 'parent-3' };
 
-      await expect(service.create(dto as any)).rejects.toThrow(UnprocessableEntityException);
-      await expect(service.create(dto as any)).rejects.toThrow('Section nesting cannot exceed 3 levels');
+      await expect(service.create(dto as any)).rejects.toThrow(
+        new UnprocessableEntityException('Section nesting cannot exceed 3 levels'),
+      );
       expect(mockPrismaService.section.create).not.toHaveBeenCalled();
     });
   });

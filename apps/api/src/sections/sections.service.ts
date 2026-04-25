@@ -122,9 +122,12 @@ export class SectionsService {
     let depth = 1;
     let currentId: string | null = sectionId;
     while (currentId) {
-      const section = await this.prisma.section.findUnique({ where: { id: currentId }, select: { parentId: true } });
-      if (!section) break;
-      currentId = section.parentId;
+      const row: { parentId: string | null } | null = await this.prisma.section.findUnique({
+        where: { id: currentId },
+        select: { parentId: true },
+      });
+      if (!row) break;
+      currentId = row.parentId;
       if (currentId) depth++;
     }
     return depth;

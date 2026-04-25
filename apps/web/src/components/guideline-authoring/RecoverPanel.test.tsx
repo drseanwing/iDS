@@ -140,7 +140,8 @@ describe('RecoverPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /restore/i }));
 
     await waitFor(() => {
-      expect(postMock).toHaveBeenCalledWith('/sections/sec-1/restore', undefined);
+      // apiClient.post is called with the URL only (no body)
+      expect(postMock).toHaveBeenCalledWith('/sections/sec-1/restore');
     });
   });
 
@@ -161,7 +162,8 @@ describe('RecoverPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /restore/i }));
 
     await waitFor(() => {
-      expect(postMock).toHaveBeenCalledWith('/guidelines/gl-deleted/restore', undefined);
+      // apiClient.post is called with the URL only (no body)
+      expect(postMock).toHaveBeenCalledWith('/guidelines/gl-deleted/restore');
     });
   });
 });
