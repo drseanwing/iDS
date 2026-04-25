@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaginatedResponseDto } from '../common/dto';
@@ -11,6 +11,12 @@ export class SectionsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateSectionDto) {
+    if (dto.parentId) {
+      const depth = await this.getDepth(dto.parentId);
+      if (depth >= 3) {
+        throw new UnprocessableEntityException('Section nesting cannot exceed 3 levels');
+      }
+    }
     return this.prisma.section.create({
       data: {
         guidelineId: dto.guidelineId,
@@ -110,5 +116,17 @@ export class SectionsService {
       where: { id },
       data: { isDeleted: false },
     });
+  }
+
+  private async getDepth(sectionId: string): Promise<number> {
+    let depth = 1;
+    let currentId: string | null = sectionId;
+    while (currentId) {
+      const section = await this.prisma.section.findUnique({ where: { id: currentId }, select: { parentId: true } });
+      if (!section) break;
+      currentId = section.parentId;
+      if (currentId) depth++;
+    }
+    return depth;
   }
 }

@@ -585,6 +585,364 @@ export class GuidelinesService {
     });
   }
 
+  async clone(id: string, userId: string) {
+    // 1. Fetch source guideline with all nested data
+    const source = await this.prisma.guideline.findUnique({
+      where: { id },
+      include: {
+        sections: {
+          where: { isDeleted: false },
+          orderBy: { ordering: 'asc' },
+          include: {
+            sectionReferences: { orderBy: { ordering: 'asc' } },
+            sectionPicos: { orderBy: { ordering: 'asc' } },
+            sectionRecommendations: { orderBy: { ordering: 'asc' } },
+          },
+        },
+        references: {
+          where: { isDeleted: false },
+        },
+        recommendations: {
+          where: { isDeleted: false },
+          orderBy: { ordering: 'asc' },
+          include: {
+            etdFactors: {
+              orderBy: { ordering: 'asc' },
+              include: { judgments: true },
+            },
+            picoLinks: true,
+          },
+        },
+        picos: {
+          where: { isDeleted: false },
+          include: {
+            outcomes: {
+              where: { isDeleted: false },
+              orderBy: { ordering: 'asc' },
+              include: { referenceLinks: true },
+            },
+            codes: true,
+            practicalIssues: { orderBy: { ordering: 'asc' } },
+            sectionPlacements: true,
+            recommendationLinks: true,
+          },
+        },
+      },
+    });
+
+    if (!source || source.isDeleted) {
+      throw new NotFoundException(`Guideline ${id} not found`);
+    }
+
+    // 2. Determine a unique shortName
+    const uniqueShortName = await this.generateUniqueShortName(source.shortName ?? null);
+
+    return this.prisma.$transaction(async (tx) => {
+      // 3. Create the new guideline
+      const newGuideline = await tx.guideline.create({
+        data: {
+          title: `COPY OF ${source.title}`,
+          shortName: uniqueShortName,
+          description: source.description,
+          disclaimer: source.disclaimer,
+          funding: source.funding,
+          contactName: source.contactName,
+          contactEmail: source.contactEmail,
+          language: source.language,
+          guidelineType: source.guidelineType,
+          organizationId: source.organizationId,
+          etdMode: source.etdMode,
+          showSectionNumbers: source.showSectionNumbers,
+          showCertaintyInLabel: source.showCertaintyInLabel,
+          showGradeDescription: source.showGradeDescription,
+          trackChangesDefault: source.trackChangesDefault,
+          enableSubscriptions: source.enableSubscriptions,
+          enablePublicComments: source.enablePublicComments,
+          showSectionTextPreview: source.showSectionTextPreview,
+          pdfColumnLayout: source.pdfColumnLayout,
+          picoDisplayMode: source.picoDisplayMode,
+          coverPageUrl: source.coverPageUrl,
+          isPublic: false,
+          fhirMeta: source.fhirMeta as Prisma.InputJsonValue,
+          createdBy: userId,
+          // status defaults to DRAFT; versions are NOT copied
+        },
+      });
+
+      // 4. Deep-copy sections, preserving the parent/child tree
+      const sectionIdMap = new Map<string, string>();
+      const sortedSections = this.topologicallySortSections(source.sections as any[]);
+
+      for (const s of sortedSections) {
+        const newParentId = s.parentId ? (sectionIdMap.get(s.parentId) ?? null) : null;
+        const newSection = await tx.section.create({
+          data: {
+            guidelineId: newGuideline.id,
+            title: s.title,
+            text: s.text as Prisma.InputJsonValue ?? Prisma.JsonNull,
+            ordering: s.ordering,
+            nestingLevel: s.nestingLevel,
+            excludeFromNumbering: s.excludeFromNumbering,
+            parentId: newParentId,
+          },
+        });
+        sectionIdMap.set(s.id, newSection.id);
+      }
+
+      // 5. Deep-copy references (oldRefId → newRefId)
+      const refIdMap = new Map<string, string>();
+      for (const ref of source.references) {
+        const newRef = await tx.reference.create({
+          data: {
+            guidelineId: newGuideline.id,
+            title: ref.title,
+            authors: ref.authors,
+            year: ref.year,
+            abstract: ref.abstract,
+            pubmedId: ref.pubmedId,
+            doi: ref.doi,
+            url: ref.url,
+            studyType: ref.studyType,
+            fhirMeta: ref.fhirMeta as Prisma.InputJsonValue,
+          },
+        });
+        refIdMap.set(ref.id, newRef.id);
+      }
+
+      // 6. Deep-copy recommendations (oldRecId → newRecId)
+      const recIdMap = new Map<string, string>();
+      for (const rec of source.recommendations) {
+        const newRec = await tx.recommendation.create({
+          data: {
+            guidelineId: newGuideline.id,
+            title: rec.title,
+            description: rec.description as Prisma.InputJsonValue,
+            strength: rec.strength,
+            recommendationType: rec.recommendationType,
+            header: rec.header,
+            remark: rec.remark as Prisma.InputJsonValue ?? Prisma.JsonNull,
+            rationale: rec.rationale as Prisma.InputJsonValue ?? Prisma.JsonNull,
+            practicalInfo: rec.practicalInfo as Prisma.InputJsonValue ?? Prisma.JsonNull,
+            recStatus: rec.recStatus,
+            certaintyOfEvidence: rec.certaintyOfEvidence,
+            ordering: rec.ordering,
+            isHidden: rec.isHidden,
+            fhirMeta: rec.fhirMeta as Prisma.InputJsonValue,
+            createdBy: userId,
+            updatedBy: userId,
+          },
+        });
+        recIdMap.set(rec.id, newRec.id);
+
+        // Copy EtdFactors and their judgments
+        for (const factor of (rec as any).etdFactors ?? []) {
+          const newFactor = await tx.etdFactor.create({
+            data: {
+              recommendationId: newRec.id,
+              factorType: factor.factorType,
+              ordering: factor.ordering,
+              summaryText: factor.summaryText as Prisma.InputJsonValue ?? Prisma.JsonNull,
+              researchEvidence: factor.researchEvidence as Prisma.InputJsonValue ?? Prisma.JsonNull,
+              additionalConsiderations: factor.additionalConsiderations as Prisma.InputJsonValue ?? Prisma.JsonNull,
+              summaryPublic: factor.summaryPublic,
+              evidencePublic: factor.evidencePublic,
+              considerationsPublic: factor.considerationsPublic,
+            },
+          });
+          for (const judgment of factor.judgments ?? []) {
+            await tx.etdJudgment.create({
+              data: {
+                etdFactorId: newFactor.id,
+                interventionLabel: judgment.interventionLabel,
+                judgment: judgment.judgment,
+                colorCode: judgment.colorCode,
+              },
+            });
+          }
+        }
+      }
+
+      // 7. Deep-copy PICOs (oldPicoId → newPicoId)
+      const picoIdMap = new Map<string, string>();
+      for (const pico of source.picos) {
+        const newPico = await tx.pico.create({
+          data: {
+            guidelineId: newGuideline.id,
+            population: pico.population,
+            intervention: pico.intervention,
+            comparator: pico.comparator,
+            narrativeSummary: pico.narrativeSummary as Prisma.InputJsonValue ?? Prisma.JsonNull,
+            fhirMeta: pico.fhirMeta as Prisma.InputJsonValue,
+            importSource: pico.importSource,
+          },
+        });
+        picoIdMap.set(pico.id, newPico.id);
+
+        // Copy PicoCodes
+        for (const code of (pico as any).codes ?? []) {
+          await tx.picoCode.create({
+            data: {
+              picoId: newPico.id,
+              codeSystem: code.codeSystem,
+              code: code.code,
+              display: code.display,
+              element: code.element,
+            },
+          });
+        }
+
+        // Copy PracticalIssues
+        for (const issue of (pico as any).practicalIssues ?? []) {
+          await tx.practicalIssue.create({
+            data: {
+              picoId: newPico.id,
+              category: issue.category,
+              title: issue.title,
+              description: issue.description as Prisma.InputJsonValue ?? Prisma.JsonNull,
+              ordering: issue.ordering,
+            },
+          });
+        }
+
+        // Copy Outcomes (including outcome→reference links)
+        const outcomeIdMap = new Map<string, string>();
+        for (const outcome of (pico as any).outcomes ?? []) {
+          const newOutcome = await tx.outcome.create({
+            data: {
+              picoId: newPico.id,
+              title: outcome.title,
+              outcomeType: outcome.outcomeType,
+              state: outcome.state,
+              ordering: outcome.ordering,
+              importance: outcome.importance,
+              effectMeasure: outcome.effectMeasure,
+              relativeEffect: outcome.relativeEffect,
+              relativeEffectLower: outcome.relativeEffectLower,
+              relativeEffectUpper: outcome.relativeEffectUpper,
+              baselineRisk: outcome.baselineRisk,
+              absoluteEffectIntervention: outcome.absoluteEffectIntervention,
+              absoluteEffectComparison: outcome.absoluteEffectComparison,
+              interventionParticipants: outcome.interventionParticipants,
+              comparisonParticipants: outcome.comparisonParticipants,
+              numberOfStudies: outcome.numberOfStudies,
+              continuousUnit: outcome.continuousUnit,
+              continuousScaleLower: outcome.continuousScaleLower,
+              continuousScaleUpper: outcome.continuousScaleUpper,
+              certaintyOverall: outcome.certaintyOverall,
+              riskOfBias: outcome.riskOfBias,
+              inconsistency: outcome.inconsistency,
+              indirectness: outcome.indirectness,
+              imprecision: outcome.imprecision,
+              publicationBias: outcome.publicationBias,
+              largeEffect: outcome.largeEffect,
+              doseResponse: outcome.doseResponse,
+              plausibleConfounding: outcome.plausibleConfounding,
+              gradeFootnotes: outcome.gradeFootnotes as Prisma.InputJsonValue ?? Prisma.JsonNull,
+              plainLanguageSummary: outcome.plainLanguageSummary,
+              isShadow: false, // shadow relationships are not carried over
+            },
+          });
+          outcomeIdMap.set(outcome.id, newOutcome.id);
+
+          // Copy OutcomeReference links (using new reference IDs)
+          for (const link of outcome.referenceLinks ?? []) {
+            const newRefId = refIdMap.get(link.referenceId);
+            if (newRefId) {
+              await tx.outcomeReference.create({
+                data: { outcomeId: newOutcome.id, referenceId: newRefId },
+              });
+            }
+          }
+        }
+      }
+
+      // 8. Copy join-table rows (SectionReference, SectionPico, SectionRecommendation)
+      //    using the new IDs from the maps built above
+      for (const s of source.sections) {
+        const newSectionId = sectionIdMap.get(s.id);
+        if (!newSectionId) continue;
+
+        for (const sr of (s as any).sectionReferences ?? []) {
+          const newRefId = refIdMap.get(sr.referenceId);
+          if (newRefId) {
+            await tx.sectionReference.create({
+              data: { sectionId: newSectionId, referenceId: newRefId, ordering: sr.ordering },
+            });
+          }
+        }
+
+        for (const sp of (s as any).sectionPicos ?? []) {
+          const newPicoId = picoIdMap.get(sp.picoId);
+          if (newPicoId) {
+            await tx.sectionPico.create({
+              data: { sectionId: newSectionId, picoId: newPicoId, ordering: sp.ordering },
+            });
+          }
+        }
+
+        for (const srec of (s as any).sectionRecommendations ?? []) {
+          const newRecId = recIdMap.get(srec.recommendationId);
+          if (newRecId) {
+            await tx.sectionRecommendation.create({
+              data: { sectionId: newSectionId, recommendationId: newRecId, ordering: srec.ordering },
+            });
+          }
+        }
+      }
+
+      // 9. Copy PicoRecommendation links
+      for (const rec of source.recommendations) {
+        const newRecId = recIdMap.get(rec.id);
+        if (!newRecId) continue;
+        for (const link of (rec as any).picoLinks ?? []) {
+          const newPicoId = picoIdMap.get(link.picoId);
+          if (newPicoId) {
+            await tx.picoRecommendation.create({
+              data: { picoId: newPicoId, recommendationId: newRecId },
+            });
+          }
+        }
+      }
+
+      // 10. Add GuidelinePermission for the cloning user as ADMIN
+      await tx.guidelinePermission.create({
+        data: {
+          guidelineId: newGuideline.id,
+          userId,
+          role: GuidelineRole.ADMIN,
+        },
+      });
+
+      return newGuideline;
+    });
+  }
+
+  private async generateUniqueShortName(originalShortName: string | null): Promise<string | undefined> {
+    if (!originalShortName) return undefined;
+
+    const base = `${originalShortName}-copy`;
+
+    // Check if `base` is available
+    const existing = await this.prisma.guideline.findFirst({
+      where: { shortName: base },
+      select: { id: true },
+    });
+    if (!existing) return base;
+
+    // Try `-copy-2` through `-copy-10`
+    for (let i = 2; i <= 10; i++) {
+      const candidate = `${originalShortName}-copy-${i}`;
+      const taken = await this.prisma.guideline.findFirst({
+        where: { shortName: candidate },
+        select: { id: true },
+      });
+      if (!taken) return candidate;
+    }
+
+    // Fallback: append a timestamp suffix
+    return `${originalShortName}-copy-${Date.now()}`;
+  }
+
   private topologicallySortSections(sections: any[]): any[] {
     const ids = new Set(sections.map((s) => s.id));
     const result: any[] = [];

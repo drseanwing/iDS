@@ -267,6 +267,26 @@ export class GuidelinesController {
     return this.guidelinesService.importGuideline(exportData, organizationId, userId);
   }
 
+  @Post(':id/clone')
+  @Roles('ADMIN', 'AUTHOR')
+  @ApiOperation({
+    summary: 'Clone a guideline (deep copy)',
+    description:
+      'Creates a full deep-copy of the guideline, including all sections (preserving the tree structure), ' +
+      'references, recommendations (with EtD factors), and PICOs (with outcomes and codes). ' +
+      'The new guideline title is prefixed with "COPY OF ", status is reset to DRAFT, ' +
+      'and version history is not copied. The requesting user becomes the ADMIN owner.',
+  })
+  @ApiParam({ name: 'id', description: 'Guideline UUID to clone' })
+  @ApiResponse({ status: 201, description: 'Cloned guideline record returned' })
+  @ApiResponse({ status: 401, description: 'Unauthorized – missing or invalid bearer token' })
+  @ApiResponse({ status: 403, description: 'Forbidden – requires AUTHOR or ADMIN role' })
+  @ApiResponse({ status: 404, description: 'Source guideline not found' })
+  clone(@Param('id', ParseUUIDPipe) id: string, @Req() req: any) {
+    const userId: string = req.user?.sub ?? req.user?.id ?? 'system';
+    return this.guidelinesService.clone(id, userId);
+  }
+
   @Post(':id/restore')
   @Roles('ADMIN')
   @ApiOperation({

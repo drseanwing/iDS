@@ -4,7 +4,7 @@ Source docs:
 - `opengrade-architecture.md`
 - `compass_artifact_wf-ac90d96b-1eee-4206-9b48-09594f3da2b5_text_markdown.md` (MAGICapp reverse-engineering technical specification artifact)
 
-> **Audit status**: Last reviewed 2026-03-20. All items verified. 25 API test suites (396 tests), 10 web test files, 5 E2E spec files. All phases complete.
+> **Audit status**: Last reviewed 2026-04-25. All items verified. Phase 7 terminology now fully complete. New tasks identified: FHIR CapabilityStatement endpoint, FHIR search interactions, guideline clone, section nesting validation, 6 missing component tests. See Consolidated Bug/Gap Registry below.
 > Legend: `[x]` = implemented & verified | `[~]` = partially implemented / known gap | `[ ]` = not yet started
 
 ---
@@ -135,7 +135,7 @@ Source docs:
 - [x] Implement read-only `/fhir/*` facade endpoints with core search params. — **fixed** (Added `FhirController` with `GET /fhir/Composition/:id`, `GET /fhir/Citation/:id`, `GET /fhir/PlanDefinition/:id`, `GET /fhir/Evidence/:id`.)
 - [x] Implement guideline version snapshot as FHIR Bundle document export. — **fixed** (Added `GET /fhir/Bundle/:guidelineId` returning a FHIR Bundle of type 'document' with all resources.)
 - [x] Add ETag/Last-Modified support for FHIR read operations. — **fixed** (Created `FhirEtagInterceptor` applied to all FHIR controller endpoints; computes MD5 ETag from response body, sets Last-Modified from `meta.lastUpdated`, supports If-None-Match conditional requests returning 304.)
-- [~] Implement terminology lookup integration (SNOMED CT, ICD-10, ATC, RxNorm) via BioPortal proxy with Redis cache. — **partially fixed** (Added `TerminologyModule` with `GET /terminology/search?system=&query=&limit=` endpoint. Currently uses hardcoded stub data (~20 codes per system) with substring search. Designed for swap to BioPortal API proxy + Redis cache.)
+- [x] Implement terminology lookup integration (SNOMED CT, ICD-10, ATC, RxNorm) via BioPortal proxy with Redis cache. — **fixed** (TerminologyModule with `GET /terminology/search?system=&query=&limit=` endpoint. Full BioPortal proxy with 24-hour Redis cache (KeyvRedis + @nestjs/cache-manager). Falls back to in-memory stub when BIOPORTAL_API_KEY is unset. Gracefully degrades if Redis is unavailable.)
 - [x] Implement EMR element modeling on recommendations. — **fixed** (EmrElement model exists in schema; added CRUD endpoints `POST/GET/DELETE /recommendations/:id/emr-elements` with `CreateEmrElementDto` supporting elementType, codeSystem, code, display, implementationDescription.)
 - [x] Build clinical codes API for downstream EHR consumption. — **fixed** (Added `GET /guidelines/:id/clinical-codes` aggregating all PicoCodes and EmrElements for a guideline.)
 - [x] Validate produced resources against selected CPG-on-FHIR and EBM-on-FHIR profiles. — **fixed** (Added `FhirValidationService` with per-resource-type validation: checks `resourceType`, `id`, `meta.profile`, and type-specific fields. `POST /fhir/$validate` endpoint accepts any FHIR resource and returns `{ valid, errors }`.)
@@ -226,6 +226,15 @@ The following items are confirmed bugs or incomplete wiring in the current codeb
 | ~~O-03~~ | ~~Auth~~ | **Fixed** — RbacGuard checks org-level ADMIN membership and guideline-level `GuidelinePermission` role against `@Roles()` requirements |
 | ~~O-04~~ | ~~Ops~~ | **Fixed** — Added `GET /health/ready` endpoint with database connectivity check (`$queryRaw SELECT 1`); returns 503 when DB unavailable |
 | ~~O-05~~ | ~~Testing~~ | **Fixed** — Added Playwright E2E test suite at `apps/e2e/` (65 tests, 100% pass rate). Covers: navigation, dashboard stats, guidelines CRUD, guideline workspace tabs, section tree, references page, error/empty states. Found and fixed ActivityLogPanel crash (see B-05 below). |
+
+### P4 — Feature gaps (identified 2026-04-25)
+| # | Area | Issue |
+|---|------|-------|
+| F-01 | API / FHIR | Missing `GET /fhir/metadata` CapabilityStatement endpoint — required for FHIR R5 server conformance |
+| F-02 | API / FHIR | No FHIR search-type interactions — `GET /fhir/PlanDefinition`, `GET /fhir/Evidence`, `GET /fhir/Citation` with standard search params |
+| F-03 | API / Guidelines | Missing `POST /guidelines/:id/clone` endpoint — spec Task 1.1.1 requires deep-copy clone |
+| F-04 | API / Sections | `SectionsService.create()` does not enforce max 3-level nesting — spec Task 1.1.2 requires UnprocessableEntityException at depth > 3 |
+| F-05 | Frontend / Tests | 6 components lack test files: CoiDashboard, PermissionManagementPanel, RecoverPanel, RevManImportWizard, ShadowOutcomePanel, VersionCompareDialog |
 
 ---
 
