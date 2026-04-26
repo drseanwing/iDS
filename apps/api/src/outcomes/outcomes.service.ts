@@ -5,11 +5,85 @@ import { PaginatedResponseDto } from '../common/dto';
 import { CreateOutcomeDto } from './dto/create-outcome.dto';
 import { UpdateOutcomeDto } from './dto/update-outcome.dto';
 
+// Local enum mirrors matching the Prisma-generated enums so the algorithm
+// can be used without importing directly from @prisma/client in tests.
+type GradeRating = 'NOT_SERIOUS' | 'SERIOUS' | 'VERY_SERIOUS';
+type UpgradeRating = 'NONE' | 'PRESENT' | 'LARGE' | 'VERY_LARGE';
+type CertaintyLevel = 'HIGH' | 'MODERATE' | 'LOW' | 'VERY_LOW';
+
+interface GradeFactors {
+  riskOfBias?: GradeRating | null;
+  inconsistency?: GradeRating | null;
+  indirectness?: GradeRating | null;
+  imprecision?: GradeRating | null;
+  publicationBias?: GradeRating | null;
+  largeEffect?: UpgradeRating | null;
+  doseResponse?: UpgradeRating | null;
+  plausibleConfounding?: UpgradeRating | null;
+}
+
+const CERTAINTY_LEVELS: CertaintyLevel[] = ['VERY_LOW', 'LOW', 'MODERATE', 'HIGH'];
+
+const GRADE_FACTOR_KEYS: Array<keyof GradeFactors> = [
+  'riskOfBias',
+  'inconsistency',
+  'indirectness',
+  'imprecision',
+  'publicationBias',
+  'largeEffect',
+  'doseResponse',
+  'plausibleConfounding',
+];
+
 @Injectable()
 export class OutcomesService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Compute the GRADE certainty level from the provided factor fields.
+   * Starts at HIGH (index 3) and adjusts by downgrade / upgrade factors.
+   */
+  static computeCertainty(factors: GradeFactors): CertaintyLevel {
+    let index = 3; // HIGH
+
+    // Downgrade factors
+    const downgradeFields: Array<GradeRating | null | undefined> = [
+      factors.riskOfBias,
+      factors.inconsistency,
+      factors.indirectness,
+      factors.imprecision,
+      factors.publicationBias,
+    ];
+    for (const rating of downgradeFields) {
+      if (rating === 'SERIOUS') index -= 1;
+      else if (rating === 'VERY_SERIOUS') index -= 2;
+    }
+
+    // Upgrade factors
+    const largeEffect = factors.largeEffect ?? 'NONE';
+    if (largeEffect === 'LARGE') index += 1;
+    else if (largeEffect === 'VERY_LARGE') index += 2;
+
+    if ((factors.doseResponse ?? 'NONE') === 'PRESENT') index += 1;
+    if ((factors.plausibleConfounding ?? 'NONE') === 'PRESENT') index += 1;
+
+    // Clamp to [0, 3] and map to enum
+    const clamped = Math.max(0, Math.min(3, index));
+    return CERTAINTY_LEVELS[clamped];
+  }
+
   async create(dto: CreateOutcomeDto) {
+    const certaintyOverall = OutcomesService.computeCertainty({
+      riskOfBias: dto.riskOfBias,
+      inconsistency: dto.inconsistency,
+      indirectness: dto.indirectness,
+      imprecision: dto.imprecision,
+      publicationBias: dto.publicationBias,
+      largeEffect: dto.largeEffect,
+      doseResponse: dto.doseResponse,
+      plausibleConfounding: dto.plausibleConfounding,
+    });
+
     return this.prisma.outcome.create({
       data: {
         picoId: dto.picoId,
@@ -30,7 +104,7 @@ export class OutcomesService {
         continuousUnit: dto.continuousUnit,
         continuousScaleLower: dto.continuousScaleLower,
         continuousScaleUpper: dto.continuousScaleUpper,
-        certaintyOverall: dto.certaintyOverall,
+        certaintyOverall,
         riskOfBias: dto.riskOfBias,
         inconsistency: dto.inconsistency,
         indirectness: dto.indirectness,
@@ -71,7 +145,7 @@ export class OutcomesService {
   }
 
   async update(id: string, dto: UpdateOutcomeDto) {
-    await this.findOne(id);
+    const existing = await this.findOne(id);
     const data: Prisma.OutcomeUpdateInput = {};
     if (dto.title !== undefined) data.title = dto.title;
     if (dto.outcomeType !== undefined) data.outcomeType = dto.outcomeType;
@@ -90,7 +164,6 @@ export class OutcomesService {
     if (dto.continuousUnit !== undefined) data.continuousUnit = dto.continuousUnit;
     if (dto.continuousScaleLower !== undefined) data.continuousScaleLower = dto.continuousScaleLower;
     if (dto.continuousScaleUpper !== undefined) data.continuousScaleUpper = dto.continuousScaleUpper;
-    if (dto.certaintyOverall !== undefined) data.certaintyOverall = dto.certaintyOverall;
     if (dto.riskOfBias !== undefined) data.riskOfBias = dto.riskOfBias;
     if (dto.inconsistency !== undefined) data.inconsistency = dto.inconsistency;
     if (dto.indirectness !== undefined) data.indirectness = dto.indirectness;
@@ -100,6 +173,26 @@ export class OutcomesService {
     if (dto.doseResponse !== undefined) data.doseResponse = dto.doseResponse;
     if (dto.plausibleConfounding !== undefined) data.plausibleConfounding = dto.plausibleConfounding;
     if (dto.plainLanguageSummary !== undefined) data.plainLanguageSummary = dto.plainLanguageSummary;
+
+    // If any GRADE factor appears in the DTO, re-compute certaintyOverall from
+    // the merged state (existing DB values overridden by incoming DTO values).
+    const gradeFactorPresent = GRADE_FACTOR_KEYS.some((k) => dto[k] !== undefined);
+    if (gradeFactorPresent) {
+      const merged: GradeFactors = {
+        riskOfBias: (dto.riskOfBias !== undefined ? dto.riskOfBias : existing.riskOfBias) as GradeRating | null,
+        inconsistency: (dto.inconsistency !== undefined ? dto.inconsistency : existing.inconsistency) as GradeRating | null,
+        indirectness: (dto.indirectness !== undefined ? dto.indirectness : existing.indirectness) as GradeRating | null,
+        imprecision: (dto.imprecision !== undefined ? dto.imprecision : existing.imprecision) as GradeRating | null,
+        publicationBias: (dto.publicationBias !== undefined ? dto.publicationBias : existing.publicationBias) as GradeRating | null,
+        largeEffect: (dto.largeEffect !== undefined ? dto.largeEffect : existing.largeEffect) as UpgradeRating | null,
+        doseResponse: (dto.doseResponse !== undefined ? dto.doseResponse : existing.doseResponse) as UpgradeRating | null,
+        plausibleConfounding: (dto.plausibleConfounding !== undefined ? dto.plausibleConfounding : existing.plausibleConfounding) as UpgradeRating | null,
+      };
+      data.certaintyOverall = OutcomesService.computeCertainty(merged);
+    } else if (dto.certaintyOverall !== undefined) {
+      data.certaintyOverall = dto.certaintyOverall;
+    }
+
     return this.prisma.outcome.update({ where: { id }, data });
   }
 

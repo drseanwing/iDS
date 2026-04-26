@@ -6,6 +6,16 @@ import { PaginatedResponseDto } from '../common/dto';
 import { CreateReferenceDto } from './dto/create-reference.dto';
 import { UpdateReferenceDto } from './dto/update-reference.dto';
 
+export interface PubmedResult {
+  pubmedId: string;
+  title: string;
+  authors: string;
+  year: number | null;
+  abstract: string | null;
+  doi: string | null;
+  studyType: 'OTHER';
+}
+
 @Injectable()
 export class ReferencesService {
   constructor(
@@ -236,5 +246,77 @@ export class ReferencesService {
 
     await this.storage.delete(attachment.s3Key);
     await this.prisma.referenceAttachment.delete({ where: { id: attachmentId } });
+  }
+
+  // -----------------------------------------------------------------------
+  // PubMed Lookup (PubmedImportService — lightweight implementation)
+  // -----------------------------------------------------------------------
+
+  async pubmedLookup(pmid: string): Promise<PubmedResult> {
+    // Step 1: ESummary — title, authors, year, journal, DOI
+    const summaryUrl =
+      `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id=${encodeURIComponent(pmid)}&retmode=json`;
+
+    let summaryJson: any;
+    try {
+      const summaryRes = await fetch(summaryUrl, { signal: AbortSignal.timeout(5000) });
+      summaryJson = await summaryRes.json();
+    } catch {
+      throw new NotFoundException(`PubMed PMID ${pmid} could not be retrieved`);
+    }
+
+    const article = summaryJson?.result?.[pmid];
+    if (!article || article.error) {
+      throw new NotFoundException(`PubMed PMID ${pmid} not found`);
+    }
+
+    // Authors: each entry has a `name` field like "Smith JA"
+    const authorsArr: string[] = Array.isArray(article.authors)
+      ? article.authors.map((a: { name: string }) => a.name).filter(Boolean)
+      : [];
+    const authors = authorsArr.join(', ');
+
+    // Year: first 4 digits of pubdate (e.g. "2023 Jan 5" → 2023)
+    const pubdate: string = article.pubdate ?? '';
+    const yearMatch = pubdate.match(/(\d{4})/);
+    const year = yearMatch ? parseInt(yearMatch[1], 10) : null;
+
+    // DOI: elocationid may look like "doi: 10.1000/xyz"
+    const elocationid: string = article.elocationid ?? '';
+    const doiMatch = elocationid.match(/doi:\s*(\S+)/i);
+    const doi = doiMatch ? doiMatch[1] : null;
+
+    const title: string = article.title ?? '';
+
+    // Step 2: EFetch — abstract (best-effort; failures do NOT fail the request)
+    let abstract: string | null = null;
+    try {
+      const fetchUrl =
+        `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id=${encodeURIComponent(pmid)}&retmode=xml&rettype=abstract`;
+      const fetchRes = await fetch(fetchUrl, { signal: AbortSignal.timeout(5000) });
+      const xml = await fetchRes.text();
+
+      const abstractRegex = /<AbstractText[^>]*>([\s\S]*?)<\/AbstractText>/g;
+      const sections: string[] = [];
+      let match: RegExpExecArray | null;
+      while ((match = abstractRegex.exec(xml)) !== null) {
+        if (match[1]) sections.push(match[1]);
+      }
+      if (sections.length > 0) {
+        abstract = sections.join('\n\n');
+      }
+    } catch {
+      // Abstract fetch failure is non-fatal — leave abstract as null
+    }
+
+    return {
+      pubmedId: pmid,
+      title,
+      authors,
+      year,
+      abstract,
+      doi,
+      studyType: 'OTHER',
+    };
   }
 }

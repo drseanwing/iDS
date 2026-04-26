@@ -24,6 +24,7 @@ import { UpdateReferenceDto } from './dto/update-reference.dto';
 import { PaginationQueryDto } from '../common/dto';
 import { RbacGuard } from '../auth/rbac.guard';
 import { Roles } from '../auth/roles.decorator';
+import { Public } from '../auth/public.decorator';
 import { FileValidationPipe, MAX_FILE_SIZE } from '../common/file-validation';
 
 @ApiTags('References')
@@ -66,6 +67,13 @@ export class ReferencesController {
       referenceNumber,
     }));
     return { data };
+  }
+
+  @Get('pubmed-lookup/:pmid')
+  @Public()
+  @ApiOperation({ summary: 'Fetch reference metadata from PubMed by PMID' })
+  pubmedLookup(@Param('pmid') pmid: string) {
+    return this.referencesService.pubmedLookup(pmid);
   }
 
   @Get(':id')
