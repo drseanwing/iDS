@@ -334,9 +334,58 @@ export class FhirController {
     return this.evidenceProjection.toEvidence(pico);
   }
 
+  // ── Bundle search (searchset) ───────────────────────────────
+
+  @Get('Bundle')
+  @Public()
+  @Header('Content-Type', 'application/fhir+json')
+  @ApiOperation({ summary: 'Search guidelines as FHIR R5 Bundle searchset' })
+  @ApiQuery({ name: '_id', required: false, description: 'Filter by Guideline UUID' })
+  @ApiQuery({ name: 'status', required: false, description: 'Filter by status' })
+  @ApiQuery({ name: '_count', required: false, description: 'Page size (default 10, max 100)' })
+  @ApiQuery({ name: '_offset', required: false, description: 'Page offset (default 0)' })
+  async searchBundle(
+    @Req() req: Request,
+    @Query('_id') id?: string,
+    @Query('status') status?: string,
+    @Query('_count') count = '10',
+    @Query('_offset') offset = '0',
+  ) {
+    const take = Math.min(Math.max(1, parseInt(count, 10) || 10), 100);
+    const skip = Math.max(0, parseInt(offset, 10) || 0);
+
+    const where: any = { isDeleted: false };
+    if (id) where.id = id;
+    if (status) where.status = status;
+
+    const [guidelines, total] = await Promise.all([
+      this.prisma.guideline.findMany({
+        where,
+        take,
+        skip,
+        include: { sections: true },
+      }),
+      this.prisma.guideline.count({ where }),
+    ]);
+
+    const selfUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+
+    return {
+      resourceType: 'Bundle',
+      type: 'searchset',
+      total,
+      link: [{ relation: 'self', url: selfUrl }],
+      entry: guidelines.map((g) => ({
+        fullUrl: `urn:uuid:${g.id}`,
+        resource: this.compositionProjection.toComposition(g),
+      })),
+    };
+  }
+
   // ── Bundle (complete guideline) ─────────────────────────────
 
   @Get('Bundle/:guidelineId')
+  @Public()
   @Header('Content-Type', 'application/fhir+json')
   @ApiOperation({
     summary: 'Get complete guideline as FHIR R5 Bundle (document type)',
