@@ -6,10 +6,11 @@ import { GuidelinesPage } from './pages/GuidelinesPage';
 import { ReferencesPage } from './pages/ReferencesPage';
 import { GuidelineWorkspacePage } from './pages/GuidelineWorkspacePage';
 import { PublicViewerPage } from './pages/PublicViewerPage';
+import { NotFoundPage } from './pages/NotFoundPage';
 import { UpdatePrompt } from './components/pwa/UpdatePrompt';
 import { InstallPrompt } from './components/pwa/InstallPrompt';
 
-type AppPath = 'dashboard' | 'guidelines' | 'references' | 'workspace' | 'public-viewer';
+type AppPath = 'dashboard' | 'guidelines' | 'references' | 'workspace' | 'public-viewer' | 'not-found';
 
 function App() {
   const [path, setPath] = useState<AppPath>('dashboard');
@@ -88,6 +89,9 @@ function App() {
       break;
     case 'references':
       page = <ReferencesPage />;
+      break;
+    case 'not-found':
+      page = <NotFoundPage onNavigateHome={() => setPath('guidelines')} />;
       break;
     default:
       page = <DashboardPage />;
