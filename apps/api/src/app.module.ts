@@ -32,6 +32,7 @@ import { PresenceModule } from './presence/presence.module';
 import { BackupModule } from './backup/backup.module';
 import { RevmanModule } from './revman/revman.module';
 import { GradeProModule } from './gradepro/gradepro.module';
+import { MagicAppModule } from './magicapp/magicapp.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { TagsModule } from './tags/tags.module';
 import { MetricsInterceptor } from './metrics/metrics.interceptor';
@@ -90,6 +91,7 @@ import configuration from './config/configuration';
     BackupModule,
     RevmanModule,
     GradeProModule,
+    MagicAppModule,
     MetricsModule,
     TagsModule,
     SubscribersModule,
