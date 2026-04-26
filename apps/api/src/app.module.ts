@@ -38,6 +38,7 @@ import { TagsModule } from './tags/tags.module';
 import { MetricsInterceptor } from './metrics/metrics.interceptor';
 import { SubscribersModule } from './subscribers/subscribers.module';
 import { InternalDocumentsModule } from './internal-documents/internal-documents.module';
+import { EmrElementsModule } from './emr-elements/emr-elements.module';
 import { AllExceptionsFilter } from './common/all-exceptions.filter';
 import configuration from './config/configuration';
 
@@ -96,6 +97,7 @@ import configuration from './config/configuration';
     TagsModule,
     SubscribersModule,
     InternalDocumentsModule,
+    EmrElementsModule,
   ],
   controllers: [HealthController],
   providers: [
