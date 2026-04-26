@@ -133,8 +133,8 @@ describe('PublicViewerPage', () => {
     // Strength badge
     expect(screen.getByText('STRONG')).toBeDefined();
 
-    // Organization name
-    expect(screen.getByText('World Health Organization')).toBeDefined();
+    // Organization name (appears in header and intro block)
+    expect(screen.getAllByText('World Health Organization').length).toBeGreaterThan(0);
 
     // Footer published date
     expect(screen.getByText(/Last published/i)).toBeDefined();

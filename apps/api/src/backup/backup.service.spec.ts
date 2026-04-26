@@ -1,24 +1,32 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import * as childProcess from 'child_process';
 import { BackupService } from './backup.service';
+
+// Mock child_process at module level so execAsync (created via promisify(exec)
+// at module load time) can be controlled per-test.
+jest.mock('child_process', () => ({ exec: jest.fn() }));
 
 describe('BackupService', () => {
   let service: BackupService;
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  let mockExec: jest.Mock;
 
   beforeEach(async () => {
+    // Retrieve the mocked exec after jest.mock hoisting
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    mockExec = require('child_process').exec as jest.Mock;
+    mockExec.mockReset();
+
+    // Stub fs.existsSync so resolveScriptPath returns a stable candidate path
+    jest.spyOn(require('fs'), 'existsSync').mockReturnValue(true);
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [BackupService],
     }).compile();
 
     service = module.get<BackupService>(BackupService);
 
-    // Prevent the real scheduler from starting during tests
+    // Prevent the real scheduler from firing during tests
     jest.spyOn(service as any, 'startScheduler').mockImplementation(() => {});
-
-    // Stub fs.existsSync so resolveScriptPath returns a stable candidate path
-    jest.spyOn(require('fs'), 'existsSync').mockReturnValue(true);
-
-    jest.clearAllMocks();
   });
 
   afterEach(() => {
@@ -41,13 +49,11 @@ describe('BackupService', () => {
     });
 
     it('returns last backup date after a successful run', async () => {
-      // execAsync is created via promisify(exec) at module level; spy on exec directly
-      // and simulate the callback form that promisify wraps.
-      jest.spyOn(childProcess, 'exec').mockImplementation(
-        ((_cmd: any, _opts: any, cb: any) => {
-          cb(null, 'Backup created: /backups/pg-2024.sql.gz', '');
-        }) as any,
-      );
+      // The mocked exec lacks the promisify.custom symbol, so promisify resolves
+      // with the single result arg. The service destructures { stdout, stderr } from it.
+      mockExec.mockImplementation((_cmd: any, _opts: any, cb: any) => {
+        cb(null, { stdout: 'Backup created: /backups/pg-2024.sql.gz', stderr: '' });
+      });
 
       await service.runBackup();
 
@@ -58,13 +64,11 @@ describe('BackupService', () => {
     });
   });
 
-  describe('runBackup (triggerBackup)', () => {
+  describe('runBackup', () => {
     it('initiates a backup and returns success status', async () => {
-      jest.spyOn(childProcess, 'exec').mockImplementation(
-        ((_cmd: any, _opts: any, cb: any) => {
-          cb(null, 'Backup created: /backups/dump.sql.gz', '');
-        }) as any,
-      );
+      mockExec.mockImplementation((_cmd: any, _opts: any, cb: any) => {
+        cb(null, { stdout: 'Backup created: /backups/dump.sql.gz', stderr: '' });
+      });
 
       const result = await service.runBackup();
 
@@ -72,15 +76,12 @@ describe('BackupService', () => {
       expect(result.lastBackupFile).toBe('/backups/dump.sql.gz');
     });
 
-    it('handles backup command failure gracefully', async () => {
-      const error = new Error('pg_dump: connection refused');
-      jest.spyOn(childProcess, 'exec').mockImplementation(
-        ((_cmd: any, _opts: any, cb: any) => {
-          cb(error, '', '');
-        }) as any,
-      );
+    it('handles backup command failure gracefully without throwing', async () => {
+      mockExec.mockImplementation((_cmd: any, _opts: any, cb: any) => {
+        cb(new Error('pg_dump: connection refused'), '', '');
+      });
 
-      // Should NOT throw — failure is captured in status
+      // Should NOT propagate — failure is captured in returned status
       const result = await service.runBackup();
 
       expect(result.lastRunStatus).toBe('failure');
