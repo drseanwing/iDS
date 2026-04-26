@@ -32,7 +32,10 @@ import { PresenceModule } from './presence/presence.module';
 import { BackupModule } from './backup/backup.module';
 import { RevmanModule } from './revman/revman.module';
 import { MetricsModule } from './metrics/metrics.module';
+import { TagsModule } from './tags/tags.module';
 import { MetricsInterceptor } from './metrics/metrics.interceptor';
+import { SubscribersModule } from './subscribers/subscribers.module';
+import { InternalDocumentsModule } from './internal-documents/internal-documents.module';
 import { AllExceptionsFilter } from './common/all-exceptions.filter';
 import configuration from './config/configuration';
 
@@ -86,6 +89,9 @@ import configuration from './config/configuration';
     BackupModule,
     RevmanModule,
     MetricsModule,
+    TagsModule,
+    SubscribersModule,
+    InternalDocumentsModule,
   ],
   controllers: [HealthController],
   providers: [

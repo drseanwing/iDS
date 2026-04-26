@@ -39,6 +39,7 @@ export class RecommendationsService {
             orderBy: { ordering: 'asc' },
             take: 1,
           },
+          tags: { include: { tag: true } },
         },
       }),
       this.prisma.recommendation.count({ where }),
@@ -60,6 +61,7 @@ export class RecommendationsService {
         picoLinks: true,
         etdFactors: { include: { judgments: true } },
         sectionPlacements: true,
+        tags: { include: { tag: true } },
       },
     });
     if (!rec) {
