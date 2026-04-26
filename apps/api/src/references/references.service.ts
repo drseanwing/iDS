@@ -47,6 +47,7 @@ export class ReferencesService {
       where.OR = [
         { title: { contains: filters.search, mode: 'insensitive' } },
         { authors: { contains: filters.search, mode: 'insensitive' } },
+        { abstract: { contains: filters.search, mode: 'insensitive' } },
         { doi: { contains: filters.search, mode: 'insensitive' } },
         { pubmedId: { contains: filters.search, mode: 'insensitive' } },
       ];
