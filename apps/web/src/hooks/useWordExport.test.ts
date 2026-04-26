@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+// @vitest-environment jsdom
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useWordExport } from './useWordExport';
 
@@ -14,33 +15,18 @@ vi.mock('../lib/api-client', () => ({
   },
 }));
 
-// ── Mock browser APIs ────────────────────────────────────────────────────
-
-const createObjectURLMock = vi.fn(() => 'blob:mock-url');
-const revokeObjectURLMock = vi.fn();
-const appendChildMock = vi.fn();
-const removeChildMock = vi.fn();
-
-beforeEach(() => {
-  vi.clearAllMocks();
-
-  window.URL.createObjectURL = createObjectURLMock;
-  window.URL.revokeObjectURL = revokeObjectURLMock;
-
-  const fakeAnchor = {
-    href: '',
-    download: '',
-    click: vi.fn(),
-    remove: vi.fn(),
-  } as unknown as HTMLAnchorElement;
-
-  vi.spyOn(document, 'createElement').mockReturnValue(fakeAnchor);
-  vi.spyOn(document.body, 'appendChild').mockImplementation(appendChildMock);
-});
-
 // ── Tests ────────────────────────────────────────────────────────────────
 
 describe('useWordExport', () => {
+  const createObjectURLMock = vi.fn(() => 'blob:mock-url');
+  const revokeObjectURLMock = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    window.URL.createObjectURL = createObjectURLMock;
+    window.URL.revokeObjectURL = revokeObjectURLMock;
+  });
+
   it('calls the correct URL for docx export', async () => {
     const blob = new Blob(['docx-content'], {
       type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -61,25 +47,28 @@ describe('useWordExport', () => {
 
   it('sets isExporting to true while the request is pending and false after', async () => {
     let resolveRequest!: (value: { data: Blob }) => void;
-    getMock.mockReturnValue(
-      new Promise<{ data: Blob }>((resolve) => {
-        resolveRequest = resolve;
-      }),
-    );
+    const pendingPromise = new Promise<{ data: Blob }>((resolve) => {
+      resolveRequest = resolve;
+    });
+    getMock.mockReturnValue(pendingPromise);
 
     const { result } = renderHook(() => useWordExport('gl-42'));
 
     expect(result.current.isExporting).toBe(false);
 
-    let exportPromise: Promise<void>;
+    // Start the export (don't await)
+    let exportPromise!: Promise<void>;
     act(() => {
       exportPromise = result.current.exportDocx();
     });
 
-    // isExporting should be true while pending
-    await waitForCondition(() => result.current.isExporting === true);
+    // isExporting should become true while pending
+    await act(async () => {
+      await Promise.resolve(); // flush microtasks
+    });
     expect(result.current.isExporting).toBe(true);
 
+    // Resolve the request
     await act(async () => {
       resolveRequest({ data: new Blob([]) });
       await exportPromise;
@@ -92,13 +81,23 @@ describe('useWordExport', () => {
     const blob = new Blob(['docx-content']);
     getMock.mockResolvedValue({ data: blob });
 
-    const fakeAnchor = {
-      href: '',
-      download: '',
-      click: vi.fn(),
-      remove: vi.fn(),
-    } as unknown as HTMLAnchorElement;
-    vi.spyOn(document, 'createElement').mockReturnValue(fakeAnchor);
+    // Track anchor interactions
+    let capturedAnchor: { href: string; download: string; click: ReturnType<typeof vi.fn>; remove: ReturnType<typeof vi.fn> } | null = null;
+    const originalCreateElement = document.createElement.bind(document);
+    const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
+      if (tag === 'a') {
+        capturedAnchor = {
+          href: '',
+          download: '',
+          click: vi.fn(),
+          remove: vi.fn(),
+        };
+        return capturedAnchor as unknown as HTMLElement;
+      }
+      return originalCreateElement(tag);
+    });
+
+    const appendChildSpy = vi.spyOn(document.body, 'appendChild').mockImplementation((node) => node);
 
     const { result } = renderHook(() => useWordExport('gl-42'));
 
@@ -106,22 +105,14 @@ describe('useWordExport', () => {
       await result.current.exportDocx();
     });
 
+    createElementSpy.mockRestore();
+    appendChildSpy.mockRestore();
+
     expect(createObjectURLMock).toHaveBeenCalledWith(blob);
-    expect(fakeAnchor.href).toBe('blob:mock-url');
-    expect(fakeAnchor.download).toBe('guideline-gl-42.docx');
-    expect(fakeAnchor.click).toHaveBeenCalled();
+    expect(capturedAnchor).not.toBeNull();
+    expect(capturedAnchor!.href).toBe('blob:mock-url');
+    expect(capturedAnchor!.download).toBe('guideline-gl-42.docx');
+    expect(capturedAnchor!.click).toHaveBeenCalled();
     expect(revokeObjectURLMock).toHaveBeenCalledWith('blob:mock-url');
   });
 });
-
-// ── Utility ──────────────────────────────────────────────────────────────
-
-async function waitForCondition(condition: () => boolean, timeout = 1000): Promise<void> {
-  const start = Date.now();
-  while (!condition()) {
-    if (Date.now() - start > timeout) {
-      throw new Error('Timed out waiting for condition');
-    }
-    await new Promise((r) => setTimeout(r, 10));
-  }
-}
