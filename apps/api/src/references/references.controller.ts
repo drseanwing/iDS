@@ -76,6 +76,32 @@ export class ReferencesController {
     return this.referencesService.pubmedLookup(pmid);
   }
 
+  @Post('import/ris')
+  @Roles('ADMIN', 'AUTHOR')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { file: { type: 'string', format: 'binary' } },
+      required: ['file'],
+    },
+  })
+  @ApiOperation({ summary: 'Import references from RIS file' })
+  async importFromRis(
+    @Query('guidelineId') guidelineId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!guidelineId) {
+      throw new BadRequestException('guidelineId query parameter is required');
+    }
+    if (!file) {
+      throw new BadRequestException('No file provided');
+    }
+    const content = file.buffer.toString('utf-8');
+    return this.referencesService.importFromRis(guidelineId, content);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get reference by ID' })
   findOne(@Param('id', ParseUUIDPipe) id: string) {

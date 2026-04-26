@@ -5,6 +5,7 @@ import { StorageService } from '../storage/storage.service';
 import { PaginatedResponseDto } from '../common/dto';
 import { CreateReferenceDto } from './dto/create-reference.dto';
 import { UpdateReferenceDto } from './dto/update-reference.dto';
+import { RisParserService } from './ris-parser.service';
 
 export interface PubmedResult {
   pubmedId: string;
@@ -247,6 +248,56 @@ export class ReferencesService {
 
     await this.storage.delete(attachment.s3Key);
     await this.prisma.referenceAttachment.delete({ where: { id: attachmentId } });
+  }
+
+  // -----------------------------------------------------------------------
+  // RIS Bulk Import
+  // -----------------------------------------------------------------------
+
+  async importFromRis(
+    guidelineId: string,
+    content: string,
+  ): Promise<{ created: number; skipped: number }> {
+    const parser = new RisParserService();
+    const entries = parser.parse(content);
+
+    let created = 0;
+    let skipped = 0;
+
+    for (const entry of entries) {
+      if (!entry.title) {
+        skipped++;
+        continue;
+      }
+
+      // Dedup check: skip if DOI already exists in this guideline
+      if (entry.doi) {
+        const exists = await this.prisma.reference.findFirst({
+          where: { guidelineId, doi: entry.doi, isDeleted: false },
+        });
+        if (exists) {
+          skipped++;
+          continue;
+        }
+      }
+
+      await this.prisma.reference.create({
+        data: {
+          guidelineId,
+          title: entry.title,
+          authors: entry.authors ?? undefined,
+          year: entry.year ?? undefined,
+          abstract: entry.abstract ?? undefined,
+          doi: entry.doi ?? undefined,
+          url: entry.url ?? undefined,
+          studyType: 'OTHER',
+          fhirMeta: {},
+        },
+      });
+      created++;
+    }
+
+    return { created, skipped };
   }
 
   // -----------------------------------------------------------------------
