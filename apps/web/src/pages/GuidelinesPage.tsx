@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Eye } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useGuidelines } from '../hooks/useGuidelines';
 import { useCreateGuideline } from '../hooks/useCreateGuideline';
@@ -10,11 +11,13 @@ interface Guideline {
   shortName?: string;
   status: string;
   description?: string;
+  isPublic?: boolean;
   updatedAt: string;
 }
 
 interface GuidelinesPageProps {
   onOpenGuideline?: (id: string) => void;
+  onViewPublic?: (shortName: string) => void;
 }
 
 function statusColor(status: string) {
@@ -42,7 +45,7 @@ function LoadingSkeleton() {
   );
 }
 
-export function GuidelinesPage({ onOpenGuideline }: GuidelinesPageProps) {
+export function GuidelinesPage({ onOpenGuideline, onViewPublic }: GuidelinesPageProps) {
   const { data, isLoading, isError, error } = useGuidelines();
   const { mutate: createGuideline, isPending: isCreating } = useCreateGuideline();
   const { t } = useI18n();
@@ -151,39 +154,52 @@ export function GuidelinesPage({ onOpenGuideline }: GuidelinesPageProps) {
       {!isLoading && !isError && guidelines.length > 0 && (
         <div className="space-y-4">
           {guidelines.map((g) => (
-            <button
-              key={g.id}
-              onClick={() => onOpenGuideline?.(g.id)}
-              aria-label={`Open guideline: ${g.title}`}
-              className="w-full rounded-lg border bg-card p-6 text-left transition-colors hover:border-primary/50 hover:bg-accent/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              <div className="flex items-start justify-between">
-                <h3 className="font-semibold">{g.title}</h3>
-                <div className="flex gap-2">
-                  {g.shortName && (
-                    <span className="rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-secondary-foreground">
-                      {g.shortName}
-                    </span>
-                  )}
-                  <span
-                    className={cn(
-                      'rounded-full px-2.5 py-0.5 text-xs font-medium',
-                      statusColor(g.status),
+            <div key={g.id} className="rounded-lg border bg-card transition-colors hover:border-primary/50">
+              <button
+                onClick={() => onOpenGuideline?.(g.id)}
+                aria-label={`Open guideline: ${g.title}`}
+                className="w-full p-6 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-lg"
+              >
+                <div className="flex items-start justify-between">
+                  <h3 className="font-semibold">{g.title}</h3>
+                  <div className="flex gap-2">
+                    {g.shortName && (
+                      <span className="rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-secondary-foreground">
+                        {g.shortName}
+                      </span>
                     )}
-                  >
-                    {g.status}
-                  </span>
+                    <span
+                      className={cn(
+                        'rounded-full px-2.5 py-0.5 text-xs font-medium',
+                        statusColor(g.status),
+                      )}
+                    >
+                      {g.status}
+                    </span>
+                  </div>
                 </div>
-              </div>
-              {g.description && (
-                <p className="mt-2 text-sm text-muted-foreground line-clamp-2">
-                  {g.description}
+                {g.description && (
+                  <p className="mt-2 text-sm text-muted-foreground line-clamp-2">
+                    {g.description}
+                  </p>
+                )}
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Updated {new Date(g.updatedAt).toLocaleDateString()}
                 </p>
+              </button>
+              {g.isPublic && g.shortName && onViewPublic && (
+                <div className="border-t px-6 py-2">
+                  <button
+                    onClick={() => onViewPublic(g.shortName!)}
+                    aria-label={`View public page for ${g.title}`}
+                    className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    View public
+                  </button>
+                </div>
               )}
-              <p className="mt-3 text-xs text-muted-foreground">
-                Updated {new Date(g.updatedAt).toLocaleDateString()}
-              </p>
-            </button>
+            </div>
           ))}
         </div>
       )}
