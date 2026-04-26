@@ -31,6 +31,7 @@ import { PdfExportModule } from './pdf-export/pdf-export.module';
 import { PresenceModule } from './presence/presence.module';
 import { BackupModule } from './backup/backup.module';
 import { RevmanModule } from './revman/revman.module';
+import { GradeProModule } from './gradepro/gradepro.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { TagsModule } from './tags/tags.module';
 import { MetricsInterceptor } from './metrics/metrics.interceptor';
@@ -88,6 +89,7 @@ import configuration from './config/configuration';
     PresenceModule,
     BackupModule,
     RevmanModule,
+    GradeProModule,
     MetricsModule,
     TagsModule,
     SubscribersModule,
