@@ -141,6 +141,20 @@ export class GuidelinesController {
     return this.guidelinesService.findClinicalCodes(id);
   }
 
+  @Get(':guidelineId/references/duplicates')
+  @ApiOperation({
+    summary: 'Find duplicate references within a guideline',
+    description:
+      'Returns groups of references that are likely duplicates, detected by exact DOI match, exact PMID match, or high title similarity (Jaccard ≥ 0.6).',
+  })
+  @ApiParam({ name: 'guidelineId', description: 'Guideline UUID' })
+  @ApiResponse({ status: 200, description: 'Duplicate groups returned successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized – missing or invalid bearer token' })
+  @ApiResponse({ status: 404, description: 'Guideline not found' })
+  findReferenceDuplicates(@Param('guidelineId', ParseUUIDPipe) guidelineId: string) {
+    return this.guidelinesService.findReferenceDuplicates(guidelineId);
+  }
+
   @Get(':id/validate')
   @ApiOperation({
     summary: 'Validate guideline data integrity (orphan links, missing metadata)',

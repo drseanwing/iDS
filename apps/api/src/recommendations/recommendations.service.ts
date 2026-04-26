@@ -6,6 +6,7 @@ import { CreateRecommendationDto } from './dto/create-recommendation.dto';
 import { UpdateRecommendationDto } from './dto/update-recommendation.dto';
 import { UpdateRecommendationStatusDto } from './dto/update-recommendation-status.dto';
 import { CreateEmrElementDto } from './dto/create-emr-element.dto';
+import { ReorderRecommendationsDto } from './dto/reorder-recommendations.dto';
 
 @Injectable()
 export class RecommendationsService {
@@ -101,6 +102,16 @@ export class RecommendationsService {
         updatedBy: userId,
       },
     });
+  }
+
+  async reorder(dto: ReorderRecommendationsDto) {
+    const updates = dto.recommendations.map((r) =>
+      this.prisma.recommendation.update({
+        where: { id: r.id },
+        data: { ordering: r.ordering },
+      }),
+    );
+    return this.prisma.$transaction(updates);
   }
 
   async softDelete(id: string) {

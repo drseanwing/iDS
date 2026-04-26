@@ -13,7 +13,7 @@ const mockPrismaService = {
     count: jest.fn(),
   },
   section: { create: jest.fn() },
-  reference: { create: jest.fn() },
+  reference: { create: jest.fn(), findMany: jest.fn() },
   recommendation: { create: jest.fn() },
   etdFactor: { create: jest.fn() },
   etdJudgment: { create: jest.fn() },
@@ -244,6 +244,81 @@ describe('GuidelinesService', () => {
       const result = await service.clone('src-guid-1', 'user-42');
 
       expect(result).toBe(clonedGuideline);
+    });
+  });
+
+  describe('findReferenceDuplicates', () => {
+    const makeRef = (overrides: Partial<{ id: string; title: string; authors: string | null; year: number | null; doi: string | null; pubmedId: string | null }>) => ({
+      id: 'ref-default',
+      title: 'Default Title',
+      authors: null,
+      year: null,
+      doi: null,
+      pubmedId: null,
+      ...overrides,
+    });
+
+    it('should detect two references with the same DOI as DUPLICATE_DOI', async () => {
+      const refs = [
+        makeRef({ id: 'ref-1', title: 'Study A', doi: '10.1000/xyz123' }),
+        makeRef({ id: 'ref-2', title: 'Study B', doi: '10.1000/xyz123' }),
+      ];
+      mockPrismaService.reference.findMany = jest.fn().mockResolvedValue(refs);
+
+      const result = await service.findReferenceDuplicates('guideline-1');
+
+      expect(result.groups).toHaveLength(1);
+      expect(result.groups[0].reason).toBe('DUPLICATE_DOI');
+      expect(result.groups[0].references).toHaveLength(2);
+    });
+
+    it('should detect two references with the same PMID as DUPLICATE_PMID', async () => {
+      const refs = [
+        makeRef({ id: 'ref-1', title: 'Study A', pubmedId: '12345678' }),
+        makeRef({ id: 'ref-2', title: 'Study B', pubmedId: '12345678' }),
+      ];
+      mockPrismaService.reference.findMany = jest.fn().mockResolvedValue(refs);
+
+      const result = await service.findReferenceDuplicates('guideline-1');
+
+      expect(result.groups).toHaveLength(1);
+      expect(result.groups[0].reason).toBe('DUPLICATE_PMID');
+      expect(result.groups[0].references).toHaveLength(2);
+    });
+
+    it('should detect two references with identical titles as SIMILAR_TITLE with similarity 1', async () => {
+      const refs = [
+        makeRef({ id: 'ref-1', title: 'Effect of aspirin on cardiovascular disease' }),
+        makeRef({ id: 'ref-2', title: 'Effect of aspirin on cardiovascular disease' }),
+      ];
+      mockPrismaService.reference.findMany = jest.fn().mockResolvedValue(refs);
+
+      const result = await service.findReferenceDuplicates('guideline-1');
+
+      const titleGroup = result.groups.find((g) => g.reason === 'SIMILAR_TITLE');
+      expect(titleGroup).toBeDefined();
+      expect((titleGroup as any).similarity).toBe(1);
+    });
+
+    it('should not group two references with 0% title word overlap', async () => {
+      const refs = [
+        makeRef({ id: 'ref-1', title: 'Aspirin cardiovascular prevention' }),
+        makeRef({ id: 'ref-2', title: 'Zinc supplementation childhood diarrhea' }),
+      ];
+      mockPrismaService.reference.findMany = jest.fn().mockResolvedValue(refs);
+
+      const result = await service.findReferenceDuplicates('guideline-1');
+
+      const titleGroups = result.groups.filter((g) => g.reason === 'SIMILAR_TITLE');
+      expect(titleGroups).toHaveLength(0);
+    });
+
+    it('should return empty groups for a guideline with no references', async () => {
+      mockPrismaService.reference.findMany = jest.fn().mockResolvedValue([]);
+
+      const result = await service.findReferenceDuplicates('guideline-empty');
+
+      expect(result.groups).toHaveLength(0);
     });
   });
 });

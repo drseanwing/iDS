@@ -965,6 +965,72 @@ export class GuidelinesService {
     return result;
   }
 
+  async findReferenceDuplicates(guidelineId: string) {
+    const refs = await this.prisma.reference.findMany({
+      where: { guidelineId, isDeleted: false },
+      select: { id: true, title: true, authors: true, year: true, doi: true, pubmedId: true },
+    });
+
+    type RefItem = typeof refs[number];
+    type DuplicateGroup =
+      | { reason: 'DUPLICATE_DOI'; references: RefItem[] }
+      | { reason: 'DUPLICATE_PMID'; references: RefItem[] }
+      | { reason: 'SIMILAR_TITLE'; similarity: number; references: RefItem[] };
+
+    const groups: DuplicateGroup[] = [];
+
+    // 1. DOI duplicates
+    const byDoi = new Map<string, RefItem[]>();
+    for (const r of refs) {
+      if (!r.doi) continue;
+      const key = r.doi.toLowerCase().trim();
+      if (!byDoi.has(key)) byDoi.set(key, []);
+      byDoi.get(key)!.push(r);
+    }
+    for (const [, group] of byDoi) {
+      if (group.length > 1) groups.push({ reason: 'DUPLICATE_DOI', references: group });
+    }
+
+    // 2. PMID duplicates
+    const byPmid = new Map<string, RefItem[]>();
+    for (const r of refs) {
+      if (!r.pubmedId) continue;
+      if (!byPmid.has(r.pubmedId)) byPmid.set(r.pubmedId, []);
+      byPmid.get(r.pubmedId)!.push(r);
+    }
+    for (const [, group] of byPmid) {
+      if (group.length > 1) groups.push({ reason: 'DUPLICATE_PMID', references: group });
+    }
+
+    // 3. Title similarity — Jaccard on word sets
+    const tokenize = (s: string) =>
+      new Set(s.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(Boolean));
+    const jaccard = (a: Set<string>, b: Set<string>) => {
+      const inter = new Set([...a].filter((x) => b.has(x)));
+      const union = new Set([...a, ...b]);
+      return union.size === 0 ? 0 : inter.size / union.size;
+    };
+
+    const seen = new Set<string>();
+    for (let i = 0; i < refs.length; i++) {
+      for (let j = i + 1; j < refs.length; j++) {
+        const pairKey = [refs[i].id, refs[j].id].sort().join(':');
+        if (seen.has(pairKey)) continue;
+        const sim = jaccard(tokenize(refs[i].title), tokenize(refs[j].title));
+        if (sim >= 0.6) {
+          seen.add(pairKey);
+          groups.push({
+            reason: 'SIMILAR_TITLE',
+            similarity: Math.round(sim * 100) / 100,
+            references: [refs[i], refs[j]],
+          });
+        }
+      }
+    }
+
+    return { groups };
+  }
+
   private getAllowedTransitions(current: string): string[] {
     const transitions: Record<string, string[]> = {
       DRAFT: ['DRAFT_INTERNAL', 'PUBLIC_CONSULTATION'],

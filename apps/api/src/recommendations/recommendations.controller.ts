@@ -28,6 +28,7 @@ import { UpdateEtdFactorDto } from './dto/update-etd-factor.dto';
 import { UpdateEtdJudgmentDto } from './dto/update-etd-judgment.dto';
 import { CreateEtdJudgmentDto } from './dto/create-etd-judgment.dto';
 import { CreateEmrElementDto } from './dto/create-emr-element.dto';
+import { ReorderRecommendationsDto } from './dto/reorder-recommendations.dto';
 import { PaginationQueryDto } from '../common/dto';
 import { RbacGuard } from '../auth/rbac.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -74,6 +75,17 @@ export class RecommendationsController {
     @Query() pagination?: PaginationQueryDto,
   ) {
     return this.recommendationsService.findByGuideline(guidelineId, pagination?.page, pagination?.limit);
+  }
+
+  @Put('reorder')
+  @Roles('ADMIN', 'AUTHOR')
+  @ApiOperation({ summary: 'Batch reorder recommendations' })
+  @ApiResponse({ status: 200, description: 'Recommendations reordered successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid reorder payload – validation failed' })
+  @ApiResponse({ status: 401, description: 'Unauthorized – missing or invalid bearer token' })
+  @ApiResponse({ status: 403, description: 'Forbidden – requires AUTHOR or ADMIN role' })
+  reorder(@Body() dto: ReorderRecommendationsDto) {
+    return this.recommendationsService.reorder(dto);
   }
 
   @Get(':id')

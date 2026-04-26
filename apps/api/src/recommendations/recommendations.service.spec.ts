@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { RecommendationsService } from './recommendations.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { ReorderRecommendationsDto } from './dto/reorder-recommendations.dto';
 
 const mockPrismaService = {
   recommendation: {
@@ -17,6 +18,7 @@ const mockPrismaService = {
     findUnique: jest.fn(),
     delete: jest.fn(),
   },
+  $transaction: jest.fn(),
 };
 
 describe('RecommendationsService', () => {
@@ -198,6 +200,58 @@ describe('RecommendationsService', () => {
       const call = mockPrismaService.recommendation.findUnique.mock.calls[0][0];
       const outcomesWhere = call.include.picoLinks.include.pico.include.outcomes.where;
       expect(outcomesWhere).toEqual({ isDeleted: false, isShadow: false });
+    });
+  });
+
+  describe('reorder', () => {
+    it('should call prisma.$transaction with one update per recommendation', async () => {
+      const dto: ReorderRecommendationsDto = {
+        recommendations: [
+          { id: 'rec-uuid-1', ordering: 0 },
+          { id: 'rec-uuid-2', ordering: 1 },
+        ],
+      };
+      const mockUpdated = [{ id: 'rec-uuid-1', ordering: 0 }, { id: 'rec-uuid-2', ordering: 1 }];
+      mockPrismaService.$transaction.mockResolvedValue(mockUpdated);
+      // recommendation.update returns a promise stub for each item
+      mockPrismaService.recommendation.update.mockResolvedValue({});
+
+      await service.reorder(dto);
+
+      expect(mockPrismaService.recommendation.update).toHaveBeenCalledTimes(2);
+      expect(mockPrismaService.recommendation.update).toHaveBeenCalledWith({
+        where: { id: 'rec-uuid-1' },
+        data: { ordering: 0 },
+      });
+      expect(mockPrismaService.recommendation.update).toHaveBeenCalledWith({
+        where: { id: 'rec-uuid-2' },
+        data: { ordering: 1 },
+      });
+      expect(mockPrismaService.$transaction).toHaveBeenCalledTimes(1);
+    });
+
+    it('should return the array of updated recommendations from the transaction', async () => {
+      const dto: ReorderRecommendationsDto = {
+        recommendations: [{ id: 'rec-uuid-1', ordering: 5 }],
+      };
+      const mockResult = [{ id: 'rec-uuid-1', ordering: 5 }];
+      mockPrismaService.$transaction.mockResolvedValue(mockResult);
+      mockPrismaService.recommendation.update.mockResolvedValue({});
+
+      const result = await service.reorder(dto);
+
+      expect(result).toEqual(mockResult);
+    });
+
+    it('should call $transaction with an empty array when recommendations list is empty', async () => {
+      const dto: ReorderRecommendationsDto = { recommendations: [] };
+      mockPrismaService.$transaction.mockResolvedValue([]);
+
+      const result = await service.reorder(dto);
+
+      expect(mockPrismaService.recommendation.update).not.toHaveBeenCalled();
+      expect(mockPrismaService.$transaction).toHaveBeenCalledWith([]);
+      expect(result).toEqual([]);
     });
   });
 });
