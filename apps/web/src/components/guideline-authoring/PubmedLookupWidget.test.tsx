@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+// @vitest-environment jsdom
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { PubmedLookupWidget } from './PubmedLookupWidget';
 
@@ -35,6 +36,10 @@ describe('PubmedLookupWidget', () => {
     getMock.mockReset();
   });
 
+  afterEach(() => {
+    cleanup();
+  });
+
   it('renders PMID input and Lookup button', () => {
     renderWithQuery(<PubmedLookupWidget onAddReference={vi.fn()} />);
     expect(screen.getByPlaceholderText('Enter PMID…')).toBeDefined();
@@ -67,8 +72,8 @@ describe('PubmedLookupWidget', () => {
     );
     expect(screen.getByText('Smith J, Jones A, Brown B')).toBeDefined();
     expect(screen.getByText('2022')).toBeDefined();
-    // Abstract is short enough to show in full
-    expect(screen.getByText(/aspirin on cardiovascular/i)).toBeDefined();
+    // Abstract preview is rendered (partial unique text)
+    expect(screen.getByText(/long-term effect/i)).toBeDefined();
   });
 
   it('calls onAddReference with result data when Add to references is clicked', async () => {
