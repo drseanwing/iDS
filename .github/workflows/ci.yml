@@ -15,7 +15,7 @@ env:
 jobs:
   lint:
     name: Lint (${{ matrix.workspace }})
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, mravps]
     strategy:
       fail-fast: false
       matrix:
@@ -35,7 +35,7 @@ jobs:
 
   typecheck:
     name: Typecheck (${{ matrix.project }})
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, mravps]
     strategy:
       fail-fast: false
       matrix:
@@ -66,7 +66,7 @@ jobs:
 
   test-api:
     name: Test API
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, mravps]
     # API unit specs mock PrismaService (verified in apps/api/src/**/*.spec.ts),
     # so no postgres service is required here. If integration tests are added
     # that hit a real DB, attach a `postgres:16` service and set DATABASE_URL.
@@ -82,7 +82,7 @@ jobs:
 
   test-web:
     name: Test Web
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, mravps]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -95,7 +95,7 @@ jobs:
 
   test-packages:
     name: Test Packages
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, mravps]
     # None of packages/{fhir,ui,widget} currently declare a `test` script.
     # This job is a no-op today but reserved for when tests are added.
     steps:
@@ -121,7 +121,7 @@ jobs:
 
   build:
     name: Build (${{ matrix.workspace }})
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, mravps]
     strategy:
       fail-fast: false
       matrix:
@@ -169,7 +169,7 @@ jobs:
 
   e2e:
     name: E2E (Playwright)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, mravps]
     needs: build
 
     # Postgres runs as a GitHub-managed service (it accepts the standard CMD

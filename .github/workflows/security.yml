@@ -17,7 +17,7 @@ permissions:
 jobs:
   npm-audit:
     name: npm audit (high+)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, mravps]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -31,7 +31,7 @@ jobs:
 
   dependency-review:
     name: Dependency Review
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, mravps]
     if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
@@ -41,7 +41,7 @@ jobs:
 
   gitleaks:
     name: Secret scan (gitleaks)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, mravps]
     steps:
       - uses: actions/checkout@v4
         with:

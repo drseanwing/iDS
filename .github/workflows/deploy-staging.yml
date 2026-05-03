@@ -15,7 +15,7 @@ env:
 jobs:
   build-and-push:
     name: Build & Push ${{ matrix.component }} image
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, mravps]
     permissions:
       contents: read
       packages: write
@@ -65,7 +65,7 @@ jobs:
 
   # deploy:
   #   name: Deploy to staging cluster
-  #   runs-on: ubuntu-latest
+  #   runs-on: [self-hosted, mravps]
   #   needs: build-and-push
   #   environment: staging
   #   steps:
