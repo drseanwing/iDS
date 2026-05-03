@@ -24,7 +24,7 @@ jobs:
           - '@opengrade/api'
           - '@opengrade/web'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -51,7 +51,7 @@ jobs:
           - project: packages/widget
             needs_prisma: false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -71,7 +71,7 @@ jobs:
     # so no postgres service is required here. If integration tests are added
     # that hit a real DB, attach a `postgres:16` service and set DATABASE_URL.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -84,7 +84,7 @@ jobs:
     name: Test Web
     runs-on: [self-hosted, mravps]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -99,7 +99,7 @@ jobs:
     # None of packages/{fhir,ui,widget} currently declare a `test` script.
     # This job is a no-op today but reserved for when tests are added.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -142,7 +142,7 @@ jobs:
             artifact: web-dist
             path: apps/web/dist
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -213,7 +213,7 @@ jobs:
       S3_FORCE_PATH_STYLE: 'true'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
