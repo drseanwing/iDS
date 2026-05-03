@@ -160,7 +160,7 @@ jobs:
         run: npm -w ${{ matrix.workspace }} run build
       - name: Upload dist artifact
         if: matrix.artifact != ''
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.path }}
@@ -336,7 +336,7 @@ jobs:
 
       - name: Upload Playwright report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report
           path: apps/e2e/playwright-report
@@ -345,7 +345,7 @@ jobs:
 
       - name: Upload Playwright test results
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-test-results
           path: apps/e2e/test-results
