@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReferencesPage } from './ReferencesPage';
 import { I18nProvider } from '../lib/i18n';
+import { useAuth } from '../hooks/useAuth';
 
 const getMock = vi.fn();
 vi.mock('../lib/api-client', () => ({
@@ -50,6 +51,18 @@ const sampleRef = {
 describe('ReferencesPage', () => {
   beforeEach(() => {
     getMock.mockReset();
+    useAuth.setState({
+      user: {
+        sub: '3d75e681-ff70-412e-a686-8adea0d0528f',
+        email: 'playwright@example.com',
+        name: 'Playwright User',
+        roles: ['AUTHOR'],
+      },
+      token: 'test-token',
+      refreshToken: null,
+      authError: null,
+      isAuthReady: true,
+    });
   });
 
   it('renders the page heading', async () => {

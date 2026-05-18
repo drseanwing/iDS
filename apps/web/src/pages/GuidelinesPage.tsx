@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { cn } from '../lib/utils';
 import { useGuidelines } from '../hooks/useGuidelines';
 import { useCreateGuideline } from '../hooks/useCreateGuideline';
+import { useAuth } from '../hooks/useAuth';
 import { useI18n } from '../lib/i18n';
 
 interface Guideline {
@@ -45,6 +46,7 @@ function LoadingSkeleton() {
 export function GuidelinesPage({ onOpenGuideline }: GuidelinesPageProps) {
   const { data, isLoading, isError, error } = useGuidelines();
   const { mutate: createGuideline, isPending: isCreating } = useCreateGuideline();
+  const { token, login, register } = useAuth();
   const { t } = useI18n();
 
   const [showForm, setShowForm] = useState(false);
@@ -52,6 +54,33 @@ export function GuidelinesPage({ onOpenGuideline }: GuidelinesPageProps) {
   const [newShortName, setNewShortName] = useState('');
 
   const guidelines: Guideline[] = data?.data ?? data ?? [];
+
+  if (!token) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold tracking-tight">{t('guidelines.title')}</h1>
+        <div className="rounded-lg border bg-card p-6">
+          <p className="text-sm text-muted-foreground">
+            Log in or create an account to view and author guidelines.
+          </p>
+          <div className="mt-5 flex flex-wrap gap-2">
+            <button
+              onClick={() => void login()}
+              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity"
+            >
+              Log in
+            </button>
+            <button
+              onClick={() => void register()}
+              className="rounded-md border px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent transition-colors"
+            >
+              Create account
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   function handleCreateSubmit(e: React.FormEvent) {
     e.preventDefault();

@@ -36,16 +36,20 @@ function makeConfig(entries: Record<string, string | undefined>): ConfigService 
 
 describe('AuthGuard', () => {
   let reflector: Reflector;
+  const authUserService = {
+    ensureUser: jest.fn(),
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
+    authUserService.ensureUser.mockResolvedValue(null);
     reflector = {
       getAllAndOverride: jest.fn().mockReturnValue(false),
     } as unknown as Reflector;
   });
 
   function buildGuard(config: ConfigService): AuthGuard {
-    const guard = new AuthGuard(reflector, config);
+    const guard = new AuthGuard(reflector, config, authUserService as any);
     guard.onModuleInit();
     return guard;
   }
@@ -134,6 +138,7 @@ describe('AuthGuard', () => {
       name: 'Alice',
       roles: ['admin', 'editor'],
     });
+    expect(authUserService.ensureUser).toHaveBeenCalledWith(req.user);
     expect(mockedJwtVerify).toHaveBeenCalledWith(
       'valid.token.here',
       expect.any(Function),
@@ -261,7 +266,7 @@ describe('AuthGuard', () => {
 
   it('throws at startup in production when Keycloak config missing', () => {
     const config = makeConfig({ NODE_ENV: 'production' });
-    const guard = new AuthGuard(reflector, config);
+    const guard = new AuthGuard(reflector, config, authUserService as any);
     expect(() => guard.onModuleInit()).toThrow(
       /KEYCLOAK_URL and KEYCLOAK_REALM/,
     );
@@ -269,7 +274,7 @@ describe('AuthGuard', () => {
 
   it('falls back to unsafe decode in development when config is missing', async () => {
     const config = makeConfig({ NODE_ENV: 'development' });
-    const guard = new AuthGuard(reflector, config);
+    const guard = new AuthGuard(reflector, config, authUserService as any);
     guard.onModuleInit();
     const payload = {
       sub: 'u9',

@@ -27,10 +27,8 @@ RUN apk add --no-cache libc6-compat openssl
 COPY package.json package-lock.json ./
 COPY apps/api/package.json        ./apps/api/package.json
 COPY apps/web/package.json        ./apps/web/package.json
-COPY apps/e2e/package.json        ./apps/e2e/package.json
 COPY packages/fhir/package.json   ./packages/fhir/package.json
 COPY packages/ui/package.json     ./packages/ui/package.json
-COPY packages/widget/package.json ./packages/widget/package.json
 
 # Strict, reproducible install honouring the lockfile.
 RUN --mount=type=cache,target=/root/.npm \
@@ -79,10 +77,8 @@ ENV NODE_ENV=production \
 COPY package.json package-lock.json ./
 COPY apps/api/package.json        ./apps/api/package.json
 COPY apps/web/package.json        ./apps/web/package.json
-COPY apps/e2e/package.json        ./apps/e2e/package.json
 COPY packages/fhir/package.json   ./packages/fhir/package.json
 COPY packages/ui/package.json     ./packages/ui/package.json
-COPY packages/widget/package.json ./packages/widget/package.json
 
 RUN --mount=type=cache,target=/root/.npm \
     npm ci --omit=dev --workspaces --include-workspace-root
@@ -93,6 +89,7 @@ COPY --from=build /app/apps/api/dist               ./apps/api/dist
 COPY --from=build /app/apps/api/prisma             ./apps/api/prisma
 COPY --from=build /app/node_modules/.prisma        ./node_modules/.prisma
 COPY --from=build /app/node_modules/@prisma        ./node_modules/@prisma
+COPY apps/api/docker-entrypoint.sh                 ./apps/api/docker-entrypoint.sh
 
 # `prisma` CLI is in devDependencies and got pruned by --omit=dev, so copy it
 # (and its scoped engine deps) explicitly so `npx prisma migrate deploy` works
@@ -100,7 +97,8 @@ COPY --from=build /app/node_modules/@prisma        ./node_modules/@prisma
 COPY --from=build /app/node_modules/prisma         ./node_modules/prisma
 
 # Drop privileges. node:20-alpine ships with a built-in `node` user (uid 1000).
-RUN chown -R node:node /app
+RUN chmod +x ./apps/api/docker-entrypoint.sh \
+ && chown -R node:node /app
 USER node
 
 EXPOSE 3000
@@ -110,5 +108,5 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD wget -qO- http://localhost:3000/health || exit 1
 
 # Use tini so node receives SIGTERM cleanly under k8s.
-ENTRYPOINT ["/sbin/tini", "--"]
+ENTRYPOINT ["/sbin/tini", "--", "/app/apps/api/docker-entrypoint.sh"]
 CMD ["node", "apps/api/dist/main"]

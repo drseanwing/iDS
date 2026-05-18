@@ -289,6 +289,20 @@ export async function setupApiMocks(page: Page) {
 
 /** Navigate to the app and wait for it to be ready */
 export async function navigateToApp(page: Page, path = '/') {
+  await page.addInitScript(() => {
+    const payload = {
+      sub: '3d75e681-ff70-412e-a686-8adea0d0528f',
+      email: 'playwright@example.com',
+      name: 'Playwright User',
+      realm_access: { roles: ['AUTHOR'] },
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    };
+    const base64Url = btoa(JSON.stringify(payload))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+    localStorage.setItem('access_token', `h.${base64Url}.s`);
+  });
   await page.goto(path);
   await page.waitForLoadState('networkidle');
 }

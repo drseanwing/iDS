@@ -50,15 +50,24 @@ describe('GuidelinesService', () => {
   });
 
   describe('create', () => {
-    it('should create a guideline', async () => {
+    it('should create a guideline and grant the creator ADMIN permission', async () => {
       const dto = { title: 'Test Guideline' };
       const expected = { id: 'uuid-1', ...dto };
-      mockPrismaService.guideline.create.mockResolvedValue(expected);
+      const tx = {
+        guideline: { create: jest.fn().mockResolvedValue(expected) },
+        guidelinePermission: { upsert: jest.fn().mockResolvedValue({}) },
+      };
+      mockPrismaService.$transaction.mockImplementation((fn) => fn(tx));
 
       const result = await service.create(dto, 'user-id');
       expect(result).toEqual(expected);
-      expect(mockPrismaService.guideline.create).toHaveBeenCalledWith({
+      expect(tx.guideline.create).toHaveBeenCalledWith({
         data: expect.objectContaining({ title: 'Test Guideline' }),
+      });
+      expect(tx.guidelinePermission.upsert).toHaveBeenCalledWith({
+        where: { guidelineId_userId: { guidelineId: 'uuid-1', userId: 'user-id' } },
+        update: { role: 'ADMIN' },
+        create: { guidelineId: 'uuid-1', userId: 'user-id', role: 'ADMIN' },
       });
     });
   });

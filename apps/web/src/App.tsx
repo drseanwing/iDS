@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { I18nProvider } from './lib/i18n';
 import { AppShell } from './components/layout/AppShell';
 import { DashboardPage } from './pages/DashboardPage';
@@ -7,12 +7,18 @@ import { ReferencesPage } from './pages/ReferencesPage';
 import { GuidelineWorkspacePage } from './pages/GuidelineWorkspacePage';
 import { UpdatePrompt } from './components/pwa/UpdatePrompt';
 import { InstallPrompt } from './components/pwa/InstallPrompt';
+import { useAuth } from './hooks/useAuth';
 
 type AppPath = 'dashboard' | 'guidelines' | 'references' | 'workspace';
 
 function App() {
+  const { handleAuthRedirect } = useAuth();
   const [path, setPath] = useState<AppPath>('dashboard');
   const [activeGuidelineId, setActiveGuidelineId] = useState<string | null>(null);
+
+  useEffect(() => {
+    void handleAuthRedirect();
+  }, [handleAuthRedirect]);
 
   function handleOpenGuideline(id: string) {
     setActiveGuidelineId(id);

@@ -10,17 +10,33 @@ export class GuidelinesService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateGuidelineDto, userId: string) {
-    return this.prisma.guideline.create({
-      data: {
-        title: dto.title,
-        shortName: dto.shortName,
-        description: dto.description,
-        organizationId: dto.organizationId,
-        language: dto.language || 'en',
-        guidelineType: (dto.guidelineType as GuidelineType) || GuidelineType.ORGANIZATIONAL,
-        fhirMeta: (dto.fhirMeta ?? {}) as Prisma.InputJsonValue,
-        createdBy: userId,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      const guideline = await tx.guideline.create({
+        data: {
+          title: dto.title,
+          shortName: dto.shortName,
+          description: dto.description,
+          organizationId: dto.organizationId,
+          language: dto.language || 'en',
+          guidelineType: (dto.guidelineType as GuidelineType) || GuidelineType.ORGANIZATIONAL,
+          fhirMeta: (dto.fhirMeta ?? {}) as Prisma.InputJsonValue,
+          createdBy: userId,
+        },
+      });
+
+      await tx.guidelinePermission.upsert({
+        where: {
+          guidelineId_userId: { guidelineId: guideline.id, userId },
+        },
+        update: { role: GuidelineRole.ADMIN },
+        create: {
+          guidelineId: guideline.id,
+          userId,
+          role: GuidelineRole.ADMIN,
+        },
+      });
+
+      return guideline;
     });
   }
 

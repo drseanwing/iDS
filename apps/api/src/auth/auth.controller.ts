@@ -6,11 +6,14 @@ import {
   ApiResponse,
 } from '@nestjs/swagger';
 import { Public } from './public.decorator';
+import { AuthUserService } from './auth-user.service';
 
 @ApiTags('Auth')
 @ApiBearerAuth()
 @Controller('auth')
 export class AuthController {
+  constructor(private readonly authUserService: AuthUserService) {}
+
   @Get('me')
   @ApiOperation({
     summary: 'Get current user profile',
@@ -31,9 +34,11 @@ export class AuthController {
     },
   })
   @ApiResponse({ status: 401, description: 'Unauthorized – missing or invalid bearer token' })
-  getProfile(@Req() req: any) {
+  async getProfile(@Req() req: any) {
+    const localUser = await this.authUserService.ensureUser(req.user);
     return {
       sub: req.user?.sub,
+      id: localUser?.id ?? req.user?.sub,
       email: req.user?.email,
       name: req.user?.name,
       roles: req.user?.roles,

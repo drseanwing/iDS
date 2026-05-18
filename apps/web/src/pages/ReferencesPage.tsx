@@ -4,6 +4,7 @@ import { Search, FileText, Loader2, ExternalLink, BookOpen, MapPin } from 'lucid
 import { cn } from '../lib/utils';
 import { apiClient } from '../lib/api-client';
 import { useI18n } from '../lib/i18n';
+import { useAuth } from '../hooks/useAuth';
 
 interface ReferencePlacement {
   sectionId: string;
@@ -34,15 +35,30 @@ interface ReferenceWithDetails {
   outcomeLinks: ReferenceOutcomeLink[];
 }
 
-function useAllReferences(search: string, page: number) {
+interface ReferencesResponse {
+  data: ReferenceWithDetails[];
+  meta?: {
+    total?: number;
+    page?: number;
+    limit?: number;
+    totalPages?: number;
+  };
+  total?: number;
+  page?: number;
+  limit?: number;
+  totalPages?: number;
+}
+
+function useAllReferences(search: string, page: number, enabled: boolean) {
   return useQuery({
     queryKey: ['all-references', search, page],
     queryFn: async () => {
       const params: Record<string, unknown> = { page, limit: 50 };
       if (search) params.search = search;
       const { data } = await apiClient.get('/references', { params });
-      return data as { data: ReferenceWithDetails[]; meta: { total: number; page: number; limit: number; totalPages: number } };
+      return data as ReferencesResponse;
     },
+    enabled,
   });
 }
 
@@ -94,15 +110,17 @@ function PlacesUsed({ placements, outcomeLinks }: { placements: ReferencePlaceme
 
 export function ReferencesPage() {
   const { t } = useI18n();
+  const { token, login, register } = useAuth();
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
   const [debounceTimer, setDebounceTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
 
-  const { data, isLoading, isError, error } = useAllReferences(debouncedSearch, page);
+  const { data, isLoading, isError, error } = useAllReferences(debouncedSearch, page, !!token);
   const references = data?.data ?? [];
-  const total = data?.meta?.total ?? 0;
-  const totalPages = data?.meta?.totalPages ?? 1;
+  const total = data?.meta?.total ?? data?.total ?? 0;
+  const limit = data?.meta?.limit ?? data?.limit ?? 50;
+  const totalPages = data?.meta?.totalPages ?? data?.totalPages ?? Math.max(1, Math.ceil(total / Math.max(limit, 1)));
 
   function handleSearchChange(value: string) {
     setSearch(value);
@@ -123,8 +141,30 @@ export function ReferencesPage() {
         </span>
       </div>
 
+      {!token && (
+        <div className="rounded-lg border bg-card p-6">
+          <p className="text-sm text-muted-foreground">
+            Log in or create an account to search and manage references.
+          </p>
+          <div className="mt-5 flex flex-wrap gap-2">
+            <button
+              onClick={() => void login()}
+              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity"
+            >
+              Log in
+            </button>
+            <button
+              onClick={() => void register()}
+              className="rounded-md border px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent transition-colors"
+            >
+              Create account
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Search bar */}
-      <div className="relative">
+      {token && <div className="relative">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <input
           type="text"
@@ -133,17 +173,17 @@ export function ReferencesPage() {
           onChange={(e) => handleSearchChange(e.target.value)}
           className="w-full rounded-md border bg-background pl-10 pr-4 py-2 text-sm outline-none ring-offset-background focus:ring-2 focus:ring-primary focus:ring-offset-1 placeholder:text-muted-foreground/60"
         />
-      </div>
+      </div>}
 
       {/* Loading */}
-      {isLoading && (
+      {token && isLoading && (
         <div className="flex items-center justify-center py-16">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       )}
 
       {/* Error */}
-      {isError && (
+      {token && isError && (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-6 text-center">
           <p className="text-sm text-destructive">
             Failed to load references: {(error as Error).message}
@@ -152,7 +192,7 @@ export function ReferencesPage() {
       )}
 
       {/* Empty state */}
-      {!isLoading && !isError && references.length === 0 && (
+      {token && !isLoading && !isError && references.length === 0 && (
         <div className="rounded-lg border p-12 text-center">
           <FileText className="mx-auto mb-3 h-10 w-10 text-muted-foreground/30" />
           <p className="text-muted-foreground">
@@ -162,7 +202,7 @@ export function ReferencesPage() {
       )}
 
       {/* Reference list */}
-      {!isLoading && !isError && references.length > 0 && (
+      {token && !isLoading && !isError && references.length > 0 && (
         <div className="space-y-3">
           {references.map((ref) => (
             <div

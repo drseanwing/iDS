@@ -35,6 +35,7 @@ import { MetricsModule } from './metrics/metrics.module';
 import { MetricsInterceptor } from './metrics/metrics.interceptor';
 import { AllExceptionsFilter } from './common/all-exceptions.filter';
 import configuration from './config/configuration';
+import { createPinoHttpOptions } from './logging/pino-http-options';
 
 @Module({
   imports: [
@@ -45,18 +46,7 @@ import configuration from './config/configuration';
     LoggerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        pinoHttp: {
-          level: config.get('LOG_LEVEL', 'info'),
-          transport:
-            config.get('NODE_ENV') !== 'production'
-              ? { target: 'pino-pretty', options: { colorize: true } }
-              : undefined,
-          genReqId: (req: any) =>
-            req.headers['x-correlation-id'] || crypto.randomUUID(),
-          customProps: () => ({
-            context: 'HTTP',
-          }),
-        },
+        pinoHttp: createPinoHttpOptions(config),
       }),
     }),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),

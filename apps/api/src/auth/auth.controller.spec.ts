@@ -1,12 +1,18 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthController } from './auth.controller';
+import { AuthUserService } from './auth-user.service';
 
 describe('AuthController', () => {
   let controller: AuthController;
+  const authUserService = {
+    ensureUser: jest.fn(),
+  };
 
   beforeEach(async () => {
+    authUserService.ensureUser.mockResolvedValue({ id: 'user-123' });
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
+      providers: [{ provide: AuthUserService, useValue: authUserService }],
     }).compile();
 
     controller = module.get<AuthController>(AuthController);
@@ -22,7 +28,7 @@ describe('AuthController', () => {
     expect(result.provider).toBe('keycloak');
   });
 
-  it('should return user profile from request', () => {
+  it('should return user profile from request', async () => {
     const req = {
       user: {
         sub: 'user-123',
@@ -31,8 +37,9 @@ describe('AuthController', () => {
         roles: ['admin'],
       },
     };
-    const result = controller.getProfile(req);
+    const result = await controller.getProfile(req);
     expect(result.sub).toBe('user-123');
+    expect(result.id).toBe('user-123');
     expect(result.email).toBe('test@example.com');
   });
 });

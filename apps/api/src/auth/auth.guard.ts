@@ -10,6 +10,7 @@ import { Reflector } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { IS_PUBLIC_KEY } from './public.decorator';
+import { AuthUserService } from './auth-user.service';
 
 type JWKS = ReturnType<typeof createRemoteJWKSet>;
 
@@ -24,6 +25,7 @@ export class AuthGuard implements CanActivate, OnModuleInit {
   constructor(
     private readonly reflector: Reflector,
     private readonly config: ConfigService,
+    private readonly authUserService: AuthUserService,
   ) {}
 
   onModuleInit(): void {
@@ -76,12 +78,14 @@ export class AuthGuard implements CanActivate, OnModuleInit {
     }
 
     const payload = await this.verifyToken(token);
-    request.user = {
+    const user = {
       sub: payload.sub,
       email: payload.email,
       name: payload.name || payload.preferred_username,
       roles: payload.realm_access?.roles ?? [],
     };
+    await this.authUserService.ensureUser(user);
+    request.user = user;
 
     return true;
   }

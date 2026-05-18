@@ -1,9 +1,11 @@
 import { Loader2 } from 'lucide-react';
 import { useDashboardStats } from '../hooks/useDashboardStats';
+import { useAuth } from '../hooks/useAuth';
 import { useI18n } from '../lib/i18n';
 
 export function DashboardPage() {
   const { data: stats, isLoading } = useDashboardStats();
+  const { token, login, register, authError } = useAuth();
   const { t } = useI18n();
 
   const statItems = [
@@ -22,6 +24,27 @@ export function DashboardPage() {
           A FHIR-native clinical guideline authoring platform built on GRADE methodology
           for creating and maintaining living guidelines.
         </p>
+        {authError && (
+          <p className="mt-4 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {authError}
+          </p>
+        )}
+        {!token && (
+          <div className="mt-5 flex flex-wrap gap-2">
+            <button
+              onClick={() => void login()}
+              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity"
+            >
+              Log in
+            </button>
+            <button
+              onClick={() => void register()}
+              className="rounded-md border px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent transition-colors"
+            >
+              Create account
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -32,7 +55,7 @@ export function DashboardPage() {
               {isLoading ? (
                 <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
               ) : (
-                stat.value ?? '--'
+                token ? stat.value ?? '--' : '--'
               )}
             </p>
           </div>

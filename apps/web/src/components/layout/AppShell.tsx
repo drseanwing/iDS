@@ -1,5 +1,17 @@
 import { useState } from 'react';
-import { LayoutDashboard, BookOpen, FileText, Settings, User, LogOut, Menu, X, WifiOff } from 'lucide-react';
+import {
+  LayoutDashboard,
+  BookOpen,
+  FileText,
+  Settings,
+  User,
+  LogOut,
+  Menu,
+  X,
+  WifiOff,
+  LogIn,
+  UserPlus,
+} from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useAuth } from '../../hooks/useAuth';
 import { useI18n } from '../../lib/i18n';
@@ -44,7 +56,7 @@ function OfflineIndicator() {
 }
 
 export function AppShell({ activePath, onNavigate, children, fullHeight = false }: AppShellProps) {
-  const { user, logout } = useAuth();
+  const { user, login, register, logout } = useAuth();
   const { t } = useI18n();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -104,7 +116,7 @@ export function AppShell({ activePath, onNavigate, children, fullHeight = false 
           <div className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground">
             <User className="h-5 w-5 flex-shrink-0" />
             <span className="truncate">{user?.name || user?.email || 'User'}</span>
-            {user && (
+            {user ? (
               <button
                 onClick={logout}
                 title="Log out"
@@ -112,6 +124,23 @@ export function AppShell({ activePath, onNavigate, children, fullHeight = false 
               >
                 <LogOut className="h-4 w-4" />
               </button>
+            ) : (
+              <div className="ml-auto flex items-center gap-1">
+                <button
+                  onClick={() => void login()}
+                  title="Log in"
+                  className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded p-1 hover:bg-accent hover:text-accent-foreground transition-colors"
+                >
+                  <LogIn className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => void register()}
+                  title="Create account"
+                  className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded p-1 hover:bg-accent hover:text-accent-foreground transition-colors"
+                >
+                  <UserPlus className="h-4 w-4" />
+                </button>
+              </div>
             )}
           </div>
         </div>
