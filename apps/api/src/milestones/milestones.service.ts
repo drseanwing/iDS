@@ -53,6 +53,7 @@ export class MilestonesService {
           responsiblePerson: dto.responsiblePerson,
         }),
         ...(dto.ordering !== undefined && { ordering: dto.ordering }),
+        ...(dto.isCompleted !== undefined && { isCompleted: dto.isCompleted }),
       },
     });
   }

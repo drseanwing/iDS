@@ -25,6 +25,11 @@ export class CreateMilestoneDto {
   @IsInt()
   @Min(0)
   ordering?: number;
+
+  @ApiPropertyOptional({ default: false })
+  @IsOptional()
+  @IsBoolean()
+  isCompleted?: boolean;
 }
 
 export class UpdateMilestoneDto extends PartialType(CreateMilestoneDto) {}
