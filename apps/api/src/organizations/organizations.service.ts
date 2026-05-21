@@ -19,14 +19,18 @@ export class OrganizationsService {
     });
   }
 
-  async findAll(page = 1, limit = 20) {
+  async findAll(page = 1, limit = 20, userId?: string) {
+    const where = userId
+      ? { members: { some: { userId } } }
+      : {};
     const [data, total] = await Promise.all([
       this.prisma.organization.findMany({
+        where,
         orderBy: { updatedAt: 'desc' },
         skip: (page - 1) * limit,
         take: limit,
       }),
-      this.prisma.organization.count(),
+      this.prisma.organization.count({ where }),
     ]);
     return new PaginatedResponseDto(data, total, page, limit);
   }

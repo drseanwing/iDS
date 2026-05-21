@@ -50,43 +50,64 @@ export class OrganizationsController {
   @Get()
   @ApiOperation({
     summary: 'List organizations',
-    description: 'Returns a paginated list of all organizations registered in the platform.',
+    description: 'Returns a paginated list of organizations the authenticated user is a member of.',
   })
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (1-based)' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Number of results per page' })
   @ApiResponse({ status: 200, description: 'Paginated list of organizations returned successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized – missing or invalid bearer token' })
-  findAll(@Query() pagination?: PaginationQueryDto) {
-    return this.organizationsService.findAll(pagination?.page, pagination?.limit);
+  findAll(
+    @CurrentUserId() userId: string,
+    @Query() pagination?: PaginationQueryDto,
+  ) {
+    return this.organizationsService.findAll(pagination?.page, pagination?.limit, userId);
   }
 
   @Get(':id')
   @ApiOperation({
     summary: 'Get organization by ID',
-    description: 'Returns the full details of a single organization identified by its UUID.',
+    description: 'Returns the full details of a single organization. Caller must be a member.',
   })
   @ApiParam({ name: 'id', description: 'Organization UUID' })
   @ApiResponse({ status: 200, description: 'Organization returned successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized – missing or invalid bearer token' })
+  @ApiResponse({ status: 403, description: 'Forbidden – caller is not a member of this organization' })
   @ApiResponse({ status: 404, description: 'Organization not found' })
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
+  async findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUserId() userId: string,
+  ) {
+    const membership = await this.prisma.organizationMember.findFirst({
+      where: { organizationId: id, userId },
+    });
+    if (!membership) {
+      throw new ForbiddenException('You are not a member of this organization');
+    }
     return this.organizationsService.findOne(id);
   }
 
   @Put(':id')
   @ApiOperation({
     summary: 'Update organization',
-    description: 'Updates the metadata (name, description, etc.) of an existing organization.',
+    description: 'Updates the metadata of an existing organization. Restricted to organization admins.',
   })
   @ApiParam({ name: 'id', description: 'Organization UUID' })
   @ApiResponse({ status: 200, description: 'Organization updated successfully' })
   @ApiResponse({ status: 400, description: 'Invalid request body – validation failed' })
   @ApiResponse({ status: 401, description: 'Unauthorized – missing or invalid bearer token' })
+  @ApiResponse({ status: 403, description: 'Forbidden – only organization admins can update' })
   @ApiResponse({ status: 404, description: 'Organization not found' })
-  update(
+  async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateOrganizationDto,
+    @CurrentUserId() userId: string,
   ) {
+    const membership = await this.prisma.organizationMember.findFirst({
+      where: { organizationId: id, userId, role: 'ADMIN' },
+    });
+    if (!membership) {
+      throw new ForbiddenException('Only organization admins can update organizations');
+    }
     return this.organizationsService.update(id, dto);
   }
 

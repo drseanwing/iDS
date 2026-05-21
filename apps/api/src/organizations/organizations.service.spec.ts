@@ -57,6 +57,7 @@ describe('OrganizationsService', () => {
       expect(result.data).toEqual(items);
       expect(result.meta.total).toBe(1);
       expect(mockPrismaService.organization.findMany).toHaveBeenCalledWith({
+        where: {},
         orderBy: { updatedAt: 'desc' },
         skip: 0,
         take: 20,
