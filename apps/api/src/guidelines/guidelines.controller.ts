@@ -12,6 +12,7 @@ import {
   ParseUUIDPipe,
   UseGuards,
 } from '@nestjs/common';
+import { Public } from '../auth/public.decorator';
 import { Response } from 'express';
 import {
   ApiTags,
@@ -125,6 +126,20 @@ export class GuidelinesController {
   async findLatestPublicBySlug(@Param('shortName') shortName: string) {
     const guideline = await this.guidelinesService.findBySlug(shortName);
     return this.versionsService.findLatestPublicVersion(guideline.id);
+  }
+
+  @Get('public/:shortName')
+  @Public()
+  @ApiOperation({
+    summary: 'Get a published guideline by short name (public, no auth required)',
+    description:
+      'Returns the title and top-level sections of a published guideline identified by its short name slug. No authentication required.',
+  })
+  @ApiParam({ name: 'shortName', description: 'Short name slug of the guideline' })
+  @ApiResponse({ status: 200, description: 'Published guideline returned successfully' })
+  @ApiResponse({ status: 404, description: 'Guideline not found or not published' })
+  getPublicGuideline(@Param('shortName') shortName: string) {
+    return this.guidelinesService.findPublicByShortName(shortName);
   }
 
   @Get(':id/clinical-codes')

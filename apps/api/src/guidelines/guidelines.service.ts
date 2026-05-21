@@ -98,6 +98,31 @@ export class GuidelinesService {
     return guideline;
   }
 
+  async findPublicByShortName(shortName: string) {
+    const guideline = await this.prisma.guideline.findFirst({
+      where: {
+        shortName: { equals: shortName, mode: 'insensitive' },
+        status: 'PUBLISHED',
+        isDeleted: false,
+      },
+      select: {
+        id: true,
+        title: true,
+        shortName: true,
+        status: true,
+        sections: {
+          where: { isDeleted: false, parentId: null },
+          orderBy: { ordering: 'asc' },
+          select: { id: true, title: true, text: true, ordering: true },
+        },
+      },
+    });
+    if (!guideline) {
+      throw new NotFoundException('Guideline not found or not published');
+    }
+    return guideline;
+  }
+
   async update(id: string, dto: UpdateGuidelineDto) {
     await this.findOne(id); // ensure exists
     const data: Prisma.GuidelineUpdateInput = {};
