@@ -37,16 +37,29 @@ const sampleRecord = {
   id: 'coi-1',
   guidelineId: 'gl-1',
   userId: 'user-1',
-  disclosureText: 'I have a financial interest in the sponsor.',
-  conflictType: 'FINANCIAL',
-  isExcludedFromVoting: false,
-  createdAt: new Date().toISOString(),
+  publicSummary: 'I have a financial interest in the sponsor.',
+  internalSummary: 'Internal note: reviewed by chair.',
   updatedAt: new Date().toISOString(),
   user: {
     id: 'user-1',
     displayName: 'Alice Smith',
     email: 'alice@example.com',
   },
+  interventionConflicts: [],
+};
+
+const sampleRecordWithConflict = {
+  ...sampleRecord,
+  interventionConflicts: [
+    {
+      id: 'ic-1',
+      coiRecordId: 'coi-1',
+      interventionLabel: 'Drug A',
+      conflictLevel: 'HIGH',
+      excludeFromVoting: true,
+      isPublic: true,
+    },
+  ],
 };
 
 // ---------------------------------------------------------------------------
@@ -74,7 +87,7 @@ describe('CoiDashboard', () => {
     });
   });
 
-  it('renders a COI record with user name, email and conflict type badge', async () => {
+  it('renders a COI record with user name, email and public summary', async () => {
     getMock.mockResolvedValue(coiResponse([sampleRecord]));
     renderWithQuery(<CoiDashboard guidelineId="gl-1" />);
 
@@ -82,18 +95,27 @@ describe('CoiDashboard', () => {
       expect(screen.getByText('Alice Smith')).toBeDefined();
     });
     expect(screen.getByText('alice@example.com')).toBeDefined();
-    // The conflict type badge should be visible
-    expect(screen.getAllByText('FINANCIAL').length).toBeGreaterThan(0);
-    // Eligible/Excluded badge
+    expect(screen.getByText('I have a financial interest in the sponsor.')).toBeDefined();
+    // Eligible badge when no conflicts exclude from voting
     expect(screen.getByText('Eligible')).toBeDefined();
   });
 
-  it('shows Excluded badge when isExcludedFromVoting is true', async () => {
-    getMock.mockResolvedValue(coiResponse([{ ...sampleRecord, isExcludedFromVoting: true }]));
+  it('shows Excluded badge when an intervention conflict has excludeFromVoting true', async () => {
+    getMock.mockResolvedValue(coiResponse([sampleRecordWithConflict]));
     renderWithQuery(<CoiDashboard guidelineId="gl-1" />);
 
     await waitFor(() => {
       expect(screen.getByText('Excluded')).toBeDefined();
+    });
+  });
+
+  it('renders intervention conflict list with conflict level badge', async () => {
+    getMock.mockResolvedValue(coiResponse([sampleRecordWithConflict]));
+    renderWithQuery(<CoiDashboard guidelineId="gl-1" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Drug A')).toBeDefined();
+      expect(screen.getByText('HIGH')).toBeDefined();
     });
   });
 
@@ -106,6 +128,8 @@ describe('CoiDashboard', () => {
     await waitFor(() => {
       expect(screen.getByText('New Declaration')).toBeDefined();
       expect(screen.getByPlaceholderText('User ID')).toBeDefined();
+      expect(screen.getByPlaceholderText('Public-facing disclosure summary...')).toBeDefined();
+      expect(screen.getByPlaceholderText('Internal-only disclosure details...')).toBeDefined();
     });
   });
 

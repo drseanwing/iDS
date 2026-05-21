@@ -1,35 +1,28 @@
 import { useState } from 'react';
 import { Loader2, Plus, Pencil, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
-import { useCoi, useCreateCoi, useUpdateCoi, useDeleteCoi, CoiRecord } from '../../hooks/useCoi';
+import { useCoi, useCreateCoi, useUpdateCoi, useDeleteCoi, CoiRecord, CoiInterventionConflict } from '../../hooks/useCoi';
 
 interface CoiDashboardProps {
   guidelineId: string;
 }
 
-type ConflictType = 'NONE' | 'FINANCIAL' | 'INTELLECTUAL' | 'PERSONAL' | 'OTHER';
-
-const CONFLICT_TYPES: ConflictType[] = ['NONE', 'FINANCIAL', 'INTELLECTUAL', 'PERSONAL', 'OTHER'];
-
-const CONFLICT_TYPE_BADGE: Record<ConflictType, string> = {
+const CONFLICT_LEVEL_BADGE: Record<string, string> = {
   NONE: 'bg-gray-100 text-gray-600',
-  FINANCIAL: 'bg-red-100 text-red-700',
-  INTELLECTUAL: 'bg-orange-100 text-orange-700',
-  PERSONAL: 'bg-yellow-100 text-yellow-700',
-  OTHER: 'bg-blue-100 text-blue-700',
+  LOW: 'bg-yellow-100 text-yellow-700',
+  MEDIUM: 'bg-orange-100 text-orange-700',
+  HIGH: 'bg-red-100 text-red-700',
 };
 
 interface CoiFormState {
   userId: string;
-  disclosureText: string;
-  conflictType: ConflictType;
-  isExcludedFromVoting: boolean;
+  publicSummary: string;
+  internalSummary: string;
 }
 
 const DEFAULT_FORM: CoiFormState = {
   userId: '',
-  disclosureText: '',
-  conflictType: 'NONE',
-  isExcludedFromVoting: false,
+  publicSummary: '',
+  internalSummary: '',
 };
 
 interface CoiFormProps {
@@ -69,40 +62,25 @@ function CoiForm({ initial = DEFAULT_FORM, onSubmit, onCancel, isPending, submit
       )}
 
       <div>
-        <label className="block text-xs font-medium text-gray-700 mb-1">Conflict Type</label>
-        <select
-          value={form.conflictType}
-          onChange={(e) => set('conflictType', e.target.value as ConflictType)}
-          className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          {CONFLICT_TYPES.map((t) => (
-            <option key={t} value={t}>{t}</option>
-          ))}
-        </select>
-      </div>
-
-      <div>
-        <label className="block text-xs font-medium text-gray-700 mb-1">Disclosure Text</label>
+        <label className="block text-xs font-medium text-gray-700 mb-1">Public Summary</label>
         <textarea
-          value={form.disclosureText}
-          onChange={(e) => set('disclosureText', e.target.value)}
+          value={form.publicSummary}
+          onChange={(e) => set('publicSummary', e.target.value)}
           rows={3}
-          placeholder="Describe the conflict of interest..."
+          placeholder="Public-facing disclosure summary..."
           className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
         />
       </div>
 
-      <div className="flex items-center gap-2">
-        <input
-          id="excluded-from-voting"
-          type="checkbox"
-          checked={form.isExcludedFromVoting}
-          onChange={(e) => set('isExcludedFromVoting', e.target.checked)}
-          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+      <div>
+        <label className="block text-xs font-medium text-gray-700 mb-1">Internal Summary</label>
+        <textarea
+          value={form.internalSummary}
+          onChange={(e) => set('internalSummary', e.target.value)}
+          rows={3}
+          placeholder="Internal-only disclosure details..."
+          className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
         />
-        <label htmlFor="excluded-from-voting" className="text-sm text-gray-700">
-          Excluded from voting
-        </label>
       </div>
 
       <div className="flex gap-2 pt-1">
@@ -126,19 +104,43 @@ function CoiForm({ initial = DEFAULT_FORM, onSubmit, onCancel, isPending, submit
   );
 }
 
+function InterventionConflictList({ conflicts }: { conflicts: CoiInterventionConflict[] }) {
+  if (conflicts.length === 0) return null;
+  return (
+    <div className="mt-2 space-y-1">
+      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Intervention Conflicts</p>
+      <div className="divide-y divide-gray-100 rounded-md border border-gray-100">
+        {conflicts.map((ic) => (
+          <div key={ic.id} className="flex items-center justify-between px-3 py-1.5">
+            <span className="text-xs text-gray-700 truncate mr-2">{ic.interventionLabel}</span>
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${CONFLICT_LEVEL_BADGE[ic.conflictLevel] ?? CONFLICT_LEVEL_BADGE.NONE}`}>
+                {ic.conflictLevel}
+              </span>
+              {ic.excludeFromVoting && (
+                <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+                  Excluded
+                </span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 interface CoiRowProps {
   record: CoiRecord;
   guidelineId: string;
 }
 
 function CoiRow({ record, guidelineId }: CoiRowProps) {
-  const [expanded, setExpanded] = useState(false);
+  const [expandedPublic, setExpandedPublic] = useState(false);
+  const [expandedInternal, setExpandedInternal] = useState(false);
   const [editing, setEditing] = useState(false);
   const updateCoi = useUpdateCoi();
   const deleteCoi = useDeleteCoi();
-
-  const conflictType = (record.conflictType ?? 'NONE') as ConflictType;
-  const badgeClass = CONFLICT_TYPE_BADGE[conflictType] ?? CONFLICT_TYPE_BADGE.NONE;
 
   const handleDelete = () => {
     if (!window.confirm('Delete this COI declaration?')) return;
@@ -150,9 +152,8 @@ function CoiRow({ record, guidelineId }: CoiRowProps) {
       {
         id: record.id,
         guidelineId,
-        disclosureText: form.disclosureText || undefined,
-        conflictType: form.conflictType,
-        isExcludedFromVoting: form.isExcludedFromVoting,
+        publicSummary: form.publicSummary || undefined,
+        internalSummary: form.internalSummary || undefined,
       },
       { onSuccess: () => setEditing(false) },
     );
@@ -160,13 +161,15 @@ function CoiRow({ record, guidelineId }: CoiRowProps) {
 
   const editInitial: CoiFormState = {
     userId: record.userId,
-    disclosureText: record.disclosureText ?? '',
-    conflictType: conflictType,
-    isExcludedFromVoting: record.isExcludedFromVoting,
+    publicSummary: record.publicSummary ?? '',
+    internalSummary: record.internalSummary ?? '',
   };
 
   const displayName = record.user?.displayName ?? record.userId;
   const email = record.user?.email;
+  const conflicts = record.interventionConflicts ?? [];
+  const hasHighConflict = conflicts.some((ic) => ic.conflictLevel === 'HIGH' || ic.conflictLevel === 'MEDIUM');
+  const isAnyExcluded = conflicts.some((ic) => ic.excludeFromVoting);
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-3">
@@ -189,11 +192,12 @@ function CoiRow({ record, guidelineId }: CoiRowProps) {
             </div>
 
             <div className="flex items-center gap-2 flex-shrink-0">
-              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${badgeClass}`}>
-                {conflictType}
-              </span>
-
-              {record.isExcludedFromVoting ? (
+              {hasHighConflict && (
+                <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+                  Conflict
+                </span>
+              )}
+              {isAnyExcluded ? (
                 <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
                   Excluded
                 </span>
@@ -222,18 +226,19 @@ function CoiRow({ record, guidelineId }: CoiRowProps) {
             </div>
           </div>
 
-          {/* Disclosure text */}
-          {record.disclosureText && (
+          {/* Public summary */}
+          {record.publicSummary && (
             <div>
-              <p className={`text-sm text-gray-700 ${!expanded ? 'line-clamp-2' : ''}`}>
-                {record.disclosureText}
+              <p className="text-xs font-medium text-gray-500 mb-0.5">Public Summary</p>
+              <p className={`text-sm text-gray-700 ${!expandedPublic ? 'line-clamp-2' : ''}`}>
+                {record.publicSummary}
               </p>
-              {record.disclosureText.length > 120 && (
+              {record.publicSummary.length > 120 && (
                 <button
-                  onClick={() => setExpanded((v) => !v)}
+                  onClick={() => setExpandedPublic((v) => !v)}
                   className="mt-1 inline-flex items-center gap-0.5 text-xs text-blue-600 hover:text-blue-700"
                 >
-                  {expanded ? (
+                  {expandedPublic ? (
                     <><ChevronUp className="h-3 w-3" /> Show less</>
                   ) : (
                     <><ChevronDown className="h-3 w-3" /> Show more</>
@@ -242,6 +247,31 @@ function CoiRow({ record, guidelineId }: CoiRowProps) {
               )}
             </div>
           )}
+
+          {/* Internal summary */}
+          {record.internalSummary && (
+            <div>
+              <p className="text-xs font-medium text-gray-500 mb-0.5">Internal Summary</p>
+              <p className={`text-sm text-gray-700 ${!expandedInternal ? 'line-clamp-2' : ''}`}>
+                {record.internalSummary}
+              </p>
+              {record.internalSummary.length > 120 && (
+                <button
+                  onClick={() => setExpandedInternal((v) => !v)}
+                  className="mt-1 inline-flex items-center gap-0.5 text-xs text-blue-600 hover:text-blue-700"
+                >
+                  {expandedInternal ? (
+                    <><ChevronUp className="h-3 w-3" /> Show less</>
+                  ) : (
+                    <><ChevronDown className="h-3 w-3" /> Show more</>
+                  )}
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Intervention conflicts */}
+          <InterventionConflictList conflicts={conflicts} />
         </>
       )}
     </div>
@@ -260,9 +290,8 @@ export function CoiDashboard({ guidelineId }: CoiDashboardProps) {
       {
         guidelineId,
         userId: form.userId,
-        disclosureText: form.disclosureText || undefined,
-        conflictType: form.conflictType,
-        isExcludedFromVoting: form.isExcludedFromVoting,
+        publicSummary: form.publicSummary || undefined,
+        internalSummary: form.internalSummary || undefined,
       },
       { onSuccess: () => setShowCreateForm(false) },
     );

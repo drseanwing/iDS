@@ -1,21 +1,29 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../lib/api-client';
 
+export interface CoiInterventionConflict {
+  id: string;
+  coiRecordId: string;
+  interventionLabel: string;
+  conflictLevel: 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH';
+  internalComment?: string;
+  excludeFromVoting: boolean;
+  isPublic: boolean;
+}
+
 export interface CoiRecord {
   id: string;
   guidelineId: string;
   userId: string;
-  disclosureText?: string;
-  conflictType?: string;
-  interventions?: unknown;
-  isExcludedFromVoting: boolean;
-  createdAt: string;
+  publicSummary?: string;
+  internalSummary?: string;
   updatedAt: string;
   user?: {
     id: string;
     displayName: string;
     email: string;
   };
+  interventionConflicts?: CoiInterventionConflict[];
 }
 
 interface PaginatedMeta {
@@ -47,10 +55,15 @@ export function useCoi(guidelineId: string) {
 interface CreateCoiVars {
   guidelineId: string;
   userId: string;
-  disclosureText?: string;
-  conflictType?: string;
-  interventions?: unknown;
-  isExcludedFromVoting?: boolean;
+  publicSummary?: string;
+  internalSummary?: string;
+  interventionConflicts?: Array<{
+    interventionLabel: string;
+    conflictLevel?: string;
+    internalComment?: string;
+    excludeFromVoting?: boolean;
+    isPublic?: boolean;
+  }>;
 }
 
 export function useCreateCoi() {
@@ -67,10 +80,15 @@ export function useCreateCoi() {
 interface UpdateCoiVars {
   id: string;
   guidelineId: string;
-  disclosureText?: string;
-  conflictType?: string;
-  interventions?: unknown;
-  isExcludedFromVoting?: boolean;
+  publicSummary?: string;
+  internalSummary?: string;
+  interventionConflicts?: Array<{
+    interventionLabel: string;
+    conflictLevel?: string;
+    internalComment?: string;
+    excludeFromVoting?: boolean;
+    isPublic?: boolean;
+  }>;
 }
 
 export function useUpdateCoi() {
