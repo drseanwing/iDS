@@ -1,4 +1,5 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import pLimit from 'p-limit';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { GuidelinesService } from '../guidelines/guidelines.service';
@@ -7,6 +8,7 @@ import { PdfGeneratorService, PdfExportOptions } from './pdf-generator.service';
 @Injectable()
 export class PdfExportService {
   private readonly logger = new Logger(PdfExportService.name);
+  private readonly pdfLimiter = pLimit(2); // max 2 concurrent PDF renders
 
   constructor(
     private readonly prisma: PrismaService,
@@ -76,9 +78,9 @@ export class PdfExportService {
       },
     });
 
-    // Fire-and-forget background processing
-    this.processJob(job.id).catch((err) => {
-      this.logger.error(`Unhandled error in PDF job ${job.id}: ${err.message}`, err.stack);
+    // Fire-and-forget background processing (capped at 2 concurrent renders)
+    this.pdfLimiter(() => this.processJob(job.id)).catch((err) => {
+      this.logger.error(`PDF job ${job.id} failed: ${err.message}`, err.stack);
     });
 
     return {

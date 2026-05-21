@@ -6,6 +6,11 @@ import helmet from 'helmet';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
+  const env = process.env.NODE_ENV;
+  if (env === 'production' && !process.env.KEYCLOAK_URL) {
+    throw new Error('FATAL: KEYCLOAK_URL must be set in production. Refusing to start with devFallback auth.');
+  }
+
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
 
   // Structured logging
