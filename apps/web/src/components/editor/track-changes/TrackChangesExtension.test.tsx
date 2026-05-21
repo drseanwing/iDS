@@ -451,6 +451,122 @@ describe('useTrackChanges - accept/reject operations', () => {
   });
 });
 
+describe('appendTransaction interception', () => {
+  it('marks inserted text with an insertion mark when tracking is enabled', async () => {
+    let capturedEditor: ReturnType<typeof useEditor> | null = null;
+
+    render(
+      <TestEditor
+        onEditorReady={(ed) => {
+          capturedEditor = ed;
+        }}
+      />,
+    );
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    const editor = capturedEditor as NonNullable<ReturnType<typeof useEditor>>;
+    // Turn tracking on via storage (mirrors what RichTextEditor does)
+    editor.storage.insertion.isEnabled = true;
+    editor.storage.deletion.isEnabled = true;
+
+    act(() => {
+      editor.commands.insertContent('hi');
+    });
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
+
+    const json = editor.getJSON();
+    const textNode = json.content?.[0]?.content?.[0];
+    expect(textNode?.text).toBe('hi');
+    expect(textNode?.marks?.[0]?.type).toBe('insertion');
+    expect(typeof textNode?.marks?.[0]?.attrs?.changeId).toBe('string');
+  });
+
+  it('does NOT mark inserted text when tracking is disabled', async () => {
+    let capturedEditor: ReturnType<typeof useEditor> | null = null;
+
+    render(
+      <TestEditor
+        onEditorReady={(ed) => {
+          capturedEditor = ed;
+        }}
+      />,
+    );
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    const editor = capturedEditor as NonNullable<ReturnType<typeof useEditor>>;
+    // Storage left at default (isEnabled === false)
+
+    act(() => {
+      editor.commands.insertContent('hi');
+    });
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
+
+    const textNode = editor.getJSON().content?.[0]?.content?.[0];
+    expect(textNode?.text).toBe('hi');
+    expect(textNode?.marks ?? []).toHaveLength(0);
+  });
+
+  it('marks deleted text with a deletion mark when tracking is enabled', async () => {
+    let capturedEditor: ReturnType<typeof useEditor> | null = null;
+
+    function Combined() {
+      const editor = useEditor({
+        extensions: [StarterKit, InsertionMark, DeletionMark],
+        content: {
+          type: 'doc',
+          content: [
+            {
+              type: 'paragraph',
+              content: [{ type: 'text', text: 'remove' }],
+            },
+          ],
+        },
+      });
+      React.useEffect(() => {
+        if (editor) capturedEditor = editor;
+      }, [editor]);
+      return <EditorContent editor={editor} />;
+    }
+
+    render(<Combined />);
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    const editor = capturedEditor as NonNullable<ReturnType<typeof useEditor>>;
+    editor.storage.insertion.isEnabled = true;
+    editor.storage.deletion.isEnabled = true;
+
+    act(() => {
+      // Delete the word "remove" (positions 1..7 inside the paragraph)
+      editor.chain().focus().setTextSelection({ from: 1, to: 7 }).deleteSelection().run();
+    });
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
+
+    const json = editor.getJSON();
+    const textNode = json.content?.[0]?.content?.[0];
+    // Text should be preserved (because tracking re-inserts it with deletion mark)
+    expect(textNode?.text).toBe('remove');
+    expect(textNode?.marks?.[0]?.type).toBe('deletion');
+  });
+});
+
 describe('TrackChangesToolbar rendering', () => {
   it('renders track changes toolbar in RichTextEditor when trackChanges=true', () => {
     render(<RichTextEditor content={null} trackChanges={true} canManageChanges={true} />);

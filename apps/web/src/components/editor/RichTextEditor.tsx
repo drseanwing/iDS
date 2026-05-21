@@ -95,6 +95,16 @@ export function RichTextEditor({
     editor.setEditable(editable);
   }, [editable, editor]);
 
+  // Sync track-changes "enabled" flag into the InsertionMark storage so the
+  // ProseMirror plugin reads the current state when intercepting transactions.
+  useEffect(() => {
+    if (!editor || !trackChangesProp) return;
+    const insertionStorage = editor.storage.insertion;
+    const deletionStorage = editor.storage.deletion;
+    if (insertionStorage) insertionStorage.isEnabled = isEnabled;
+    if (deletionStorage) deletionStorage.isEnabled = isEnabled;
+  }, [editor, isEnabled, trackChangesProp]);
+
   const changes = getChanges(editor ?? null);
 
   const handleAcceptChange = useCallback(() => {
