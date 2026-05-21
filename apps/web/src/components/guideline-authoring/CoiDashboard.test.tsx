@@ -105,7 +105,8 @@ describe('CoiDashboard', () => {
     renderWithQuery(<CoiDashboard guidelineId="gl-1" />);
 
     await waitFor(() => {
-      expect(screen.getByText('Excluded')).toBeDefined();
+      // "Excluded" appears in both the summary badge and the individual conflict row
+      expect(screen.getAllByText('Excluded').length).toBeGreaterThanOrEqual(1);
     });
   });
 

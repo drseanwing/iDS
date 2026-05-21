@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ShadowOutcomePanel } from './ShadowOutcomePanel';
 import type { ShadowOutcome } from '../../hooks/useShadowOutcomes';
@@ -130,26 +130,31 @@ describe('ShadowOutcomePanel', () => {
 
   it('calls promote mutate after user confirms the promote dialog', () => {
     mockShadows = [makeShadow()];
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
 
     renderWithQuery(
       <ShadowOutcomePanel outcomeId="outcome-1" outcomeTitle="Mortality" />,
     );
 
+    // Open the dialog
     fireEvent.click(screen.getByText('Promote'));
+    // Confirm via the dialog's confirm button (scoped to the dialog role)
+    const dialog = screen.getByRole('dialog');
+    fireEvent.click(within(dialog).getByText('Promote'));
     expect(mockPromoteShadow).toHaveBeenCalledOnce();
     expect(mockPromoteShadow).toHaveBeenCalledWith({ outcomeId: 'shadow-1' });
   });
 
   it('does not call promote mutate when the user cancels the confirm dialog', () => {
     mockShadows = [makeShadow()];
-    vi.spyOn(window, 'confirm').mockReturnValue(false);
 
     renderWithQuery(
       <ShadowOutcomePanel outcomeId="outcome-1" outcomeTitle="Mortality" />,
     );
 
+    // Open the dialog then cancel
     fireEvent.click(screen.getByText('Promote'));
+    const dialog = screen.getByRole('dialog');
+    fireEvent.click(within(dialog).getByText('Cancel'));
     expect(mockPromoteShadow).not.toHaveBeenCalled();
   });
 

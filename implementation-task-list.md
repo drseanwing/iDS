@@ -227,14 +227,42 @@ The following items are confirmed bugs or incomplete wiring in the current codeb
 | ~~O-04~~ | ~~Ops~~ | **Fixed** — Added `GET /health/ready` endpoint with database connectivity check (`$queryRaw SELECT 1`); returns 503 when DB unavailable |
 | ~~O-05~~ | ~~Testing~~ | **Fixed** — Added Playwright E2E test suite at `apps/e2e/` (65 tests, 100% pass rate). Covers: navigation, dashboard stats, guidelines CRUD, guideline workspace tabs, section tree, references page, error/empty states. Found and fixed ActivityLogPanel crash (see B-05 below). |
 
-### P4 — Feature gaps (identified 2026-04-25)
+### P4 — Feature gaps
 | # | Area | Issue |
 |---|------|-------|
-| F-01 | API / FHIR | Missing `GET /fhir/metadata` CapabilityStatement endpoint — required for FHIR R5 server conformance |
-| F-02 | API / FHIR | No FHIR search-type interactions — `GET /fhir/PlanDefinition`, `GET /fhir/Evidence`, `GET /fhir/Citation` with standard search params |
-| F-03 | API / Guidelines | Missing `POST /guidelines/:id/clone` endpoint — spec Task 1.1.1 requires deep-copy clone |
-| F-04 | API / Sections | `SectionsService.create()` does not enforce max 3-level nesting — spec Task 1.1.2 requires UnprocessableEntityException at depth > 3 |
+| ~~F-01~~ | ~~API / FHIR~~ | **Implemented** — `GET /api/fhir/metadata` returns 200 with full CapabilityStatement (Composition, Citation, PlanDefinition, Evidence, Bundle, Provenance, AuditEvent, OperationDefinition). Verified via live API probe 2026-05-21. |
+| ~~F-02~~ | ~~API / FHIR~~ | **Implemented** — FHIR search endpoints exist (`GET /fhir/PlanDefinition`, `/fhir/Evidence`, `/fhir/Citation`, etc.) returning 401 (auth-protected, not 404). Note: FHIR search requires auth — intentional design choice, but a gap for public clinical data (see EU-002 in end-user audit). Verified via live API probe 2026-05-21. |
+| ~~F-03~~ | ~~API / Guidelines~~ | **Implemented** — `POST /guidelines/:id/clone` endpoint exists in `guidelines.controller.ts` and `GuidelinesService.clone()` implements deep-copy at lines 604-934. Verified via code audit 2026-05-21. Note: Clone does not copy EMR elements (see CR-018). |
+| F-04 | API / Sections | `SectionsService.create()` enforces max 3-level nesting for create but NOT for update — re-parenting a section via `PUT /sections/:id` bypasses the depth check (see CR-007 in code-review audit). |
 | F-05 | Frontend / Tests | 6 components lack test files: CoiDashboard, PermissionManagementPanel, RecoverPanel, RevManImportWizard, ShadowOutcomePanel, VersionCompareDialog |
+
+### P0 — Critical security / operational gaps (discovered 2026-05-21 audit)
+| # | Area | Issue |
+|---|------|-------|
+| ~~N-01~~ | ~~Security / RBAC~~ | **Fixed** — `RbacGuard` now throws `ForbiddenException` when no `guidelineId` resolves (default-deny). Commit 4698102. |
+| ~~N-02~~ | ~~Security / RBAC~~ | **Fixed** — `@UseGuards(RbacGuard)` + `@Roles()` added to PollsController, MilestonesController, CoiController, OrganizationsController. Commit 4698102. |
+| ~~N-03~~ | ~~Security / RBAC~~ | **Fixed** — `@EntityType()` decorator + `resolveGuidelineId()` DB lookup chain resolves parent guidelineId for recommendations, PICOs, sections, outcomes, polls, milestones, COI. Commit 4698102. |
+| ~~N-04~~ | ~~Infrastructure~~ | **Fixed** — Keycloak switched from `start-dev` to `start` in docker-compose.prod.yml. Commit 1f35a76. |
+| ~~N-05~~ | ~~Infrastructure~~ | **Fixed** — All credentials externalised to env vars (`${POSTGRES_PASSWORD}`, `${KEYCLOAK_ADMIN_PASSWORD}`, `${MINIO_ROOT_PASSWORD}`); `.env.prod.example` provided; `.env.prod` gitignored. Commit 1f35a76. |
+| ~~N-06~~ | ~~Multi-tenancy~~ | **Fixed** — `OrganizationsController.remove()` requires org ADMIN membership; soft-delete pattern documented. Commit 4698102. |
+| N-07 | Multi-tenancy | Multi-tenant isolation structurally absent: `GuidelineId` nullable on Guideline; no org scoping on Section, Reference, PICO, Outcome, etc. — architectural work deferred to future sprint. See OPS-007, SEC-014. |
+| ~~N-08~~ | ~~Data loss~~ | **Fixed** — `remark`, `rationale`, `practicalInfo` now persisted in `RecommendationsService.create()`. Commit 093f980. |
+
+### P1 — Major functional gaps (discovered 2026-05-21 audit)
+| # | Area | Issue |
+|---|------|-------|
+| ~~N-09~~ | ~~Public access~~ | **Fixed** — `GET /guidelines/public/:shortName` added (`@Public()`); `PublicGuidelineReader` React component at `/g/:shortName` bypasses auth. Commit ede23c7. |
+| ~~N-10~~ | ~~Security / Auth~~ | **Fixed** — `main.ts` startup assertion throws if `NODE_ENV=production` and `KEYCLOAK_URL` unset; `unsafeDecode` path blocked in prod. Commit 668fa04. |
+| ~~N-11~~ | ~~Security / Auth~~ | **Fixed** — `AUTH_EXPECTED_AUDIENCE=account` documented in `.env.prod.example`; AuthGuard enforces audience when env var is set. Commit 668fa04. |
+| ~~N-12~~ | ~~Database~~ | **Fixed** — 25 FK indexes added across 20 models via Prisma migration `20260521020715_add_fk_indexes`. Applied to live DB. Commit 4698102. |
+| ~~N-13~~ | ~~Performance~~ | **Addressed** — PICOs, outcomes, tasks, and references endpoints confirmed paginated; top-level guidelines list accepts `page`/`limit` params. No change required for already-paginated endpoints. Commit noted US-010. |
+| ~~N-14~~ | ~~Infrastructure~~ | **Fixed** — `mem_limit` and `cpus` added for all containers; healthchecks added for `api` and `web` in docker-compose.prod.yml. Commit 1f35a76. |
+| ~~N-15~~ | ~~Infrastructure~~ | **Fixed** — Redis `--requirepass ${REDIS_PASSWORD}` added to docker-compose.prod.yml. Commit 1f35a76. |
+| ~~N-16~~ | ~~Backup~~ | **Fixed** — `BackupService` converted to `@Cron('0 2 * * *')`; `backupMinio()` (mc mirror) and `backupKeycloak()` (partial-export REST API) added. Commit 36a71a9. |
+| ~~N-17~~ | ~~Embed~~ | **Fixed** — `@Public()` added to `EmbedController`; `apiOrigin` derived from `req.protocol + '://' + req.headers['host']`. Commit 7d56ca9. |
+| ~~N-18~~ | ~~Presence~~ | **Fixed** — `AuthGuard` now extracts `?token=` query param for SSE/EventSource; `usePresence` hook appends JWT to SSE URL. Commit a61cd7e. |
+| ~~N-19~~ | ~~Accessibility~~ | **Fixed** — 7 `window.confirm()` calls replaced with accessible `ConfirmDialog` component (role="dialog", keyboard Escape, focus management). Commit 344d405. |
+| ~~N-20~~ | ~~TipTap~~ | **Fixed** — `TrackChangesExtension` fully rewritten: `addProseMirrorPlugins()` registered, `appendTransaction` intercepts `ReplaceStep` and applies insertion/deletion marks. 21/21 track-changes tests pass. Commit 8f9c46a. |
 
 ---
 

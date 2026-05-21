@@ -1,5 +1,4 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import pLimit from 'p-limit';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { GuidelinesService } from '../guidelines/guidelines.service';
@@ -8,7 +7,8 @@ import { PdfGeneratorService, PdfExportOptions } from './pdf-generator.service';
 @Injectable()
 export class PdfExportService {
   private readonly logger = new Logger(PdfExportService.name);
-  private readonly pdfLimiter = pLimit(2); // max 2 concurrent PDF renders
+  private activePdfJobs = 0;
+  private readonly maxConcurrentPdfs = 2;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -78,8 +78,8 @@ export class PdfExportService {
       },
     });
 
-    // Fire-and-forget background processing (capped at 2 concurrent renders)
-    this.pdfLimiter(() => this.processJob(job.id)).catch((err) => {
+    // Fire-and-forget background processing (capped at maxConcurrentPdfs renders)
+    this.runWithPdfLimit(() => this.processJob(job.id)).catch((err) => {
       this.logger.error(`PDF job ${job.id} failed: ${err.message}`, err.stack);
     });
 
@@ -159,6 +159,18 @@ export class PdfExportService {
     const filename = `guideline-${slug}.pdf`;
 
     return { buffer, filename };
+  }
+
+  private async runWithPdfLimit<T>(fn: () => Promise<T>): Promise<T> {
+    while (this.activePdfJobs >= this.maxConcurrentPdfs) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 500));
+    }
+    this.activePdfJobs++;
+    try {
+      return await fn();
+    } finally {
+      this.activePdfJobs--;
+    }
   }
 
   /* ================================================================ */
