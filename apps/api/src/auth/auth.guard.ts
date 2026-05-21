@@ -91,12 +91,18 @@ export class AuthGuard implements CanActivate, OnModuleInit {
   }
 
   private extractTokenFromHeader(request: any): string | undefined {
+    // Check Authorization header first
     const header: string | undefined = request.headers?.authorization;
-    if (!header) return undefined;
-    const parts = header.split(' ');
-    if (parts.length !== 2) return undefined;
-    const [type, token] = parts;
-    return type === 'Bearer' && token ? token : undefined;
+    if (header) {
+      const parts = header.split(' ');
+      if (parts.length === 2) {
+        const [type, token] = parts;
+        if (type === 'Bearer' && token) return token;
+      }
+    }
+    // Fallback: query param (for SSE/EventSource which cannot set custom headers)
+    if (request.query?.token) return request.query.token as string;
+    return undefined;
   }
 
   private async verifyToken(token: string): Promise<any> {

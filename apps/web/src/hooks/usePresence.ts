@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { useAuth } from './useAuth';
 
 export interface UserPresence {
   userId: string;
@@ -23,6 +24,7 @@ const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
 const HEARTBEAT_INTERVAL_MS = 10_000;
 
 export function usePresence({ guidelineId, userName, sectionId }: UsePresenceOptions): UsePresenceResult {
+  const token = useAuth((s) => s.token);
   const [activeUsers, setActiveUsers] = useState<UserPresence[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const sectionIdRef = useRef(sectionId);
@@ -37,14 +39,16 @@ export function usePresence({ guidelineId, userName, sectionId }: UsePresenceOpt
     (path: string, body?: Record<string, unknown>) => {
       fetch(`${API_BASE}/presence/${guidelineId}/${path}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: body ? JSON.stringify(body) : undefined,
       }).catch(() => {
         // silently ignore network errors for presence
       });
     },
-    [guidelineId],
+    [guidelineId, token],
   );
 
   useEffect(() => {
@@ -58,11 +62,11 @@ export function usePresence({ guidelineId, userName, sectionId }: UsePresenceOpt
       sendPost('heartbeat', { sectionId: sectionIdRef.current });
     }, HEARTBEAT_INTERVAL_MS);
 
-    // Open SSE stream
-    const eventSource = new EventSource(
-      `${API_BASE}/presence/${guidelineId}/stream`,
-      { withCredentials: true },
-    );
+    // Open SSE stream — pass JWT as query param since EventSource cannot set headers
+    const sseUrl = token
+      ? `${API_BASE}/presence/${guidelineId}/stream?token=${encodeURIComponent(token)}`
+      : `${API_BASE}/presence/${guidelineId}/stream`;
+    const eventSource = new EventSource(sseUrl);
 
     eventSource.onopen = () => setIsConnected(true);
 
@@ -88,7 +92,7 @@ export function usePresence({ guidelineId, userName, sectionId }: UsePresenceOpt
       sendPost('leave');
       setIsConnected(false);
     };
-  }, [guidelineId, userName, sendPost]);
+  }, [guidelineId, userName, token, sendPost]);
 
   return { activeUsers, isConnected };
 }
