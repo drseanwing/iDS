@@ -8,6 +8,7 @@ import {
   Param,
   Query,
   ParseUUIDPipe,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { MilestonesService } from './milestones.service';
@@ -18,9 +19,13 @@ import {
   ToggleChecklistItemDto,
 } from './dto/create-milestone.dto';
 import { CurrentUserId } from '../auth/current-user.decorator';
+import { RbacGuard } from '../auth/rbac.guard';
+import { Roles } from '../auth/roles.decorator';
+import { EntityType } from '../auth/entity-type.decorator';
 
 @ApiTags('Milestones')
 @ApiBearerAuth()
+@UseGuards(RbacGuard)
 @Controller('milestones')
 export class MilestonesController {
   constructor(private readonly milestonesService: MilestonesService) {}
@@ -28,12 +33,14 @@ export class MilestonesController {
   // ── Milestones ──────────────────────────────────────────────
 
   @Post()
+  @Roles('ADMIN', 'AUTHOR')
   @ApiOperation({ summary: 'Create a milestone' })
   create(@Body() dto: CreateMilestoneDto, @CurrentUserId() userId: string) {
     return this.milestonesService.create(dto, userId);
   }
 
   @Get()
+  @Roles('ADMIN', 'AUTHOR', 'REVIEWER')
   @ApiOperation({ summary: 'List milestones and checklist items for a guideline' })
   @ApiQuery({ name: 'guidelineId', required: true })
   findByGuideline(
@@ -43,6 +50,8 @@ export class MilestonesController {
   }
 
   @Put(':id')
+  @Roles('ADMIN', 'AUTHOR')
+  @EntityType('milestone')
   @ApiOperation({ summary: 'Update a milestone' })
   update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -52,6 +61,8 @@ export class MilestonesController {
   }
 
   @Delete(':id')
+  @Roles('ADMIN')
+  @EntityType('milestone')
   @ApiOperation({ summary: 'Delete a milestone' })
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.milestonesService.remove(id);
@@ -60,6 +71,8 @@ export class MilestonesController {
   // ── Checklist Items ─────────────────────────────────────────
 
   @Post(':id/items')
+  @Roles('ADMIN', 'AUTHOR')
+  @EntityType('milestone')
   @ApiOperation({ summary: 'Add a checklist item to a guideline' })
   addChecklistItem(
     @Param('id', ParseUUIDPipe) _milestoneId: string,
@@ -69,6 +82,8 @@ export class MilestonesController {
   }
 
   @Put('items/:itemId/toggle')
+  @Roles('ADMIN', 'AUTHOR', 'REVIEWER')
+  @EntityType('checklistItem')
   @ApiOperation({ summary: 'Toggle checklist item completion' })
   toggleChecklistItem(
     @Param('itemId', ParseUUIDPipe) itemId: string,
@@ -83,6 +98,8 @@ export class MilestonesController {
   }
 
   @Delete('items/:itemId')
+  @Roles('ADMIN')
+  @EntityType('checklistItem')
   @ApiOperation({ summary: 'Delete a checklist item' })
   removeChecklistItem(@Param('itemId', ParseUUIDPipe) itemId: string) {
     return this.milestonesService.removeChecklistItem(itemId);

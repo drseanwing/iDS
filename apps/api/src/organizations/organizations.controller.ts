@@ -8,6 +8,7 @@ import {
   Param,
   Query,
   ParseUUIDPipe,
+  ForbiddenException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -21,12 +22,17 @@ import { OrganizationsService } from './organizations.service';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
 import { UpdateOrganizationDto } from './dto/update-organization.dto';
 import { PaginationQueryDto } from '../common/dto';
+import { CurrentUserId } from '../auth/current-user.decorator';
+import { PrismaService } from '../prisma/prisma.service';
 
 @ApiTags('Organizations')
 @ApiBearerAuth()
 @Controller('organizations')
 export class OrganizationsController {
-  constructor(private readonly organizationsService: OrganizationsService) {}
+  constructor(
+    private readonly organizationsService: OrganizationsService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   @Post()
   @ApiOperation({
@@ -87,14 +93,25 @@ export class OrganizationsController {
   @Delete(':id')
   @ApiOperation({
     summary: 'Delete organization',
-    description: 'Permanently deletes an organization. This action cannot be undone and will also remove all associated guidelines.',
+    description: 'Permanently deletes an organization. This action cannot be undone and will also remove all associated guidelines. Restricted to users with the ADMIN role on the organization.',
   })
   @ApiParam({ name: 'id', description: 'Organization UUID' })
   @ApiResponse({ status: 200, description: 'Organization deleted successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized – missing or invalid bearer token' })
   @ApiResponse({ status: 403, description: 'Forbidden – insufficient permissions to delete this organization' })
   @ApiResponse({ status: 404, description: 'Organization not found' })
-  remove(@Param('id', ParseUUIDPipe) id: string) {
+  async remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUserId() userId: string,
+  ) {
+    const membership = await this.prisma.organizationMember.findFirst({
+      where: { organizationId: id, userId, role: 'ADMIN' },
+    });
+    if (!membership) {
+      throw new ForbiddenException(
+        'Only organization admins can delete organizations',
+      );
+    }
     return this.organizationsService.remove(id);
   }
 }

@@ -130,6 +130,8 @@ model Section {
   sectionReferences     SectionReference[]
   sectionPicos          SectionPico[]
   sectionRecommendations SectionRecommendation[]
+
+  @@index([guidelineId])
 }
 
 // ============================================================
@@ -171,6 +173,8 @@ model ReferenceAttachment {
   uploadedAt      DateTime    @default(now())
 
   reference       Reference   @relation(fields: [referenceId], references: [id])
+
+  @@index([referenceId])
 }
 
 // ============================================================
@@ -197,6 +201,8 @@ model Pico {
   practicalIssues PracticalIssue[]
   sectionPlacements SectionPico[]
   recommendationLinks PicoRecommendation[]
+
+  @@index([guidelineId])
 }
 
 model Outcome {
@@ -248,6 +254,9 @@ model Outcome {
   shadowOf        Outcome?    @relation("ShadowOutcome", fields: [shadowOfId], references: [id])
   shadows         Outcome[]   @relation("ShadowOutcome")
   referenceLinks  OutcomeReference[]
+
+  @@index([picoId])
+  @@index([picoId, isDeleted])
 }
 
 model PicoCode {
@@ -272,6 +281,8 @@ model PracticalIssue {
   ordering        Int         @default(0)
 
   pico            Pico        @relation(fields: [picoId], references: [id])
+
+  @@index([picoId])
 }
 
 // ============================================================
@@ -313,6 +324,8 @@ model Recommendation {
   emrElements     EmrElement[]
   tags            RecommendationTag[]
   comments        FeedbackComment[]
+
+  @@index([guidelineId])
 }
 
 model EtdFactor {
@@ -343,6 +356,8 @@ model EtdJudgment {
   colorCode       String?
 
   etdFactor       EtdFactor   @relation(fields: [etdFactorId], references: [id])
+
+  @@index([etdFactorId])
 }
 
 // ============================================================
@@ -359,6 +374,8 @@ model EmrElement {
   implementationDescription String? @db.Text
 
   recommendation  Recommendation @relation(fields: [recommendationId], references: [id])
+
+  @@index([recommendationId])
 }
 
 // ============================================================
@@ -417,6 +434,8 @@ model InternalDocument {
   uploadedAt      DateTime    @default(now())
 
   guideline       Guideline   @relation(fields: [guidelineId], references: [id])
+
+  @@index([guidelineId])
 }
 
 model PdfExportJob {
@@ -510,6 +529,8 @@ model CoiInterventionConflict {
   isPublic        Boolean     @default(true)
 
   coiRecord       CoiRecord   @relation(fields: [coiRecordId], references: [id])
+
+  @@index([coiRecordId])
 }
 
 model CoiDocument {
@@ -521,6 +542,8 @@ model CoiDocument {
   uploadedAt      DateTime    @default(now())
 
   coiRecord       CoiRecord   @relation(fields: [coiRecordId], references: [id])
+
+  @@index([coiRecordId])
 }
 
 model Milestone {
@@ -533,6 +556,8 @@ model Milestone {
   ordering        Int         @default(0)
 
   guideline       Guideline   @relation(fields: [guidelineId], references: [id])
+
+  @@index([guidelineId])
 }
 
 model ChecklistItem {
@@ -546,6 +571,8 @@ model ChecklistItem {
   ordering        Int         @default(0)
 
   guideline       Guideline   @relation(fields: [guidelineId], references: [id])
+
+  @@index([guidelineId])
 }
 
 model Poll {
@@ -561,6 +588,8 @@ model Poll {
 
   guideline       Guideline   @relation(fields: [guidelineId], references: [id])
   votes           PollVote[]
+
+  @@index([guidelineId])
 }
 
 model PollVote {
@@ -588,6 +617,8 @@ model FeedbackComment {
   recommendation  Recommendation @relation(fields: [recommendationId], references: [id])
   parent          FeedbackComment? @relation("CommentThread", fields: [parentId], references: [id])
   replies         FeedbackComment[] @relation("CommentThread")
+
+  @@index([recommendationId])
 }
 
 model Task {
@@ -605,6 +636,8 @@ model Task {
 
   guideline       Guideline   @relation(fields: [guidelineId], references: [id])
   assignee        User?       @relation(fields: [assigneeId], references: [id])
+
+  @@index([guidelineId])
 }
 
 // ============================================================
@@ -620,6 +653,7 @@ model SectionReference {
   reference       Reference   @relation(fields: [referenceId], references: [id])
 
   @@id([sectionId, referenceId])
+  @@index([referenceId])
 }
 
 model SectionPico {
@@ -631,6 +665,7 @@ model SectionPico {
   pico            Pico        @relation(fields: [picoId], references: [id])
 
   @@id([sectionId, picoId])
+  @@index([picoId])
 }
 
 model SectionRecommendation {
@@ -642,6 +677,8 @@ model SectionRecommendation {
   recommendation  Recommendation @relation(fields: [recommendationId], references: [id])
 
   @@id([sectionId, recommendationId])
+  @@index([sectionId])
+  @@index([recommendationId])
 }
 
 model PicoRecommendation {
@@ -652,6 +689,7 @@ model PicoRecommendation {
   recommendation  Recommendation @relation(fields: [recommendationId], references: [id])
 
   @@id([picoId, recommendationId])
+  @@index([recommendationId])
 }
 
 model OutcomeReference {
@@ -662,6 +700,7 @@ model OutcomeReference {
   reference       Reference   @relation(fields: [referenceId], references: [id])
 
   @@id([outcomeId, referenceId])
+  @@index([referenceId])
 }
 
 model RecommendationTag {

@@ -8,6 +8,7 @@ import {
   Param,
   Query,
   ParseUUIDPipe,
+  UseGuards,
   UseInterceptors,
   UploadedFile,
 } from '@nestjs/common';
@@ -18,20 +19,26 @@ import { CreateCoiDto, UpdateCoiDto } from './dto/create-coi.dto';
 import { BulkCoiDto } from './dto/bulk-coi.dto';
 import { PaginationQueryDto } from '../common/dto';
 import { CurrentUserId } from '../auth/current-user.decorator';
+import { RbacGuard } from '../auth/rbac.guard';
+import { Roles } from '../auth/roles.decorator';
+import { EntityType } from '../auth/entity-type.decorator';
 
 @ApiTags('COI')
 @ApiBearerAuth()
+@UseGuards(RbacGuard)
 @Controller('coi')
 export class CoiController {
   constructor(private readonly coiService: CoiService) {}
 
   @Post()
+  @Roles('ADMIN', 'AUTHOR', 'REVIEWER')
   @ApiOperation({ summary: 'Create a COI record for the current user' })
   create(@Body() dto: CreateCoiDto, @CurrentUserId() userId: string) {
     return this.coiService.create(dto, userId);
   }
 
   @Get()
+  @Roles('ADMIN', 'AUTHOR', 'REVIEWER')
   @ApiOperation({ summary: 'List COI records for a guideline (paginated)' })
   @ApiQuery({ name: 'guidelineId', required: true })
   findByGuideline(
@@ -42,6 +49,7 @@ export class CoiController {
   }
 
   @Get('user/:userId')
+  @Roles('ADMIN', 'AUTHOR', 'REVIEWER')
   @ApiOperation({ summary: 'Get COI record for a specific user in a guideline' })
   @ApiQuery({ name: 'guidelineId', required: true })
   findByUser(
@@ -52,6 +60,8 @@ export class CoiController {
   }
 
   @Put(':id')
+  @Roles('ADMIN', 'AUTHOR', 'REVIEWER')
+  @EntityType('coi')
   @ApiOperation({ summary: 'Update a COI record' })
   update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -62,6 +72,8 @@ export class CoiController {
   }
 
   @Delete(':id')
+  @Roles('ADMIN')
+  @EntityType('coi')
   @ApiOperation({ summary: 'Delete a COI record' })
   remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.coiService.remove(id);
@@ -72,6 +84,8 @@ export class CoiController {
   // -----------------------------------------------------------------------
 
   @Post(':id/documents')
+  @Roles('ADMIN', 'AUTHOR', 'REVIEWER')
+  @EntityType('coi')
   @ApiOperation({ summary: 'Upload a COI disclosure document' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -89,6 +103,8 @@ export class CoiController {
   }
 
   @Get(':id/documents')
+  @Roles('ADMIN', 'AUTHOR', 'REVIEWER')
+  @EntityType('coi')
   @ApiOperation({ summary: 'List uploaded documents for a COI record' })
   getDocuments(@Param('id', ParseUUIDPipe) id: string) {
     return this.coiService.getDocuments(id);
@@ -99,6 +115,7 @@ export class CoiController {
   // -----------------------------------------------------------------------
 
   @Post('guidelines/:guidelineId/bulk')
+  @Roles('ADMIN', 'AUTHOR')
   @ApiOperation({ summary: 'Bulk set conflict levels per-intervention or per-member' })
   bulkSetConflicts(
     @Param('guidelineId', ParseUUIDPipe) guidelineId: string,
@@ -112,6 +129,7 @@ export class CoiController {
   // -----------------------------------------------------------------------
 
   @Post('guidelines/:guidelineId/refresh')
+  @Roles('ADMIN', 'AUTHOR')
   @ApiOperation({ summary: 'Manually trigger intervention matrix refresh from PICOs' })
   async refreshMatrix(@Param('guidelineId', ParseUUIDPipe) guidelineId: string) {
     await this.coiService.refreshInterventionMatrix(guidelineId);
