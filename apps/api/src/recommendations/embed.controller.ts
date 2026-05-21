@@ -1,6 +1,7 @@
 import { Controller, Get, Param, Res, ParseUUIDPipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
 import type { Response } from 'express';
+import { Public } from '../auth/public.decorator';
 
 /**
  * Serves a self-contained HTML page that embeds the OpenGRADE decision-aid
@@ -22,6 +23,7 @@ export class EmbedController {
    * configures it with the supplied recommendationId, and handles theming
    * via an optional `?theme=dark` query parameter.
    */
+  @Public()
   @Get('decision-aid/:recommendationId')
   @ApiOperation({
     summary: 'Embeddable decision-aid page for a recommendation',
@@ -43,11 +45,17 @@ export class EmbedController {
     res.setHeader('X-Frame-Options', 'ALLOWALL');
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
 
-    const theme = (res.req as { query?: Record<string, string> }).query?.['theme'] === 'dark'
-      ? 'dark'
-      : 'light';
+    const req = res.req as {
+      query?: Record<string, string>;
+      headers: Record<string, string | string[] | undefined>;
+      protocol: string;
+      hostname: string;
+    };
 
-    const apiOrigin = process.env['API_PUBLIC_URL'] ?? '';
+    const theme = req.query?.['theme'] === 'dark' ? 'dark' : 'light';
+
+    const apiOrigin = process.env['API_PUBLIC_URL'] ??
+      `${req.protocol}://${req.headers['host'] ?? req.hostname}`;
 
     const html = `<!DOCTYPE html>
 <html lang="en">
