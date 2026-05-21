@@ -1,19 +1,3 @@
-// Usage:
-//   @UseGuards(AuthGuard, RbacGuard)
-//   @Roles('ADMIN', 'AUTHOR')
-//   @Post()
-//   createSection() { ... }
-//
-//   @UseGuards(AuthGuard, RbacGuard)
-//   @Roles('ADMIN')
-//   @Delete(':id')
-//   deleteGuideline() { ... }
-//
-//   @UseGuards(AuthGuard, RbacGuard)
-//   @Roles('ADMIN', 'AUTHOR', 'REVIEWER')
-//   @Get(':guidelineId/sections')
-//   getSections() { ... }
-
 import {
   CanActivate,
   ExecutionContext,

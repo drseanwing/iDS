@@ -35,7 +35,6 @@ export interface TrackChangesStorage {
   authorName: string;
 }
 
-// Plugin key for tracking state
 export const trackChangesPluginKey = new PluginKey('trackChanges');
 
 const META_KEY = 'trackChanges';

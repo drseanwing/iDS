@@ -51,8 +51,8 @@ export class PdfExportService {
       const existingOptionsJson = existingJob.options
         ? JSON.stringify(existingJob.options)
         : null;
-      const optionsMatch = optionsJson === existingOptionsJson ||
-        (optionsJson === null && existingOptionsJson === null) ||
+      const optionsMatch =
+        optionsJson === existingOptionsJson ||
         (optionsJson === '{}' && existingOptionsJson === null) ||
         (optionsJson === null && existingOptionsJson === '{}');
 
@@ -90,9 +90,6 @@ export class PdfExportService {
     };
   }
 
-  /**
-   * Get the status and metadata of a PDF export job.
-   */
   async getJobStatus(jobId: string) {
     const job = await this.prisma.pdfExportJob.findUnique({
       where: { id: jobId },
@@ -119,9 +116,6 @@ export class PdfExportService {
     };
   }
 
-  /**
-   * List recent PDF export jobs for a guideline.
-   */
   async listJobs(guidelineId: string, limit = 10) {
     return this.prisma.pdfExportJob.findMany({
       where: { guidelineId },
@@ -137,9 +131,6 @@ export class PdfExportService {
     });
   }
 
-  /**
-   * Download the generated PDF. Returns the Buffer.
-   */
   async downloadPdf(jobId: string): Promise<{ buffer: Buffer; filename: string }> {
     const job = await this.prisma.pdfExportJob.findUnique({
       where: { id: jobId },
@@ -173,12 +164,7 @@ export class PdfExportService {
     }
   }
 
-  /* ================================================================ */
-  /*  Background job processing                                        */
-  /* ================================================================ */
-
   private async processJob(jobId: string): Promise<void> {
-    // Mark as processing
     const job = await this.prisma.pdfExportJob.update({
       where: { id: jobId },
       data: { status: 'PROCESSING', startedAt: new Date() },
@@ -187,20 +173,13 @@ export class PdfExportService {
     try {
       this.logger.log(`Starting PDF generation for job ${jobId}, guideline ${job.guidelineId}`);
 
-      // Fetch the full guideline export data
       const exportData = await this.guidelinesService.exportJson(job.guidelineId);
-
-      // Parse stored options
       const options: PdfExportOptions = (job.options as any) ?? {};
-
-      // Generate PDF
       const pdfBuffer = await this.pdfGenerator.generatePdf(exportData, options);
 
-      // Upload to S3
       const s3Key = `pdf-exports/${job.guidelineId}/${jobId}.pdf`;
       await this.storage.upload(s3Key, pdfBuffer, 'application/pdf');
 
-      // Mark as completed
       await this.prisma.pdfExportJob.update({
         where: { id: jobId },
         data: {

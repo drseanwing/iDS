@@ -35,8 +35,6 @@ export class BackupService {
 
   async runBackup(): Promise<BackupStatus> {
     const startedAt = new Date();
-    this.logger.log('Starting backup run...');
-
     await this.runPostgresBackup(startedAt);
     await this.backupMinio();
     await this.backupKeycloak();
