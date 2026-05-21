@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Loader2, ChevronLeft, ChevronRight, Trash2, Plus } from 'lucide-react';
 import { useTasks, useUpdateTask, useDeleteTask, Task } from '../../hooks/useTasks';
 import { TaskCreateForm } from './TaskCreateForm';
+import { ConfirmDialog } from './ConfirmDialog';
 
 interface TaskBoardProps {
   guidelineId: string;
@@ -57,9 +58,12 @@ interface TaskCardProps {
 
 function TaskCard({ task, guidelineId, onMoveLeft, onMoveRight }: TaskCardProps) {
   const deleteTask = useDeleteTask();
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const handleDelete = () => {
-    if (!window.confirm(`Delete task "${task.title}"?`)) return;
+  const handleDeleteClick = () => setConfirmOpen(true);
+
+  const handleConfirmDelete = () => {
+    setConfirmOpen(false);
     deleteTask.mutate({ id: task.id, guidelineId });
   };
 
@@ -68,9 +72,10 @@ function TaskCard({ task, guidelineId, onMoveLeft, onMoveRight }: TaskCardProps)
       <div className="flex items-start justify-between gap-2">
         <p className="text-sm font-semibold text-gray-900 leading-snug">{task.title}</p>
         <button
-          onClick={handleDelete}
+          onClick={handleDeleteClick}
           disabled={deleteTask.isPending}
           title="Delete task"
+          aria-label={`Delete task "${task.title}"`}
           className="flex-shrink-0 rounded p-0.5 text-gray-400 hover:text-red-500 hover:bg-red-50 disabled:opacity-50"
         >
           <Trash2 className="h-3.5 w-3.5" />
@@ -117,6 +122,16 @@ function TaskCard({ task, guidelineId, onMoveLeft, onMoveRight }: TaskCardProps)
           </button>
         )}
       </div>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Delete task"
+        description={`Delete task "${task.title}"? This action cannot be undone.`}
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setConfirmOpen(false)}
+      />
     </div>
   );
 }

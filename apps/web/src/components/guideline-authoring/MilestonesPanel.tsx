@@ -8,6 +8,7 @@ import {
   useToggleChecklistItem,
   Milestone,
 } from '../../hooks/useMilestones';
+import { ConfirmDialog } from './ConfirmDialog';
 
 interface MilestonesPanelProps {
   guidelineId: string;
@@ -121,6 +122,7 @@ function MilestoneCard({
   const updateMilestone = useUpdateMilestone();
   const deleteMilestone = useDeleteMilestone();
   const toggleItem = useToggleChecklistItem();
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const handleToggleCompleted = () => {
     updateMilestone.mutate({
@@ -130,8 +132,10 @@ function MilestoneCard({
     });
   };
 
-  const handleDelete = () => {
-    if (!window.confirm(`Delete milestone "${milestone.title}"?`)) return;
+  const handleDeleteClick = () => setConfirmOpen(true);
+
+  const handleConfirmDelete = () => {
+    setConfirmOpen(false);
     deleteMilestone.mutate({ id: milestone.id, guidelineId });
   };
 
@@ -177,9 +181,10 @@ function MilestoneCard({
             </label>
           </div>
           <button
-            onClick={handleDelete}
+            onClick={handleDeleteClick}
             disabled={deleteMilestone.isPending}
             title="Delete milestone"
+            aria-label={`Delete milestone "${milestone.title}"`}
             className="flex-shrink-0 rounded p-0.5 text-gray-400 hover:text-red-500 hover:bg-red-50 disabled:opacity-50"
           >
             <Trash2 className="h-3.5 w-3.5" />
@@ -221,6 +226,16 @@ function MilestoneCard({
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Delete milestone"
+        description={`Delete milestone "${milestone.title}"? This action cannot be undone.`}
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setConfirmOpen(false)}
+      />
     </div>
   );
 }

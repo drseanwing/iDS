@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Loader2, Plus, Pencil, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useCoi, useCreateCoi, useUpdateCoi, useDeleteCoi, CoiRecord, CoiInterventionConflict } from '../../hooks/useCoi';
+import { ConfirmDialog } from './ConfirmDialog';
 
 interface CoiDashboardProps {
   guidelineId: string;
@@ -139,11 +140,12 @@ function CoiRow({ record, guidelineId }: CoiRowProps) {
   const [expandedPublic, setExpandedPublic] = useState(false);
   const [expandedInternal, setExpandedInternal] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const updateCoi = useUpdateCoi();
   const deleteCoi = useDeleteCoi();
 
-  const handleDelete = () => {
-    if (!window.confirm('Delete this COI declaration?')) return;
+  const handleConfirmDelete = () => {
+    setConfirmOpen(false);
     deleteCoi.mutate({ id: record.id, guidelineId });
   };
 
@@ -216,9 +218,10 @@ function CoiRow({ record, guidelineId }: CoiRowProps) {
               </button>
 
               <button
-                onClick={handleDelete}
+                onClick={() => setConfirmOpen(true)}
                 disabled={deleteCoi.isPending}
                 title="Delete declaration"
+                aria-label="Delete COI declaration"
                 className="rounded p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-50"
               >
                 <Trash2 className="h-3.5 w-3.5" />
@@ -274,6 +277,16 @@ function CoiRow({ record, guidelineId }: CoiRowProps) {
           <InterventionConflictList conflicts={conflicts} />
         </>
       )}
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Delete COI declaration"
+        description="Delete this COI declaration? This action cannot be undone."
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setConfirmOpen(false)}
+      />
     </div>
   );
 }

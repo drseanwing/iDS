@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Loader2, Plus, CheckCircle2, Trash2, GitBranch } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import {
@@ -7,6 +8,7 @@ import {
   useDeleteShadow,
   type ShadowOutcome,
 } from '../../hooks/useShadowOutcomes';
+import { ConfirmDialog } from './ConfirmDialog';
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 
@@ -50,22 +52,16 @@ interface ShadowCardProps {
 function ShadowCard({ shadow, outcomeTitle }: ShadowCardProps) {
   const { mutate: promote, isPending: promoting } = usePromoteShadow();
   const { mutate: discard, isPending: discarding } = useDeleteShadow();
+  const [promoteDialogOpen, setPromoteDialogOpen] = useState(false);
+  const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
 
-  function handlePromote() {
-    if (
-      !window.confirm(
-        `Promote this shadow outcome to replace "${outcomeTitle}"?\n\nThis will overwrite the current outcome data with the shadow values. This action cannot be undone.`,
-      )
-    ) {
-      return;
-    }
+  function handleConfirmPromote() {
+    setPromoteDialogOpen(false);
     promote({ outcomeId: shadow.id });
   }
 
-  function handleDiscard() {
-    if (!window.confirm('Discard this shadow outcome? This cannot be undone.')) {
-      return;
-    }
+  function handleConfirmDiscard() {
+    setDiscardDialogOpen(false);
     discard({ outcomeId: shadow.shadowOfId, shadowId: shadow.id });
   }
 
@@ -145,7 +141,7 @@ function ShadowCard({ shadow, outcomeTitle }: ShadowCardProps) {
       {/* Actions */}
       <div className="flex items-center gap-2 border-t px-4 py-2.5 bg-muted/20">
         <button
-          onClick={handlePromote}
+          onClick={() => setPromoteDialogOpen(true)}
           disabled={promoting || discarding}
           className="flex items-center gap-1.5 rounded bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50 transition-colors"
         >
@@ -157,7 +153,7 @@ function ShadowCard({ shadow, outcomeTitle }: ShadowCardProps) {
           Promote
         </button>
         <button
-          onClick={handleDiscard}
+          onClick={() => setDiscardDialogOpen(true)}
           disabled={promoting || discarding}
           className="flex items-center gap-1.5 rounded border border-destructive/40 px-3 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50 transition-colors"
         >
@@ -169,6 +165,25 @@ function ShadowCard({ shadow, outcomeTitle }: ShadowCardProps) {
           Discard
         </button>
       </div>
+
+      <ConfirmDialog
+        open={promoteDialogOpen}
+        title="Promote shadow outcome"
+        description={`Promote this shadow outcome to replace "${outcomeTitle}"? This will overwrite the current outcome data with the shadow values. This action cannot be undone.`}
+        confirmLabel="Promote"
+        onConfirm={handleConfirmPromote}
+        onCancel={() => setPromoteDialogOpen(false)}
+      />
+
+      <ConfirmDialog
+        open={discardDialogOpen}
+        title="Discard shadow outcome"
+        description="Discard this shadow outcome? This cannot be undone."
+        confirmLabel="Discard"
+        variant="destructive"
+        onConfirm={handleConfirmDiscard}
+        onCancel={() => setDiscardDialogOpen(false)}
+      />
     </div>
   );
 }

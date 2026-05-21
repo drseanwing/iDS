@@ -20,6 +20,7 @@ import { useDeleteReference } from '../../hooks/useDeleteReference';
 import { useSectionReferences } from '../../hooks/useSectionReferences';
 import { useLinkSectionReference } from '../../hooks/useLinkSectionReference';
 import type { Section } from '../../hooks/useSections';
+import { ConfirmDialog } from './ConfirmDialog';
 
 const STUDY_TYPE_OPTIONS = [
   { value: 'PRIMARY_STUDY', label: 'Primary Study' },
@@ -414,6 +415,7 @@ export function ReferenceList({ guidelineId, selectedSection }: ReferenceListPro
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [pendingLinkId, setPendingLinkId] = useState<string | null>(null);
+  const [pendingDeleteRef, setPendingDeleteRef] = useState<Reference | null>(null);
 
   const { data: references = [], isLoading, isError } = useReferences(guidelineId);
   const { data: sectionRefs = [] } = useSectionReferences(selectedSection?.id ?? null);
@@ -438,8 +440,12 @@ export function ReferenceList({ guidelineId, selectedSection }: ReferenceListPro
   }, [references, search]);
 
   function handleDelete(ref: Reference) {
-    if (!window.confirm(`Delete "${ref.title}"? This cannot be undone.`)) return;
-    deleteRef({ id: ref.id, guidelineId });
+    setPendingDeleteRef(ref);
+  }
+
+  function handleConfirmDelete() {
+    if (pendingDeleteRef) deleteRef({ id: pendingDeleteRef.id, guidelineId });
+    setPendingDeleteRef(null);
   }
 
   function handleLink(ref: Reference) {
@@ -582,6 +588,16 @@ export function ReferenceList({ guidelineId, selectedSection }: ReferenceListPro
             ` · ${linkedReferenceIds.size} linked to this section`}
         </div>
       )}
+
+      <ConfirmDialog
+        open={pendingDeleteRef !== null}
+        title="Delete reference"
+        description={pendingDeleteRef ? `Delete "${pendingDeleteRef.title}"? This cannot be undone.` : ''}
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setPendingDeleteRef(null)}
+      />
     </div>
   );
 }

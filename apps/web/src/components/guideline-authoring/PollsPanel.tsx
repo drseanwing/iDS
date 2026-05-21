@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Loader2, Plus, Vote } from 'lucide-react';
 import { usePolls, useCreatePoll, useCastVote, useClosePoll, Poll } from '../../hooks/usePolls';
+import { ConfirmDialog } from './ConfirmDialog';
 
 interface PollsPanelProps {
   guidelineId: string;
@@ -232,9 +233,10 @@ function PollCard({
 }) {
   const closePoll = useClosePoll();
   const voteCount = poll.votes?.length ?? 0;
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const handleClose = () => {
-    if (!window.confirm(`Close poll "${poll.title}"? No more votes will be accepted.`)) return;
+  const handleConfirmClose = () => {
+    setConfirmOpen(false);
     closePoll.mutate({ pollId: poll.id, guidelineId });
   };
 
@@ -258,7 +260,7 @@ function PollCard({
         </div>
         {poll.isActive && (
           <button
-            onClick={handleClose}
+            onClick={() => setConfirmOpen(true)}
             disabled={closePoll.isPending}
             title="Close poll"
             className="flex-shrink-0 rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
@@ -279,6 +281,15 @@ function PollCard({
       {poll.isActive && (
         <VotingInterface poll={poll} guidelineId={guidelineId} />
       )}
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Close poll"
+        description={`Close poll "${poll.title}"? No more votes will be accepted.`}
+        confirmLabel="Close Poll"
+        onConfirm={handleConfirmClose}
+        onCancel={() => setConfirmOpen(false)}
+      />
     </div>
   );
 }
