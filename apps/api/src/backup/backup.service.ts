@@ -1,8 +1,10 @@
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as fsp from 'fs/promises';
 
 const execAsync = promisify(exec);
 
@@ -15,64 +17,43 @@ export interface BackupStatus {
 }
 
 @Injectable()
-export class BackupService implements OnModuleInit, OnModuleDestroy {
+export class BackupService {
   private readonly logger = new Logger(BackupService.name);
 
   private lastRunAt: Date | null = null;
   private lastRunStatus: 'success' | 'failure' | 'never' = 'never';
   private lastBackupFile: string | null = null;
   private lastErrorMessage: string | null = null;
-  private schedulerHandle: ReturnType<typeof setInterval> | null = null;
 
-  // Run daily at 02:00 – check every minute, fire when hour=2 and minute=0
-  private readonly SCHEDULE_HOUR = 2;
-  private readonly SCHEDULE_MINUTE = 0;
-  private readonly CHECK_INTERVAL_MS = 60_000; // 1 minute
-
-  onModuleInit(): void {
-    this.startScheduler();
-    this.logger.log(
-      `Backup scheduler started – daily backups at ${this.SCHEDULE_HOUR.toString().padStart(2, '0')}:${this.SCHEDULE_MINUTE.toString().padStart(2, '0')}`,
-    );
-  }
-
-  onModuleDestroy(): void {
-    if (this.schedulerHandle) {
-      clearInterval(this.schedulerHandle);
-      this.schedulerHandle = null;
-      this.logger.log('Backup scheduler stopped');
-    }
-  }
-
-  private startScheduler(): void {
-    this.schedulerHandle = setInterval(() => {
-      const now = new Date();
-      if (
-        now.getHours() === this.SCHEDULE_HOUR &&
-        now.getMinutes() === this.SCHEDULE_MINUTE
-      ) {
-        this.logger.log('Scheduled backup triggered');
-        this.runBackup().catch((err: Error) => {
-          this.logger.error(`Scheduled backup error: ${err.message}`, err.stack);
-        });
-      }
-    }, this.CHECK_INTERVAL_MS);
+  @Cron('0 2 * * *')
+  async runScheduledBackup(): Promise<void> {
+    this.logger.log('Scheduled backup triggered');
+    await this.runBackup().catch((err: Error) => {
+      this.logger.error(`Scheduled backup error: ${err.message}`, err.stack);
+    });
   }
 
   async runBackup(): Promise<BackupStatus> {
     const startedAt = new Date();
+    this.logger.log('Starting backup run...');
+
+    await this.runPostgresBackup(startedAt);
+    await this.backupMinio();
+    await this.backupKeycloak();
+
+    return this.getStatus();
+  }
+
+  private async runPostgresBackup(startedAt: Date): Promise<void> {
     this.logger.log('Starting PostgreSQL backup...');
 
-    // Resolve the backup script path relative to this project
     const scriptPath = this.resolveScriptPath();
 
-    // Build environment for pg_dump
     const env: NodeJS.ProcessEnv = {
       ...process.env,
       BACKUP_DIR: process.env.BACKUP_DIR ?? '/backups/postgresql',
     };
 
-    // Pass DATABASE_URL through if set; otherwise individual PG_ vars
     const databaseUrl = process.env.DATABASE_URL;
     if (databaseUrl) {
       env.DATABASE_URL = databaseUrl;
@@ -87,28 +68,80 @@ export class BackupService implements OnModuleInit, OnModuleDestroy {
     try {
       const { stdout, stderr } = await execAsync(`bash "${scriptPath}"`, {
         env,
-        timeout: 10 * 60 * 1000, // 10 min max
+        timeout: 10 * 60 * 1000,
       });
 
       if (stdout) this.logger.log(`Backup output:\n${stdout.trim()}`);
       if (stderr) this.logger.warn(`Backup stderr:\n${stderr.trim()}`);
 
-      // Extract backup file path from output
       const match = stdout.match(/Backup created:\s*(\S+)/);
       this.lastBackupFile = match ? match[1] : null;
       this.lastRunAt = startedAt;
       this.lastRunStatus = 'success';
       this.lastErrorMessage = null;
 
-      this.logger.log(`Backup completed successfully at ${startedAt.toISOString()}`);
+      this.logger.log(`PostgreSQL backup completed successfully at ${startedAt.toISOString()}`);
     } catch (err: any) {
       this.lastRunAt = startedAt;
       this.lastRunStatus = 'failure';
       this.lastErrorMessage = err.message?.substring(0, 500) ?? 'Unknown error';
-      this.logger.error(`Backup failed: ${this.lastErrorMessage}`, err.stack);
+      this.logger.error(`PostgreSQL backup failed: ${this.lastErrorMessage}`, err.stack);
     }
+  }
 
-    return this.getStatus();
+  private async backupMinio(): Promise<void> {
+    const endpoint = process.env.S3_ENDPOINT ?? 'http://opengrade-minio:9000';
+    const user = process.env.MINIO_ROOT_USER ?? 'minioadmin';
+    const pass = process.env.MINIO_ROOT_PASSWORD ?? 'minioadmin';
+    const bucket = process.env.S3_BUCKET ?? 'opengrade';
+    const backupDir = process.env.BACKUP_DIR ?? '/backups';
+
+    const mcPath = '/usr/local/bin/mc';
+    const cmd = `${mcPath} alias set backup ${endpoint} ${user} ${pass} && ${mcPath} mirror backup/${bucket} ${backupDir}/minio/${bucket}`;
+
+    try {
+      await execAsync(cmd);
+      this.logger.log('MinIO backup completed');
+    } catch (err: any) {
+      this.logger.warn(`MinIO backup skipped (mc not available): ${err.message}`);
+    }
+  }
+
+  private async backupKeycloak(): Promise<void> {
+    const kcUrl = process.env.KEYCLOAK_URL ?? 'http://opengrade-keycloak:8080/auth';
+    const realm = process.env.KEYCLOAK_REALM ?? 'opengrade';
+    const adminUser = process.env.KEYCLOAK_ADMIN ?? 'admin';
+    const adminPass = process.env.KEYCLOAK_ADMIN_PASSWORD ?? '';
+    const backupDir = process.env.BACKUP_DIR ?? '/backups';
+
+    try {
+      const tokenRes = await fetch(`${kcUrl}/realms/master/protocol/openid-connect/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          grant_type: 'password',
+          client_id: 'admin-cli',
+          username: adminUser,
+          password: adminPass,
+        }),
+      });
+      if (!tokenRes.ok) throw new Error(`Failed to get admin token: ${tokenRes.status}`);
+      const { access_token } = await tokenRes.json() as { access_token: string };
+
+      const exportRes = await fetch(
+        `${kcUrl}/admin/realms/${realm}/partial-export?exportClients=true&exportGroupsAndRoles=true`,
+        { headers: { Authorization: `Bearer ${access_token}` } },
+      );
+      if (!exportRes.ok) throw new Error(`Realm export failed: ${exportRes.status}`);
+      const realmData = await exportRes.text();
+
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      await fsp.mkdir(`${backupDir}/keycloak`, { recursive: true });
+      await fsp.writeFile(`${backupDir}/keycloak/realm-${timestamp}.json`, realmData);
+      this.logger.log('Keycloak realm export completed');
+    } catch (err: any) {
+      this.logger.warn(`Keycloak backup skipped: ${err.message}`);
+    }
   }
 
   getStatus(): BackupStatus {
@@ -125,7 +158,7 @@ export class BackupService implements OnModuleInit, OnModuleDestroy {
   private computeNextRun(): Date {
     const now = new Date();
     const next = new Date(now);
-    next.setHours(this.SCHEDULE_HOUR, this.SCHEDULE_MINUTE, 0, 0);
+    next.setHours(2, 0, 0, 0);
     if (next <= now) {
       next.setDate(next.getDate() + 1);
     }
@@ -133,7 +166,6 @@ export class BackupService implements OnModuleInit, OnModuleDestroy {
   }
 
   private resolveScriptPath(): string {
-    // Try relative to project root; fall back to env var
     const candidates = [
       process.env.PG_BACKUP_SCRIPT,
       path.resolve(__dirname, '../../../../infra/backup/pg-backup.sh'),
@@ -146,7 +178,6 @@ export class BackupService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    // Return best-guess path; exec will fail with a clear message if missing
     return candidates[1] as string;
   }
 }
