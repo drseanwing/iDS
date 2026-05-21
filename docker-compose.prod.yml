@@ -1,0 +1,162 @@
+version: '3.9'
+
+networks:
+  opengrade:
+    name: opengrade
+
+services:
+  # ── Infrastructure ──────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: opengrade-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-opengrade}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: opengrade
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - opengrade
+    mem_limit: 4g
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U opengrade']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    container_name: opengrade-keycloak
+    restart: unless-stopped
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/opengrade
+      KC_DB_USERNAME: ${POSTGRES_USER:-opengrade}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      KC_DB_SCHEMA: keycloak
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KC_HOSTNAME: authids.vps.resuseducation.com
+      KC_HOSTNAME_STRICT: 'false'
+      KC_PROXY_HEADERS: xforwarded
+      KC_HTTP_RELATIVE_PATH: /auth
+    command: start
+    ports:
+      - '127.0.0.1:8083:8080'
+    networks:
+      - opengrade
+    mem_limit: 2g
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  minio:
+    image: minio/minio:latest
+    container_name: opengrade-minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    command: server /data --console-address ":9001"
+    ports:
+      - '127.0.0.1:9010:9000'
+      - '127.0.0.1:9011:9001'
+    volumes:
+      - minio_data:/data
+    networks:
+      - opengrade
+    mem_limit: 1g
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: opengrade-minio-init
+    networks:
+      - opengrade
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      sleep 3;
+      mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD};
+      mc mb local/opengrade --ignore-existing;
+      exit 0;
+      "
+
+  redis:
+    image: redis:7-alpine
+    container_name: opengrade-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    networks:
+      - opengrade
+    command: redis-server --save 60 1 --loglevel warning --requirepass ${REDIS_PASSWORD}
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Application ─────────────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    image: opengrade-api:latest
+    container_name: opengrade-api
+    restart: unless-stopped
+    env_file:
+      - apps/api/.env.prod
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    ports:
+      - '127.0.0.1:3021:3000'
+    networks:
+      - opengrade
+    mem_limit: 2g
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+      redis:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        - VITE_API_URL=https://ids.vps.resuseducation.com/api
+        - VITE_KEYCLOAK_URL=https://authids.vps.resuseducation.com/auth
+        - VITE_KEYCLOAK_REALM=opengrade
+        - VITE_KEYCLOAK_CLIENT_ID=opengrade-web
+    image: opengrade-web:latest
+    container_name: opengrade-web
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:3020:80'
+    networks:
+      - opengrade
+    mem_limit: 512m
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:80']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:
+  minio_data:
+  redis_data:
