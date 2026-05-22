@@ -1,10 +1,14 @@
-import { Controller, Get, Query, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Query, ParseUUIDPipe, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { ActivityService } from './activity.service';
 import { PaginationQueryDto } from '../common/dto';
+import { RbacGuard } from '../auth/rbac.guard';
+import { Roles } from '../auth/roles.decorator';
 
 @ApiTags('Activity')
 @ApiBearerAuth()
+@UseGuards(RbacGuard)
+@Roles('VIEWER', 'EDITOR', 'ADMIN')
 @Controller('activity')
 export class ActivityController {
   constructor(private readonly activityService: ActivityService) {}
