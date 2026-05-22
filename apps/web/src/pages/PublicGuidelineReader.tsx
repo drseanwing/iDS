@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 interface PublicSection {
@@ -28,13 +29,23 @@ interface Props {
 }
 
 export function PublicGuidelineReader({ shortName }: Props) {
-  const { data, isLoading, error } = useQuery<PublicGuideline>({
+  const [notFound, setNotFound] = useState(false);
+
+  const { data, isLoading } = useQuery<PublicGuideline>({
     queryKey: ['public-guideline', shortName],
     queryFn: async () => {
       const apiBase = (import.meta as any).env?.VITE_API_URL || '/api';
-      const res = await fetch(`${apiBase}/guidelines/public/${encodeURIComponent(shortName)}`);
-      if (!res.ok) throw new Error('Guideline not found');
-      return res.json() as Promise<PublicGuideline>;
+      try {
+        const res = await fetch(`${apiBase}/guidelines/public/${encodeURIComponent(shortName)}`);
+        if (!res.ok) {
+          setNotFound(true);
+          return null as unknown as PublicGuideline;
+        }
+        return res.json() as Promise<PublicGuideline>;
+      } catch {
+        setNotFound(true);
+        return null as unknown as PublicGuideline;
+      }
     },
   });
 
@@ -46,7 +57,19 @@ export function PublicGuidelineReader({ shortName }: Props) {
     );
   }
 
-  if (error || !data) {
+  if (notFound) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center">
+        <h1 className="text-2xl font-semibold text-gray-800">Guideline not found</h1>
+        <p className="text-gray-500">This guideline may have been removed or made private.</p>
+        <a href="/" className="text-blue-600 underline hover:text-blue-800">
+          Return to OpenGRADE
+        </a>
+      </div>
+    );
+  }
+
+  if (!data) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <p className="text-red-600">Guideline not found or not published.</p>
