@@ -31,6 +31,7 @@ import { PdfExportModule } from './pdf-export/pdf-export.module';
 import { PresenceModule } from './presence/presence.module';
 import { BackupModule } from './backup/backup.module';
 import { RevmanModule } from './revman/revman.module';
+import { UsersModule } from './users/users.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { MetricsInterceptor } from './metrics/metrics.interceptor';
 import { AllExceptionsFilter } from './common/all-exceptions.filter';
@@ -75,6 +76,7 @@ import { createPinoHttpOptions } from './logging/pino-http-options';
     PresenceModule,
     BackupModule,
     RevmanModule,
+    UsersModule,
     MetricsModule,
   ],
   controllers: [HealthController],

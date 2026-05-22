@@ -71,7 +71,7 @@ describe('PermissionManagementPanel', () => {
 
     expect(screen.getByText('Team Members')).toBeDefined();
     expect(screen.getByText('Add Member')).toBeDefined();
-    expect(screen.getByPlaceholderText('User ID')).toBeDefined();
+    expect(screen.getByPlaceholderText('Search by name or email...')).toBeDefined();
   });
 
   it('shows empty state when there are no team members', async () => {
@@ -106,15 +106,30 @@ describe('PermissionManagementPanel', () => {
     expect(addBtn.disabled).toBe(true);
   });
 
-  it('Add button becomes enabled after typing a User ID', async () => {
-    getMock.mockResolvedValue({ data: [] });
+  it('Add button becomes enabled after selecting a user suggestion', async () => {
+    // First call resolves permissions (empty), subsequent calls resolve user search results
+    getMock
+      .mockResolvedValueOnce({ data: [] })
+      .mockResolvedValue({ data: [{ id: 'user-99', email: 'alice@example.com', displayName: 'Alice Smith' }] });
+
     renderWithQuery(<PermissionManagementPanel guidelineId="gl-1" />);
 
-    fireEvent.change(screen.getByPlaceholderText('User ID'), {
-      target: { value: 'user-99' },
+    // Button should be disabled initially
+    const addBtn = screen.getByRole('button', { name: /^add$/i }) as HTMLButtonElement;
+    expect(addBtn.disabled).toBe(true);
+
+    // Type into the search input to trigger suggestions
+    fireEvent.change(screen.getByPlaceholderText('Search by name or email...'), {
+      target: { value: 'alice' },
     });
 
-    const addBtn = screen.getByRole('button', { name: /^add$/i }) as HTMLButtonElement;
+    // Wait for the suggestion to appear and click it
+    await waitFor(() => {
+      expect(screen.getByText('Alice Smith')).toBeDefined();
+    });
+    fireEvent.click(screen.getByText('Alice Smith'));
+
+    // Add button should now be enabled
     expect(addBtn.disabled).toBe(false);
   });
 

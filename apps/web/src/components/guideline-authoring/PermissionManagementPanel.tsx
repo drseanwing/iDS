@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Loader2, Trash2 } from 'lucide-react';
 import {
   usePermissions,
@@ -6,9 +6,16 @@ import {
   useRemovePermission,
   type Permission,
 } from '../../hooks/usePermissions';
+import { apiClient } from '../../lib/api-client';
 
 interface PermissionManagementPanelProps {
   guidelineId: string;
+}
+
+interface UserSuggestion {
+  id: string;
+  email: string;
+  displayName: string;
 }
 
 const roleBadge: Record<Permission['role'], string> = {
@@ -21,9 +28,13 @@ const roleBadge: Record<Permission['role'], string> = {
 const ROLES: Permission['role'][] = ['ADMIN', 'AUTHOR', 'REVIEWER', 'VIEWER'];
 
 export function PermissionManagementPanel({ guidelineId }: PermissionManagementPanelProps) {
-  const [userId, setUserId] = useState('');
+  const [userQuery, setUserQuery] = useState('');
+  const [userSuggestions, setUserSuggestions] = useState<UserSuggestion[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState('');
+  const [selectedDisplayName, setSelectedDisplayName] = useState('');
   const [role, setRole] = useState<Permission['role']>('VIEWER');
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: permissions, isLoading } = usePermissions(guidelineId);
   const addPermission = useAddPermission();
@@ -31,13 +42,53 @@ export function PermissionManagementPanel({ guidelineId }: PermissionManagementP
 
   const list = permissions ?? [];
 
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (!userQuery || userQuery.length < 2) {
+      setUserSuggestions([]);
+      return;
+    }
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res = await apiClient.get<UserSuggestion[]>('/users/search', {
+          params: { q: userQuery },
+        });
+        setUserSuggestions(res.data);
+      } catch {
+        setUserSuggestions([]);
+      }
+    }, 300);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [userQuery]);
+
+  const handleSelectSuggestion = (user: UserSuggestion) => {
+    setSelectedUserId(user.id);
+    setSelectedDisplayName(user.displayName || user.email);
+    setUserQuery(user.displayName || user.email);
+    setUserSuggestions([]);
+  };
+
+  const handleQueryChange = (value: string) => {
+    setUserQuery(value);
+    // Clear selection if user edits the search text after selecting
+    if (selectedUserId) {
+      setSelectedUserId('');
+      setSelectedDisplayName('');
+    }
+  };
+
   const handleAdd = () => {
-    if (!userId.trim()) return;
+    if (!selectedUserId) return;
     addPermission.mutate(
-      { guidelineId, userId: userId.trim(), role },
+      { guidelineId, userId: selectedUserId, role },
       {
         onSuccess: () => {
-          setUserId('');
+          setUserQuery('');
+          setSelectedUserId('');
+          setSelectedDisplayName('');
+          setUserSuggestions([]);
           setRole('VIEWER');
         },
       },
@@ -66,13 +117,35 @@ export function PermissionManagementPanel({ guidelineId }: PermissionManagementP
       <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3">
         <p className="text-sm font-medium text-gray-700">Add Member</p>
         <div className="flex gap-2 flex-wrap">
-          <input
-            type="text"
-            value={userId}
-            onChange={(e) => setUserId(e.target.value)}
-            placeholder="User ID"
-            className="flex-1 min-w-0 rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+          <div className="relative flex-1 min-w-0">
+            <input
+              type="text"
+              value={userQuery}
+              onChange={(e) => handleQueryChange(e.target.value)}
+              placeholder="Search by name or email..."
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            {userSuggestions.length > 0 && (
+              <ul className="absolute z-10 mt-1 w-full rounded-md border border-gray-200 bg-white shadow-lg text-sm">
+                {userSuggestions.map((user) => (
+                  <li key={user.id}>
+                    <button
+                      type="button"
+                      onClick={() => handleSelectSuggestion(user)}
+                      className="w-full text-left px-3 py-2 hover:bg-blue-50 focus:outline-none focus:bg-blue-50"
+                    >
+                      <span className="font-medium text-gray-900">
+                        {user.displayName || user.email}
+                      </span>
+                      {user.displayName && (
+                        <span className="ml-2 text-gray-500">{user.email}</span>
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
           <select
             value={role}
             onChange={(e) => setRole(e.target.value as Permission['role'])}
@@ -86,15 +159,15 @@ export function PermissionManagementPanel({ guidelineId }: PermissionManagementP
           </select>
           <button
             onClick={handleAdd}
-            disabled={!userId.trim() || addPermission.isPending}
+            disabled={!selectedUserId || addPermission.isPending}
             className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
           >
             {addPermission.isPending ? 'Adding...' : 'Add'}
           </button>
         </div>
-        <p className="text-xs text-gray-500">
-          Enter the UUID of the user to add. In a real app this would be an email/user search.
-        </p>
+        {selectedDisplayName && (
+          <p className="text-xs text-green-600">Selected: {selectedDisplayName}</p>
+        )}
       </div>
 
       {/* Loading */}
