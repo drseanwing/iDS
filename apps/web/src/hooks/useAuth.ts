@@ -29,48 +29,34 @@ interface AuthState {
   logout: () => void;
 }
 
-function decodeJwtPayload(token: string): AuthState['user'] | null {
+function parseJwtPayload(token: string): Record<string, unknown> | null {
   try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-    const base64Url = parts[1];
-    if (!base64Url) return null;
-    // Replace URL-safe chars and pad to a valid base64 string
-    const base64 = base64Url
-      .replace(/-/g, '+')
-      .replace(/_/g, '/')
-      .padEnd(Math.ceil(base64Url.length / 4) * 4, '=');
-    const json = atob(base64);
-    const payload = JSON.parse(json);
-    return {
-      sub: payload.sub ?? '',
-      email: payload.email ?? '',
-      name: payload.name || payload.preferred_username || '',
-      roles: payload.realm_access?.roles ?? [],
-    };
+    const part = token.split('.')[1];
+    if (!part) return null;
+    const padded = part.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(part.length / 4) * 4, '=');
+    return JSON.parse(atob(padded)) as Record<string, unknown>;
   } catch {
     return null;
   }
 }
 
+function decodeJwtPayload(token: string): AuthState['user'] | null {
+  const payload = parseJwtPayload(token);
+  if (!payload) return null;
+  return {
+    sub: (payload.sub as string) ?? '',
+    email: (payload.email as string) ?? '',
+    name: (payload.name as string) || (payload.preferred_username as string) || '',
+    roles: (payload.realm_access as { roles?: string[] })?.roles ?? [],
+  };
+}
+
 function tokenExpiresSoon(token: string | null): boolean {
   if (!token) return true;
-  try {
-    const payloadPart = token.split('.')[1];
-    if (!payloadPart) return true;
-    const payload = JSON.parse(
-      atob(
-        payloadPart
-          .replace(/-/g, '+')
-          .replace(/_/g, '/')
-          .padEnd(Math.ceil(payloadPart.length / 4) * 4, '='),
-      ),
-    );
-    const expiresAt = Number(payload.exp || 0) * 1000;
-    return expiresAt <= Date.now() + 30_000;
-  } catch {
-    return false;
-  }
+  const payload = parseJwtPayload(token);
+  if (!payload) return true;
+  const expiresAt = Number(payload.exp || 0) * 1000;
+  return expiresAt <= Date.now() + 30_000;
 }
 
 let _refreshTimerId: ReturnType<typeof setTimeout> | null = null;
@@ -84,19 +70,10 @@ function clearTokenRefreshTimer() {
 
 function scheduleTokenRefresh(accessToken: string) {
   clearTokenRefreshTimer();
-  try {
-    const payloadPart = accessToken.split('.')[1];
-    if (!payloadPart) return;
-    const payload = JSON.parse(
-      atob(
-        payloadPart
-          .replace(/-/g, '+')
-          .replace(/_/g, '/')
-          .padEnd(Math.ceil(payloadPart.length / 4) * 4, '='),
-      ),
-    );
-    const exp = Number(payload.exp || 0);
-    const msUntilRefresh = exp * 1000 - Date.now() - 30_000;
+  const payload = parseJwtPayload(accessToken);
+  if (!payload) return;
+  const exp = Number(payload.exp || 0);
+  const msUntilRefresh = exp * 1000 - Date.now() - 30_000;
     if (msUntilRefresh <= 0) return;
     _refreshTimerId = setTimeout(() => {
       const storedRefresh = localStorage.getItem('refresh_token');
@@ -120,9 +97,6 @@ function scheduleTokenRefresh(accessToken: string) {
           window.dispatchEvent(new Event('auth:expired'));
         });
     }, msUntilRefresh);
-  } catch {
-    // If we can't decode the token, skip scheduling
-  }
 }
 
 function storeTokenSet(tokens: TokenSet): AuthState['user'] | null {

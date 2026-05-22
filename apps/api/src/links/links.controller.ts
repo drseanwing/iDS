@@ -52,7 +52,6 @@ export class LinksController {
 
   @Get('section-references')
   @ApiOperation({ summary: 'List references linked to a section' })
-  @ApiQuery({ name: 'guidelineId', required: true })
   @ApiQuery({ name: 'sectionId', required: true })
   listSectionReferences(
     @Query('sectionId', ParseUUIDPipe) sectionId: string,
@@ -85,7 +84,6 @@ export class LinksController {
 
   @Get('section-picos')
   @ApiOperation({ summary: 'List PICOs linked to a section' })
-  @ApiQuery({ name: 'guidelineId', required: true })
   @ApiQuery({ name: 'sectionId', required: true })
   listSectionPicos(
     @Query('sectionId', ParseUUIDPipe) sectionId: string,
@@ -122,7 +120,6 @@ export class LinksController {
 
   @Get('section-recommendations')
   @ApiOperation({ summary: 'List recommendations linked to a section' })
-  @ApiQuery({ name: 'guidelineId', required: true })
   @ApiQuery({ name: 'sectionId', required: true })
   listSectionRecommendations(
     @Query('sectionId', ParseUUIDPipe) sectionId: string,
@@ -159,7 +156,6 @@ export class LinksController {
 
   @Get('pico-recommendations')
   @ApiOperation({ summary: 'List recommendations linked to a PICO' })
-  @ApiQuery({ name: 'guidelineId', required: true })
   @ApiQuery({ name: 'picoId', required: true })
   listPicoRecommendations(
     @Query('picoId', ParseUUIDPipe) picoId: string,
@@ -192,7 +188,6 @@ export class LinksController {
 
   @Get('outcome-references')
   @ApiOperation({ summary: 'List references linked to an outcome' })
-  @ApiQuery({ name: 'guidelineId', required: true })
   @ApiQuery({ name: 'outcomeId', required: true })
   listOutcomeReferences(
     @Query('outcomeId', ParseUUIDPipe) outcomeId: string,
