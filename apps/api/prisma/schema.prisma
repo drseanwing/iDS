@@ -23,6 +23,8 @@ model Organization {
 
   guidelines      Guideline[]
   members         OrganizationMember[]
+
+  @@unique([name])
 }
 
 model User {
@@ -270,6 +272,7 @@ model PicoCode {
   pico            Pico        @relation(fields: [picoId], references: [id])
 
   @@index([picoId, codeSystem])
+  @@unique([picoId, codeSystem, code, element])
 }
 
 model PracticalIssue {
@@ -358,6 +361,7 @@ model EtdJudgment {
   etdFactor       EtdFactor   @relation(fields: [etdFactorId], references: [id])
 
   @@index([etdFactorId])
+  @@unique([etdFactorId, interventionLabel])
 }
 
 // ============================================================
@@ -376,6 +380,7 @@ model EmrElement {
   recommendation  Recommendation @relation(fields: [recommendationId], references: [id])
 
   @@index([recommendationId])
+  @@unique([recommendationId, codeSystem, code, elementType])
 }
 
 // ============================================================
@@ -531,6 +536,7 @@ model CoiInterventionConflict {
   coiRecord       CoiRecord   @relation(fields: [coiRecordId], references: [id])
 
   @@index([coiRecordId])
+  @@unique([coiRecordId, interventionLabel])
 }
 
 model CoiDocument {
