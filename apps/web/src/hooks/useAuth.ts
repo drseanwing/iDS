@@ -73,6 +73,58 @@ function tokenExpiresSoon(token: string | null): boolean {
   }
 }
 
+let _refreshTimerId: ReturnType<typeof setTimeout> | null = null;
+
+function clearTokenRefreshTimer() {
+  if (_refreshTimerId !== null) {
+    clearTimeout(_refreshTimerId);
+    _refreshTimerId = null;
+  }
+}
+
+function scheduleTokenRefresh(accessToken: string) {
+  clearTokenRefreshTimer();
+  try {
+    const payloadPart = accessToken.split('.')[1];
+    if (!payloadPart) return;
+    const payload = JSON.parse(
+      atob(
+        payloadPart
+          .replace(/-/g, '+')
+          .replace(/_/g, '/')
+          .padEnd(Math.ceil(payloadPart.length / 4) * 4, '='),
+      ),
+    );
+    const exp = Number(payload.exp || 0);
+    const msUntilRefresh = exp * 1000 - Date.now() - 30_000;
+    if (msUntilRefresh <= 0) return;
+    _refreshTimerId = setTimeout(() => {
+      const storedRefresh = localStorage.getItem('refresh_token');
+      if (!storedRefresh) {
+        window.dispatchEvent(new Event('auth:expired'));
+        return;
+      }
+      refreshToken({ config: getOidcConfig(), refreshToken: storedRefresh })
+        .then((tokens) => {
+          storeTokenSet(tokens);
+          useAuth.setState({
+            token: tokens.access_token,
+            refreshToken: tokens.refresh_token ?? storedRefresh,
+            user: decodeJwtPayload(tokens.access_token),
+          });
+          scheduleTokenRefresh(tokens.access_token);
+        })
+        .catch(() => {
+          clearStoredTokens();
+          useAuth.setState({ token: null, refreshToken: null, user: null });
+          window.dispatchEvent(new Event('auth:expired'));
+        });
+    }, msUntilRefresh);
+  } catch {
+    // If we can't decode the token, skip scheduling
+  }
+}
+
 function storeTokenSet(tokens: TokenSet): AuthState['user'] | null {
   localStorage.setItem('access_token', tokens.access_token);
   if (tokens.refresh_token) localStorage.setItem('refresh_token', tokens.refresh_token);
@@ -167,6 +219,7 @@ export const useAuth = create<AuthState>((set) => ({
           authError: null,
           isAuthReady: true,
         });
+        scheduleTokenRefresh(tokens.access_token);
         return;
       } catch (err) {
         clearStoredTokens();
@@ -197,6 +250,7 @@ export const useAuth = create<AuthState>((set) => ({
           authError: null,
           isAuthReady: true,
         });
+        scheduleTokenRefresh(tokens.access_token);
         return;
       } catch {
         clearStoredTokens();
@@ -209,6 +263,7 @@ export const useAuth = create<AuthState>((set) => ({
   login: () => redirectToKeycloak('login'),
   register: () => redirectToKeycloak('register'),
   logout: () => {
+    clearTokenRefreshTimer();
     clearStoredTokens();
     set({ user: null, token: null, refreshToken: null, authError: null });
   },
