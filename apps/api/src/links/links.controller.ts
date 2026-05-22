@@ -32,8 +32,11 @@ export class LinksController {
   @Post('section-references')
   @ApiOperation({ summary: 'Link a reference to a section' })
   @ApiQuery({ name: 'guidelineId', required: true })
-  linkSectionReference(@Body() dto: LinkSectionReferenceDto) {
-    return this.linksService.linkSectionReference(dto);
+  linkSectionReference(
+    @Body() dto: LinkSectionReferenceDto,
+    @Query('guidelineId') guidelineId: string,
+  ) {
+    return this.linksService.linkSectionReference(dto, guidelineId);
   }
 
   @Delete('section-references/:sectionId/:referenceId')
@@ -42,8 +45,9 @@ export class LinksController {
   unlinkSectionReference(
     @Param('sectionId', ParseUUIDPipe) sectionId: string,
     @Param('referenceId', ParseUUIDPipe) referenceId: string,
+    @Query('guidelineId') guidelineId: string,
   ) {
-    return this.linksService.unlinkSectionReference(sectionId, referenceId);
+    return this.linksService.unlinkSectionReference(sectionId, referenceId, guidelineId);
   }
 
   @Get('section-references')
@@ -61,8 +65,11 @@ export class LinksController {
   @Post('section-picos')
   @ApiOperation({ summary: 'Link a PICO to a section' })
   @ApiQuery({ name: 'guidelineId', required: true })
-  linkSectionPico(@Body() dto: LinkSectionPicoDto) {
-    return this.linksService.linkSectionPico(dto);
+  linkSectionPico(
+    @Body() dto: LinkSectionPicoDto,
+    @Query('guidelineId') guidelineId: string,
+  ) {
+    return this.linksService.linkSectionPico(dto, guidelineId);
   }
 
   @Delete('section-picos/:sectionId/:picoId')
@@ -71,8 +78,9 @@ export class LinksController {
   unlinkSectionPico(
     @Param('sectionId', ParseUUIDPipe) sectionId: string,
     @Param('picoId', ParseUUIDPipe) picoId: string,
+    @Query('guidelineId') guidelineId: string,
   ) {
-    return this.linksService.unlinkSectionPico(sectionId, picoId);
+    return this.linksService.unlinkSectionPico(sectionId, picoId, guidelineId);
   }
 
   @Get('section-picos')
@@ -90,8 +98,11 @@ export class LinksController {
   @Post('section-recommendations')
   @ApiOperation({ summary: 'Link a recommendation to a section' })
   @ApiQuery({ name: 'guidelineId', required: true })
-  linkSectionRecommendation(@Body() dto: LinkSectionRecommendationDto) {
-    return this.linksService.linkSectionRecommendation(dto);
+  linkSectionRecommendation(
+    @Body() dto: LinkSectionRecommendationDto,
+    @Query('guidelineId') guidelineId: string,
+  ) {
+    return this.linksService.linkSectionRecommendation(dto, guidelineId);
   }
 
   @Delete('section-recommendations/:sectionId/:recommendationId')
@@ -100,10 +111,12 @@ export class LinksController {
   unlinkSectionRecommendation(
     @Param('sectionId', ParseUUIDPipe) sectionId: string,
     @Param('recommendationId', ParseUUIDPipe) recommendationId: string,
+    @Query('guidelineId') guidelineId: string,
   ) {
     return this.linksService.unlinkSectionRecommendation(
       sectionId,
       recommendationId,
+      guidelineId,
     );
   }
 
@@ -122,8 +135,11 @@ export class LinksController {
   @Post('pico-recommendations')
   @ApiOperation({ summary: 'Link a recommendation to a PICO' })
   @ApiQuery({ name: 'guidelineId', required: true })
-  linkPicoRecommendation(@Body() dto: LinkPicoRecommendationDto) {
-    return this.linksService.linkPicoRecommendation(dto);
+  linkPicoRecommendation(
+    @Body() dto: LinkPicoRecommendationDto,
+    @Query('guidelineId') guidelineId: string,
+  ) {
+    return this.linksService.linkPicoRecommendation(dto, guidelineId);
   }
 
   @Delete('pico-recommendations/:picoId/:recommendationId')
@@ -132,10 +148,12 @@ export class LinksController {
   unlinkPicoRecommendation(
     @Param('picoId', ParseUUIDPipe) picoId: string,
     @Param('recommendationId', ParseUUIDPipe) recommendationId: string,
+    @Query('guidelineId') guidelineId: string,
   ) {
     return this.linksService.unlinkPicoRecommendation(
       picoId,
       recommendationId,
+      guidelineId,
     );
   }
 
@@ -154,8 +172,11 @@ export class LinksController {
   @Post('outcome-references')
   @ApiOperation({ summary: 'Link a reference to an outcome' })
   @ApiQuery({ name: 'guidelineId', required: true })
-  linkOutcomeReference(@Body() dto: LinkOutcomeReferenceDto) {
-    return this.linksService.linkOutcomeReference(dto);
+  linkOutcomeReference(
+    @Body() dto: LinkOutcomeReferenceDto,
+    @Query('guidelineId') guidelineId: string,
+  ) {
+    return this.linksService.linkOutcomeReference(dto, guidelineId);
   }
 
   @Delete('outcome-references/:outcomeId/:referenceId')
@@ -164,8 +185,9 @@ export class LinksController {
   unlinkOutcomeReference(
     @Param('outcomeId', ParseUUIDPipe) outcomeId: string,
     @Param('referenceId', ParseUUIDPipe) referenceId: string,
+    @Query('guidelineId') guidelineId: string,
   ) {
-    return this.linksService.unlinkOutcomeReference(outcomeId, referenceId);
+    return this.linksService.unlinkOutcomeReference(outcomeId, referenceId, guidelineId);
   }
 
   @Get('outcome-references')

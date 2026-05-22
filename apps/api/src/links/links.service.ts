@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { LinkSectionReferenceDto } from './dto/link-section-reference.dto';
 import { LinkSectionPicoDto } from './dto/link-section-pico.dto';
@@ -10,9 +10,37 @@ import { LinkOutcomeReferenceDto } from './dto/link-outcome-reference.dto';
 export class LinksService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private async assertGuidelineOwnership(
+    guidelineId: string,
+    entityType: 'section' | 'pico' | 'recommendation' | 'outcome',
+    entityId: string,
+  ): Promise<void> {
+    let actualGuidelineId: string | null = null;
+    if (entityType === 'section') {
+      const e = await this.prisma.section.findUnique({ where: { id: entityId }, select: { guidelineId: true } });
+      actualGuidelineId = e?.guidelineId ?? null;
+    } else if (entityType === 'pico') {
+      const e = await this.prisma.pico.findUnique({ where: { id: entityId }, select: { guidelineId: true } });
+      actualGuidelineId = e?.guidelineId ?? null;
+    } else if (entityType === 'recommendation') {
+      const e = await this.prisma.recommendation.findUnique({ where: { id: entityId }, select: { guidelineId: true } });
+      actualGuidelineId = e?.guidelineId ?? null;
+    } else if (entityType === 'outcome') {
+      const e = await this.prisma.outcome.findUnique({
+        where: { id: entityId },
+        select: { pico: { select: { guidelineId: true } } },
+      });
+      actualGuidelineId = e?.pico?.guidelineId ?? null;
+    }
+    if (!actualGuidelineId || actualGuidelineId !== guidelineId) {
+      throw new ForbiddenException('Entity does not belong to the specified guideline');
+    }
+  }
+
   // ── SectionReference ─────────────────────────────────────
 
-  async linkSectionReference(dto: LinkSectionReferenceDto) {
+  async linkSectionReference(dto: LinkSectionReferenceDto, guidelineId: string) {
+    await this.assertGuidelineOwnership(guidelineId, 'section', dto.sectionId);
     return this.prisma.sectionReference.upsert({
       where: {
         sectionId_referenceId: {
@@ -31,7 +59,8 @@ export class LinksService {
     });
   }
 
-  async unlinkSectionReference(sectionId: string, referenceId: string) {
+  async unlinkSectionReference(sectionId: string, referenceId: string, guidelineId: string) {
+    await this.assertGuidelineOwnership(guidelineId, 'section', sectionId);
     return this.prisma.sectionReference.deleteMany({
       where: { sectionId, referenceId },
     });
@@ -47,7 +76,8 @@ export class LinksService {
 
   // ── SectionPico ──────────────────────────────────────────
 
-  async linkSectionPico(dto: LinkSectionPicoDto) {
+  async linkSectionPico(dto: LinkSectionPicoDto, guidelineId: string) {
+    await this.assertGuidelineOwnership(guidelineId, 'section', dto.sectionId);
     return this.prisma.sectionPico.upsert({
       where: {
         sectionId_picoId: {
@@ -66,7 +96,8 @@ export class LinksService {
     });
   }
 
-  async unlinkSectionPico(sectionId: string, picoId: string) {
+  async unlinkSectionPico(sectionId: string, picoId: string, guidelineId: string) {
+    await this.assertGuidelineOwnership(guidelineId, 'section', sectionId);
     return this.prisma.sectionPico.deleteMany({
       where: { sectionId, picoId },
     });
@@ -82,7 +113,8 @@ export class LinksService {
 
   // ── SectionRecommendation ────────────────────────────────
 
-  async linkSectionRecommendation(dto: LinkSectionRecommendationDto) {
+  async linkSectionRecommendation(dto: LinkSectionRecommendationDto, guidelineId: string) {
+    await this.assertGuidelineOwnership(guidelineId, 'section', dto.sectionId);
     return this.prisma.sectionRecommendation.upsert({
       where: {
         sectionId_recommendationId: {
@@ -104,7 +136,9 @@ export class LinksService {
   async unlinkSectionRecommendation(
     sectionId: string,
     recommendationId: string,
+    guidelineId: string,
   ) {
+    await this.assertGuidelineOwnership(guidelineId, 'section', sectionId);
     return this.prisma.sectionRecommendation.deleteMany({
       where: { sectionId, recommendationId },
     });
@@ -120,7 +154,8 @@ export class LinksService {
 
   // ── PicoRecommendation ───────────────────────────────────
 
-  async linkPicoRecommendation(dto: LinkPicoRecommendationDto) {
+  async linkPicoRecommendation(dto: LinkPicoRecommendationDto, guidelineId: string) {
+    await this.assertGuidelineOwnership(guidelineId, 'pico', dto.picoId);
     return this.prisma.picoRecommendation.upsert({
       where: {
         picoId_recommendationId: {
@@ -136,7 +171,8 @@ export class LinksService {
     });
   }
 
-  async unlinkPicoRecommendation(picoId: string, recommendationId: string) {
+  async unlinkPicoRecommendation(picoId: string, recommendationId: string, guidelineId: string) {
+    await this.assertGuidelineOwnership(guidelineId, 'pico', picoId);
     return this.prisma.picoRecommendation.deleteMany({
       where: { picoId, recommendationId },
     });
@@ -151,7 +187,8 @@ export class LinksService {
 
   // ── OutcomeReference ─────────────────────────────────────
 
-  async linkOutcomeReference(dto: LinkOutcomeReferenceDto) {
+  async linkOutcomeReference(dto: LinkOutcomeReferenceDto, guidelineId: string) {
+    await this.assertGuidelineOwnership(guidelineId, 'outcome', dto.outcomeId);
     return this.prisma.outcomeReference.upsert({
       where: {
         outcomeId_referenceId: {
@@ -167,7 +204,8 @@ export class LinksService {
     });
   }
 
-  async unlinkOutcomeReference(outcomeId: string, referenceId: string) {
+  async unlinkOutcomeReference(outcomeId: string, referenceId: string, guidelineId: string) {
+    await this.assertGuidelineOwnership(guidelineId, 'outcome', outcomeId);
     return this.prisma.outcomeReference.deleteMany({
       where: { outcomeId, referenceId },
     });
