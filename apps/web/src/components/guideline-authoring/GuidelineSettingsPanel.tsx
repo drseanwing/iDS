@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Loader2, Download } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Loader2, Download, Copy, Check } from 'lucide-react';
 import type { Guideline } from '../../hooks/useGuideline';
 import { useUpdateGuideline } from '../../hooks/useUpdateGuideline';
 import { useExportDocx } from '../../hooks/useExportDocx';
@@ -18,6 +18,26 @@ export function GuidelineSettingsPanel({ guideline }: GuidelineSettingsPanelProp
   const { mutate: updateGuideline, isPending } = useUpdateGuideline();
   const { exportDocx, isPending: isExporting, error: exportError } = useExportDocx();
   const { exportPdf, isPending: isExportingPdf, status: pdfStatus, error: pdfError } = useExportPdf();
+
+  const [copiedUrl, setCopiedUrl] = useState(false);
+  const [copiedIframe, setCopiedIframe] = useState(false);
+
+  const embedUrl = `${import.meta.env.VITE_PUBLIC_URL ?? window.location.origin}/api/recommendations/embed/${guideline.id}`;
+  const iframeSnippet = `<iframe src="${embedUrl}" width="800" height="600" frameborder="0"></iframe>`;
+
+  const copyEmbedUrl = useCallback(() => {
+    navigator.clipboard.writeText(embedUrl).then(() => {
+      setCopiedUrl(true);
+      setTimeout(() => setCopiedUrl(false), 2000);
+    });
+  }, [embedUrl]);
+
+  const copyIframeSnippet = useCallback(() => {
+    navigator.clipboard.writeText(iframeSnippet).then(() => {
+      setCopiedIframe(true);
+      setTimeout(() => setCopiedIframe(false), 2000);
+    });
+  }, [iframeSnippet]);
 
   const [form, setForm] = useState({
     title: guideline.title,
@@ -259,6 +279,48 @@ export function GuidelineSettingsPanel({ guideline }: GuidelineSettingsPanelProp
           {pdfError && (
             <p className="text-xs text-destructive">{pdfError}</p>
           )}
+        </div>
+      </section>
+
+      {/* Embed */}
+      <section className="space-y-4">
+        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Embed</h3>
+
+        <div className="space-y-2">
+          <span className="text-sm font-medium block">Embed URL</span>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              readOnly
+              value={embedUrl}
+              className="block w-full rounded-md border px-3 py-2 text-sm bg-muted text-muted-foreground font-mono"
+            />
+            <button
+              onClick={copyEmbedUrl}
+              aria-label="Copy embed URL"
+              className="inline-flex items-center gap-1.5 rounded-md border px-3 py-2 text-sm font-medium hover:bg-accent transition-colors shrink-0"
+            >
+              {copiedUrl ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+              {copiedUrl ? 'Copied!' : 'Copy'}
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <span className="text-sm font-medium block">iframe Snippet</span>
+          <div className="flex items-start gap-2">
+            <pre className="block w-full rounded-md border px-3 py-2 text-xs bg-muted text-muted-foreground font-mono whitespace-pre-wrap break-all">
+              {iframeSnippet}
+            </pre>
+            <button
+              onClick={copyIframeSnippet}
+              aria-label="Copy iframe snippet"
+              className="inline-flex items-center gap-1.5 rounded-md border px-3 py-2 text-sm font-medium hover:bg-accent transition-colors shrink-0"
+            >
+              {copiedIframe ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+              {copiedIframe ? 'Copied!' : 'Copy'}
+            </button>
+          </div>
         </div>
       </section>
 
