@@ -21,8 +21,9 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // TODO: Redirect to login or refresh token
       localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      window.dispatchEvent(new CustomEvent('auth:expired'));
     }
     return Promise.reject(error);
   },

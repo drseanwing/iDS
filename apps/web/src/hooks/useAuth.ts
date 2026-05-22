@@ -213,3 +213,8 @@ export const useAuth = create<AuthState>((set) => ({
     set({ user: null, token: null, refreshToken: null, authError: null });
   },
 }));
+
+// Listen for 401 responses dispatched by api-client and trigger re-authentication
+window.addEventListener('auth:expired', () => {
+  void useAuth.getState().login();
+});
