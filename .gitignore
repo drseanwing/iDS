@@ -6,3 +6,5 @@ coverage
 .turbo
 *.tsbuildinfo
 .claude/
+.gitnexus
+/AGENTS.md
