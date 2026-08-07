@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: opengrade
       POSTGRES_DB: opengrade
     ports:
-      - '5432:5432'
+      - '100.110.64.57:5433:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql
@@ -32,7 +32,7 @@ services:
       KEYCLOAK_ADMIN_PASSWORD: admin
     command: start-dev
     ports:
-      - '8080:8080'
+      - '100.110.64.57:8080:8080'
     depends_on:
       postgres:
         condition: service_healthy
@@ -45,8 +45,8 @@ services:
       MINIO_ROOT_PASSWORD: minioadmin
     command: server /data --console-address ":9001"
     ports:
-      - '9000:9000'
-      - '9001:9001'
+      - '100.110.64.57:9100:9000'
+      - '100.110.64.57:9101:9001'
     volumes:
       - minio_data:/data
 
@@ -75,7 +75,7 @@ services:
       - '--web.console.libraries=/usr/share/prometheus/console_libraries'
       - '--web.console.templates=/usr/share/prometheus/consoles'
     ports:
-      - '9090:9090'
+      - '100.110.64.57:9090:9090'
     restart: unless-stopped
 
   grafana:
@@ -90,7 +90,7 @@ services:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
     ports:
-      - '3001:3000'
+      - '100.110.64.57:3002:3000'
     depends_on:
       - prometheus
     restart: unless-stopped
@@ -99,7 +99,7 @@ services:
     image: redis:7-alpine
     container_name: opengrade-redis
     ports:
-      - "6379:6379"
+      - '100.110.64.57:6380:6379'
     volumes:
       - redis_data:/data
     command: redis-server --save 60 1 --loglevel warning
