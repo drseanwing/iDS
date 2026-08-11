@@ -30,7 +30,7 @@ jobs:
             context: .
             dockerfile: apps/web/Dockerfile
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -69,7 +69,7 @@ jobs:
   #   needs: build-and-push
   #   environment: staging
   #   steps:
-  #     - uses: actions/checkout@v4
+  #     - uses: actions/checkout@v6
   #     # TODO: Wire in kubectl/helm. Helm charts live at infra/k8s/helm.
   #     #   - azure/setup-helm@v4 (or equivalent)
   #     #   - authenticate to cluster (OIDC or kubeconfig secret)
