@@ -1,0 +1,78 @@
+name: Artifact cleanup
+
+on:
+  schedule:
+    - cron: "41 3 * * 0"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Report eligible artifacts without deleting them
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: artifact-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Delete expired workflow artifacts
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const dayMs = 24 * 60 * 60 * 1000;
+            const standardDays = 3;
+            const protectedDays = 7;
+            const protectedName = /release|evidence|sbom|playwright|test|eval|audit|attestation|provenance/i;
+            const dryRun = context.eventName === 'workflow_dispatch' && '${{ inputs.dry_run }}' === 'true';
+            const {owner, repo} = context.repo;
+            const artifacts = await github.paginate(
+              github.rest.actions.listArtifactsForRepo,
+              {owner, repo, per_page: 100},
+            );
+            let deleted = 0;
+            let eligible = 0;
+            let preserved = 0;
+
+            for (const artifact of artifacts) {
+              const retentionDays = protectedName.test(artifact.name) ? protectedDays : standardDays;
+              const createdAt = Date.parse(artifact.created_at);
+              if (!Number.isFinite(createdAt)) {
+                core.warning(`Skipping ${artifact.name}: invalid created_at ${artifact.created_at}`);
+                continue;
+              }
+              if (createdAt >= Date.now() - retentionDays * dayMs) {
+                preserved += 1;
+                continue;
+              }
+
+              eligible += 1;
+              if (dryRun) {
+                core.info(`[dry-run] Would delete ${artifact.name} (${artifact.id})`);
+                continue;
+              }
+              await github.rest.actions.deleteArtifact({owner, repo, artifact_id: artifact.id});
+              deleted += 1;
+              core.info(`Deleted ${artifact.name} (${artifact.id})`);
+            }
+
+            await core.summary
+              .addHeading('Artifact cleanup')
+              .addTable([
+                [{data: 'Policy', header: true}, {data: 'Value', header: true}],
+                ['Standard artifacts', `${standardDays} days`],
+                ['Release/evidence artifacts', `${protectedDays} days`],
+                ['Dry run', String(dryRun)],
+                ['Eligible', String(eligible)],
+                ['Deleted', String(deleted)],
+                ['Preserved', String(preserved)],
+              ])
+              .write();

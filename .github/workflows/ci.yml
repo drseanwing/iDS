@@ -165,7 +165,8 @@ jobs:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.path }}
           if-no-files-found: error
-          retention-days: 7
+          # These build outputs are consumed by the E2E job in this workflow run.
+          retention-days: 1
 
   e2e:
     name: E2E (Playwright)
