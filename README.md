@@ -2,6 +2,13 @@
 
 > Open-source, FHIR-native clinical guideline authoring platform implementing the GRADE methodology.
 
+## Status
+
+- **Maturity:** Active development / pre-production hardening
+- **Last audited:** 2026-08-13
+
+OpenGRADE is a substantial, actively maintained application with broad tests, CI, container/Kubernetes assets, and operational documentation. It remains pre-production pending remediation of a public rich-text XSS risk, a host-specific API bind regression, and completion of the staging deployment path. See the [repository audit](./docs/audit/REPO_AUDIT.md) for findings and prioritized follow-up work.
+
 ## Overview
 
 OpenGRADE is a living guideline platform for creating, managing, and publishing clinical practice guidelines using the GRADE (Grading of Recommendations Assessment, Development and Evaluation) methodology. It produces FHIR R5-conformant resources and supports the full guideline lifecycle.
